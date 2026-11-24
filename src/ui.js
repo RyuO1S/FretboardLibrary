@@ -241,7 +241,7 @@
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lseg', 'data-lscap', 'data-libload', 'data-libdel', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -304,7 +304,8 @@
   const S = { key: 0, flats: true, id: ENTRIES[0].id, labels: 'note', from: 0, to: MAX_FRET, ghost: false, set: 0, inv: 0, pos: 'all', pat: 'all', zoom: true, chord: 'none', chordType: 'triad', chordOnly: false, cx: null, hk: 0, hm: 'major', q: '' };
   try {
     const sv = JSON.parse(localStorage.getItem('fretboard-theory') || 'null');
-    if (sv && ENTRIES.some((e) => e.id === sv.id)) Object.assign(S, sv, { q: '' });
+    // a chord picked in the Key explorer is a passing choice: it is not brought back on the next visit
+    if (sv && ENTRIES.some((e) => e.id === sv.id)) Object.assign(S, sv, { q: '', cx: null });
   } catch (e) {}
   const save = () => {
     try { localStorage.setItem('fretboard-theory', JSON.stringify(S)); } catch (e) {}
@@ -495,20 +496,28 @@
   function loadPack(inst) {
     if (!SAMPLED[inst] && inst !== 'muted') return null;
     if (PACKS[inst]) return PACKS[inst];
-    const pk = (PACKS[inst] = { state: 'loading', index: null, data: null, decoded: new Map(), pending: new Set() });
+    const pk = (PACKS[inst] = { state: 'loading', index: null, data: null, decoded: new Map(), onset: new Map(), pending: new Set() });
     if (typeof fetch === 'undefined') { pk.state = 'error'; return pk; }
     // snd/<guitar>.json says where each note sits inside snd/<guitar>.mp3 (the notes' MP3s one after another)
     const get = (ext, kind) => fetch('snd/' + inst + ext).then((r) => { if (!r.ok) throw new Error('http ' + r.status); return r[kind](); });
     Promise.all([get('.json', 'json'), get('.mp3', 'arrayBuffer')]).then(([idx, ab]) => {
       pk.index = idx.notes;
       pk.data = ab;
-      pk.base = 0;
+      pk.base = id3Size(ab);   // a copied file can gain an ID3 tag at the front; the note offsets count from after it
       pk.state = 'ready';
       syncInstStatus();
       decodeAll(inst);
     }).catch(() => { pk.state = 'error'; syncInstStatus(); });
     syncInstStatus();
     return pk;
+  }
+  function id3Size(ab) {
+    try {
+      const b = new Uint8Array(ab, 0, Math.min(10, ab.byteLength));
+      if (b.length < 10 || b[0] !== 0x49 || b[1] !== 0x44 || b[2] !== 0x33) return 0;   // "ID3"
+      const size = ((b[6] & 0x7f) << 21) | ((b[7] & 0x7f) << 14) | ((b[8] & 0x7f) << 7) | (b[9] & 0x7f);
+      return 10 + size + (b[5] & 0x10 ? 10 : 0);
+    } catch (e) { return 0; }
   }
   function decodeNote(inst, midi) {
     const pk = PACKS[inst], c = ac;
@@ -520,9 +529,21 @@
     pk.pending.add(m);
     const slice = pk.data.slice(pk.base + ent[0], pk.base + ent[0] + ent[1]);
     return new Promise((res) => {
-      const done = (b) => { pk.pending.delete(m); if (b) pk.decoded.set(m, b); res(b || null); };
+      const done = (b) => { pk.pending.delete(m); if (b) { pk.onset.set(m, onsetOf(b)); pk.decoded.set(m, b); } res(b || null); };
       try { const p = c.decodeAudioData(slice, done, () => done(null)); if (p && p.then) p.then(done, () => done(null)); } catch (e) { done(null); }
     });
+  }
+  // the recorded notes start with up to ~0.2 s of silence (MP3 padding and the recording's lead-in): find where the pluck really starts, so playback can skip straight to it
+  function onsetOf(b) {
+    try {
+      const d = b.getChannelData(0), sr = b.sampleRate, n = Math.min(d.length, Math.floor(sr * 0.6));
+      let mx = 0;
+      for (let i = 0; i < n; i++) { const a = Math.abs(d[i]); if (a > mx) mx = a; }
+      if (!mx) return 0;
+      let i = 0;
+      while (i < n && Math.abs(d[i]) < mx * 0.08) i++;
+      return Math.max(0, i / sr - 0.003);
+    } catch (e) { return 0; }
   }
   // decode every note of a guitar in the background, a few at a time, low strings first
   function decodeAll(inst) {
@@ -548,20 +569,22 @@
     if (!rec) decodeNote(inst, midi);
     const model = MODEL_FOR[inst] || 'steel';
     const buf = rec || noteBuffer(c, model, midi);
+    const off = rec ? Math.min(0.4, pk.onset.get(String(midi)) || 0) : 0;
+    const left = buf.duration - off;
     const src = c.createBufferSource();
     src.buffer = buf;
     const g = c.createGain();
     const v = (o.vol || 0.2) * (rec ? 10 * (SAMPLE_GAIN[inst] || 1) : 1.7 * GUITARS[model].gain);
     g.gain.setValueAtTime(v, t);
     // short notes (muted strums, chops) are damped by the hand: a quick fade after `dur`
-    const ringFor = Math.min(dur, buf.duration);
+    const ringFor = Math.min(dur, left);
     g.gain.setTargetAtTime(0, t + ringFor, dur < 0.3 ? 0.012 : 0.06);
     let head = src;
     if (o.cut) { const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.cut; src.connect(lp); head = lp; }
     head.connect(g);
     g.connect(rec ? o.dest || busNode(c) : bodyChain(c, model, o.dest || busNode(c)));
-    src.start(t);
-    src.stop(Math.min(t + buf.duration, t + ringFor + (dur < 0.3 ? 0.12 : 0.5)));
+    src.start(t, off);
+    src.stop(Math.min(t + left, t + ringFor + (dur < 0.3 ? 0.12 : 0.5)));
   }
   // build the notes ahead of time, a few at a time while the page is idle, so the first strum is instant
   let warmJob = 0;
@@ -671,7 +694,8 @@
         vm.sel = p;
         vm.dots = p.occurrences.flatMap((o) => o.dots);
         vm.patDots = p.occurrences[0].dots;
-        vm.range = [Math.min(...p.occurrences.map((o) => o.min)), Math.max(...p.occurrences.map((o) => o.max))];
+        // zoom frames the shape that Play plays (the lowest one, when the pattern repeats 12 frets higher)
+        vm.range = S.zoom ? [p.occurrences[0].min, p.occurrences[0].max] : [Math.min(...p.occurrences.map((o) => o.min)), Math.max(...p.occurrences.map((o) => o.max))];
       } else {
         vm.dots = dotsFor(pat.notes).filter((d) => d.f >= S.from && d.f <= S.to);
       }
@@ -808,15 +832,16 @@
   function audition(ch) {
     if (ch && ch.tones) strumShape(chordShapes(ch.tones, 4).best, ch.tones);
   }
+  const STRUM_GAP = 0.03;   // seconds between strings in a strum: quick, like a real down-stroke
   // strum a chord shape and light each note on the neck as it sounds
   function strumShape(sh, tones) {
     if (!sh || busy) return;
     const notes = [];
     sh.frets.forEach((f, s) => { if (f >= 0) notes.push([s, f]); });
     notes.forEach(([s, f], k) => {
-      pluck(midiFor(s, f), k * 0.06, 2.0);
+      pluck(midiFor(s, f), k * STRUM_GAP, 2.0);
       const tone = tones && tones.find((t) => t.pc === (OPEN[s] + f) % 12);
-      light(k * 60, 1500, (el) => (attr(el, 'data-s') === s && attr(el, 'data-f') === f ? 'lit' : ''), tone ? tone.name : '', tone ? fmtLabel(tone.label) : '');
+      light(k * STRUM_GAP * 1000, 1500, (el) => (attr(el, 'data-s') === s && attr(el, 'data-f') === f ? 'lit' : ''), tone ? tone.name : '', tone ? fmtLabel(tone.label) : '');
     });
     schedule(() => { if (!busy && !PL.on) $('now').style.visibility = 'hidden'; }, 1700);
   }
@@ -1195,6 +1220,9 @@
 
   /* ---------- playback ---------- */
   let busy = false;
+  let busyTimer = 0;
+  // a list played up, then back down to where it started (the top note once)
+  const upDown = (list) => list.concat(list.slice(0, -1).reverse());
   function playCurrent() {
     if (busy || PL.on) return;
     const vm = current();
@@ -1203,31 +1231,16 @@
       const v = vm.shown[0];
       if (!v) return;
       const midis = v.strings.map((s, i) => midiFor(s, v.frets[i]));
+      // strum it, then play it note by note, up and back down
+      const order = upDown(midis.map((m, i) => i));
       midis.forEach((m, i) => pluck(m, i * 0.07, 2.2));
-      midis.forEach((m, i) => pluck(m, 2.0 + i * 0.3, 1.0));
-      end = 2.0 + midis.length * 0.3 + 1;
+      order.forEach((i, k) => pluck(midis[i], 2.0 + k * 0.3, 1.0));
+      end = 2.0 + order.length * 0.3 + 1;
       const same = (i) => (el) => (attr(el, 'data-s') === v.strings[i] && attr(el, 'data-f') === v.frets[i] ? 'lit' : '');
-      v.tones.forEach((tone, i) => {
-        light(i * 70, 1900 - i * 70, same(i), tone.name, fmtLabel(tone.label));
-        light(2000 + i * 300, 280, same(i), tone.name, fmtLabel(tone.label));
-      });
-    } else if (vm.chord) {
-      let prev = 48 + ((((vm.chord.tones[0].pc - 48) % 12) + 12) % 12) - 1;
-      const midis = vm.chord.tones.map((t) => {
-        let m = prev + 1;
-        while (m % 12 !== t.pc) m++;
-        prev = m;
-        return m;
-      });
-      midis.forEach((m, i) => pluck(m, i * 0.07, 2.2));
-      midis.forEach((m, i) => pluck(m, 2.0 + i * 0.3, 1.0));
-      end = 2.0 + midis.length * 0.3 + 1;
-      const pickFor = (m, pc) => (el) => (attr(el, 'data-midi') === m ? 'lit' : attr(el, 'data-pc') === pc ? 'echo' : '');
-      vm.chord.tones.forEach((t, i) => {
-        light(i * 70, 1900 - i * 70, pickFor(midis[i], t.pc), t.name, fmtLabel(t.label));
-        light(2000 + i * 300, 280, pickFor(midis[i], t.pc), t.name, fmtLabel(t.label));
-      });
+      v.tones.forEach((tone, i) => light(i * 70, 1900 - i * 70, same(i), tone.name, fmtLabel(tone.label)));
+      order.forEach((i, k) => light(2000 + k * 300, 280, same(i), v.tones[i].name, fmtLabel(v.tones[i].label)));
     } else if (vm.sel) {
+      // a chosen pattern plays as a sequence: lowest note to highest and back down, even when a chord is highlighted on it
       const seen = new Set();
       const up = vm.patDots
         .slice()
@@ -1238,19 +1251,38 @@
           seen.add(m);
           return true;
         });
-      const seq = up.concat(up.slice(0, -1).reverse());
+      const seq = upDown(up);
       seq.forEach((d, i) => {
         pluck(midiFor(d.s, d.f), i * 0.2, 0.7);
         const pick = (el) => (attr(el, 'data-s') === d.s && attr(el, 'data-f') === d.f ? 'lit' : attr(el, 'data-pc') === d.note.pc ? 'echo' : '');
         light(i * 200, 180, pick, d.note.name, fmtLabel(d.note.label));
       });
       end = seq.length * 0.2 + 0.8;
+    } else if (vm.chord) {
+      let prev = 48 + ((((vm.chord.tones[0].pc - 48) % 12) + 12) % 12) - 1;
+      const midis = vm.chord.tones.map((t) => {
+        let m = prev + 1;
+        while (m % 12 !== t.pc) m++;
+        prev = m;
+        return m;
+      });
+      // strum the chord, then its notes one by one: up to the octave and back down
+      const tones = vm.chord.tones.slice();
+      const oct = midis[0] + 12;
+      const upList = midis.map((m, i) => ({ m, t: tones[i] })).concat(oct > midis[midis.length - 1] ? [{ m: oct, t: tones[0] }] : []);
+      const seq = upDown(upList);
+      midis.forEach((m, i) => pluck(m, i * 0.07, 2.2));
+      seq.forEach((n, k) => pluck(n.m, 2.0 + k * 0.3, 1.0));
+      end = 2.0 + seq.length * 0.3 + 1;
+      const pickFor = (m, pc) => (el) => (attr(el, 'data-midi') === m ? 'lit' : attr(el, 'data-pc') === pc ? 'echo' : '');
+      tones.forEach((t, i) => light(i * 70, 1900 - i * 70, pickFor(midis[i], t.pc), t.name, fmtLabel(t.label)));
+      seq.forEach((n, k) => light(2000 + k * 300, 280, pickFor(n.m, n.t.pc), n.t.name, fmtLabel(n.t.label)));
     } else {
       const rootPc = vm.pat.notes[0].pc;
       const base = 48 + ((((rootPc - 48) % 12) + 12) % 12);
       const up = vm.pat.notes.map((n) => base + n.semis).sort((a, b) => a - b);
       up.push(base + 12);
-      const seq = up.concat(up.slice(0, -1).reverse());
+      const seq = upDown(up);
       seq.forEach((m, i) => pluck(m, i * 0.28, 0.9));
       end = seq.length * 0.28 + 0.8;
       seq.forEach((m, i) => {
@@ -1318,7 +1350,7 @@
   // hear one chord of the progression, once, as a strum
   function auditionSlot(sl) {
     if (sl.frets) strumShape({ frets: sl.frets }, sl.tones);
-    else slotMidis(sl).forEach((m, k) => pluck(m, k * 0.06, 2.0));
+    else slotMidis(sl).forEach((m, k) => pluck(m, k * STRUM_GAP, 2.0));
   }
   function lightSlot(sl, dur) {
     if (!sl.frets) return;
@@ -1972,7 +2004,7 @@
     return true;
   }
   /* ---------- Chord listener: play a chord on a real guitar, see its name and where it sits in the key, add it ---------- */
-  const LS = { live: false, stream: null, src: null, an: null, timer: 0, ema: null, emaB: null, cand: null, candN: 0, quietN: 0, cur: null, auto: false, cap: [], held: 0, track: null, buf: null, sel: -1, player: null, raf: 0, name: '' };
+  const LS = { follow: true, live: false, stream: null, src: null, an: null, timer: 0, ema: null, emaB: null, cand: null, candN: 0, quietN: 0, cur: null, auto: false, cap: [], held: 0, track: null, buf: null, sel: -1, player: null, raf: 0, name: '' };
   const LS_MAX_SEC = 360;
   const lsSay = (m) => { const el = $('lsMsg'); if (el) el.textContent = m || ''; };
   const pcName = (pc) => (S.flats ? FLAT_NAMES : SHARP_NAMES)[((pc % 12) + 12) % 12];
@@ -1985,6 +2017,14 @@
     const key = ch.tones.map((t) => t.pc).sort((a, b) => a - b).join();
     const hub = hubList.find((c) => c.tones.map((t) => t.pc).sort((a, b) => a - b).join() === key);
     if (hub) return Object.assign({}, hub, { inKey: true });
+    // a richer or plainer version of a chord in the key (G7 when the key shows G, or G when it shows Gmaj7) still belongs: same root, one set of notes inside the other
+    const pcs = new Set(ch.tones.map((t) => t.pc));
+    const near = hubList.find((c) => c.tones[0].pc === h.root && (c.tones.every((t) => pcs.has(t.pc)) || ch.tones.every((t) => c.tones.some((u) => u.pc === t.pc))));
+    if (near) {
+      const extra = h.sym === 'maj7' ? 'maj7' : /7/.test(h.sym) ? '7' : '';
+      const base = romanBase(near.roman);
+      return Object.assign(ch, { inKey: true, roman: extra && !/7/.test(near.roman) ? base + extra : (extra ? near.roman : base), hub: near });
+    }
     return Object.assign(ch, { inKey: false });
   }
   const lsFresh = (h) => { const c = h && lsChord(h); return c ? Object.assign(c, { root: h.root, sym: h.sym }) : null; };
@@ -2011,8 +2051,9 @@
       $('lsAdd').hidden = !ch;
       $('lsAuto').setAttribute('aria-pressed', String(LS.auto));
       $('lsAuto').hidden = !LS.live;
+      $('lsFollow').setAttribute('aria-pressed', String(LS.follow));
       $('lsCapBox').hidden = !LS.cap.length;
-      $('lsCap').innerHTML = LS.cap.map(lsFresh).map((c, i) => `<button type="button" class="lscap" data-lscap="${i}"><b>${esc(c.name)}</b><small>${esc(c.inKey ? c.roman : '·')}</small></button>`).join('');
+      $('lsCap').innerHTML = LS.cap.map(lsFresh).map((c, i) => `<span class="lsw"><button type="button" class="lscap" data-lscap="${i}"><b>${esc(c.name)}</b><small>${esc(c.inKey ? c.roman : '·')}</small></button><button type="button" class="lsx" data-lscapdel="${i}" aria-label="Remove ${esc(c.name)}" title="Remove this chord">${ICON.x}</button></span>`).join('');
     }
     const tr = $('lsTrack');
     tr.hidden = !LS.track;
@@ -2024,14 +2065,51 @@
       $('lsStrip').innerHTML = t.segs.map((g, i) => {
         const w = Math.max(4, ((g.end - g.start) / total) * 100);
         const ch = lsFresh(g) || g.ch;
-        return `<button type="button" class="lsseg${i === LS.sel ? ' on' : ''}${ch.inKey ? '' : ' out'}" data-lseg="${i}" style="flex-grow:${w.toFixed(2)}" title="${esc(ch.name)} at ${g.start.toFixed(1)} s"><b>${esc(ch.name)}</b><small>${esc(ch.inKey ? ch.roman : 'out of key')}</small></button>`;
+        return `<span class="lsw lssegw" style="flex-grow:${w.toFixed(2)}"><button type="button" class="lsseg${i === LS.sel ? ' on' : ''}${ch.inKey ? '' : ' out'}" data-lseg="${i}" title="${esc(ch.name)} at ${g.start.toFixed(1)} s"><b>${esc(ch.name)}</b><small>${esc(ch.inKey ? ch.roman : 'out of key')}</small></button><button type="button" class="lsx" data-lsegdel="${i}" aria-label="Remove ${esc(ch.name)} at ${g.start.toFixed(1)} seconds" title="Remove this chord">${ICON.x}</button></span>`;
       }).join('');
       $('lsPlay').innerHTML = (LS.player ? ICON.stopf : ICON.playf) + (LS.player ? ' Stop' : ' Play clip');
     }
+    heardMark();
+  }
+  // mark the chord being heard on the circle of fifths (a green outline on its spot, major or minor ring)
+  function heardMark() {
+    const svg = $('circle');
+    if (!svg || !svg.querySelector) return;
+    const old = svg.querySelector('.heard');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    const note = $('circHeard');
+    const h = LS.cur;
+    if (note) note.hidden = !h;
+    if (!h) return;
+    const t = HEAR_TYPES.find((x) => x.sym === h.sym) || HEAR_TYPES[0];
+    const minor = t.iv[1] === 3;
+    const i = minor ? ((h.root + 3) * 7) % 12 : (h.root * 7) % 12;
+    const tip = polar(minor ? 98 : 144, i * 30 - 90);
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'heard');
+    g.innerHTML = `<path d="${arcPath(i, minor ? 64 : 100, minor ? 98 : 144)}"/><circle cx="${tip[0].toFixed(1)}" cy="${tip[1].toFixed(1)}" r="7"/><text x="${tip[0].toFixed(1)}" y="${(tip[1] + 3.2).toFixed(1)}" text-anchor="middle">♪</text>`;
+    const host = svg.querySelector('.hfocus') || svg;
+    host.appendChild(g);
+    // when the heard chord is also the chosen one, let the green mark speak alone
+    const d = arcPath(i, minor ? 64 : 100, minor ? 98 : 144);
+    (svg.querySelectorAll ? Array.prototype.slice.call(svg.querySelectorAll('.hring.hsrc')) : []).forEach((r) => { if (r.getAttribute('d') === d) r.setAttribute('class', 'hring hsrc undercover'); });
+  }
+  // follow mode: the chord you play becomes the chosen chord in the Key explorer, so "what comes next" follows your playing (silently: no sound back into the microphone)
+  function lsFollow() {
+    if (!LS.follow || !LS.cur) return;
+    const ch = lsFresh(LS.cur);
+    const hc = ch && ch.inKey ? ch.hub || ch : null;
+    const want = hc ? { name: hc.name, roman: hc.roman, tones: hc.tones } : null;
+    const same = (a, b) => (!a && !b) || (a && b && a.name === b.name && a.roman === b.roman);
+    if (same(S.cx, want)) return;
+    S.cx = want;
+    S.chord = 'none';
+    render();
   }
   function lsShowNow(h, quiet) {
     LS.cur = h ? { root: h.root, sym: h.sym } : null;
     renderListen();
+    lsFollow();
     const ch = lsFresh(LS.cur);
     if (!quiet && ch) audition(ch);
   }
@@ -2093,7 +2171,7 @@
     const curId = LS.cur ? LS.cur.root + ':' + LS.cur.sym : '';
     if (LS.candN >= 3 && id !== curId) {
       const ch = lsChord(h);
-      if (ch) { LS.cur = { root: h.root, sym: h.sym }; LS.held = 0; renderListen(); }
+      if (ch) { LS.cur = { root: h.root, sym: h.sym }; LS.held = 0; renderListen(); lsFollow(); }
     } else if (id === curId) {
       LS.held++;
       // auto-capture: once a chord has rung for about half a second, add it to the captured row (if it is a new chord)
@@ -2202,6 +2280,24 @@
     if (LAYOUT === 'one' || TAB !== 'keys') setTab('keys');
   }
   function lsClick(t) {
+    // remove a wrongly heard chord (from the captured row, or from a clip's chord strip)
+    const cd = t.closest('[data-lscapdel]');
+    if (cd) {
+      const i = +cd.dataset.lscapdel;
+      const gone = LS.cap.splice(i, 1)[0];
+      if (gone) say('Removed ' + ((lsFresh(gone) || {}).name || 'the chord') + ' from the captured chords.');
+      renderListen();
+      return true;
+    }
+    const sd = t.closest('[data-lsegdel]');
+    if (sd && LS.track) {
+      const i = +sd.dataset.lsegdel;
+      const gone = LS.track.segs.splice(i, 1)[0];
+      if (LS.sel === i) LS.sel = -1; else if (LS.sel > i) LS.sel--;
+      if (gone) say('Removed ' + ((lsFresh(gone) || {}).name || 'the chord') + ' from the chord strip.');
+      renderListen();
+      return true;
+    }
     const b = t.closest('[data-ls]');
     const seg = t.closest('[data-lseg]');
     const cap = t.closest('[data-lscap]');
@@ -2220,6 +2316,7 @@
     if (a === 'add' && LS.cur) addToProg(lsFresh(LS.cur));
     else if (a === 'circle') lsToCircle(lsFresh(LS.cur));
     else if (a === 'auto') { LS.auto = !LS.auto; renderListen(); }
+    else if (a === 'follow') { LS.follow = !LS.follow; renderListen(); lsFollow(); }
     else if (a === 'addcap') lsAddAll(LS.cap.map(lsFresh), false);
     else if (a === 'clearcap') { LS.cap = []; renderListen(); }
     else if (a === 'addall' && LS.track) lsAddAll(LS.track.segs, false);

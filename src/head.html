@@ -25,6 +25,7 @@
   --dot: #3cc6e0;
   --dot-fg: #04222a;
   --root-dot: #f5a524;
+  --live: #16a34a;
   --root-fg: #1d1300;
   --ghost: #6b574b;
   --lit: #fff4c2;
@@ -34,6 +35,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    --live: #4ade80;
     --bg: #0f1215;
     --panel: #171b1f;
     --fg: #e8ecef;
@@ -48,6 +50,7 @@
   }
 }
 :root[data-theme="dark"] {
+  --live: #4ade80;
   --bg: #0f1215;
   --panel: #171b1f;
   --fg: #e8ecef;
@@ -614,6 +617,29 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .lsseg.on { background: var(--accent-soft); border-color: var(--accent); }
 .lsseg.playing { background: var(--accent); color: var(--accent-fg); }
 .lsseg.playing small { color: var(--accent-fg); }
+/* the chord being heard right now, on the circle */
+#circle .heard { pointer-events: none; }
+#circle .heard path { fill: color-mix(in srgb, var(--live) 28%, transparent); stroke: var(--live); stroke-width: 4.5; stroke-linejoin: round; }
+#circle .hring.undercover { display: none; }
+#circle .heard circle { fill: var(--live); stroke: var(--panel); stroke-width: 2; }
+#circle .heard text { fill: #fff; font-size: 9px; font-weight: 800; }
+@media (prefers-reduced-motion: no-preference) {
+  #circle .heard path { animation: heardpulse 1.6s ease-in-out infinite; }
+}
+@keyframes heardin { from { opacity: 0; } }
+@keyframes heardpulse { 50% { stroke-width: 6.5; } }
+.lsheardtag { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.82rem; }
+.lsheardtag::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--live); }
+/* remove buttons on heard chords */
+.lsw { position: relative; display: inline-flex; }
+.lssegw { flex: 1 1 0; min-width: 56px; }
+.lssegw .lsseg { flex: 1 1 auto; min-width: 0; width: 100%; padding-right: 22px; }
+.lsx { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--panel); color: var(--muted); box-shadow: 0 1px 0 var(--edge); }
+.lsx svg { width: 12px; height: 12px; }
+.lsx:hover, .lsx:focus-visible { color: var(--fg); border-color: var(--fg); }
+.lssegw .lsx { top: 4px; right: 4px; }
+.lscap-row { padding-top: 6px; }
+.lsstrip { padding-top: 6px; }
 </style>
 <canvas id="fx" aria-hidden="true"></canvas>
 <div class="info-pop" id="infoPop" role="dialog" aria-label="Explanation" hidden></div>
@@ -727,6 +753,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
               <button type="button" class="shapeadd" id="lsAdd" data-ls="add">+ Add to progression</button>
               <button type="button" class="tapbtn" id="lsCircle" data-ls="circle">Show on the circle</button>
               <button type="button" class="tapbtn" id="lsAuto" data-ls="auto" aria-pressed="false" hidden>Capture each new chord</button>
+              <button type="button" class="tapbtn" id="lsFollow" data-ls="follow" aria-pressed="true">Follow on the circle</button>
             </div>
           </div>
           <div class="lsbars" id="lsBars" aria-hidden="true"></div>
@@ -857,6 +884,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <svg id="circle" viewBox="0 0 300 300" role="group" aria-label="Circle of fifths"></svg>
             <p>Tap a key. Shaded keys share chords with it. <button type="button" class="info" data-info="circle" aria-label="About the circle of fifths">i</button></p>
             <p class="circnote" id="circNote"></p>
+            <p class="circnote" id="circHeard" hidden><span class="lsheardtag">Green: the chord you are playing</span></p>
           </div>
           <div class="keyinfo" id="keyInfo"></div>
           <div class="keyinfo" id="keyScales"></div>
