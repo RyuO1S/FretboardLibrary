@@ -2184,6 +2184,9 @@
       $('lsPlay').innerHTML = (LS.player ? ICON.stopf : ICON.playf) + (LS.player ? ' Stop' : ' Play clip');
     }
     heardMark();
+    // the note bars are always there, flat until sound comes in
+    const bb = $('lsBars');
+    if (bb && (!bb.firstChild || bb.dataset.flats !== String(S.flats))) lsBars(LS.ema || new Float64Array(12), LS.ema ? 1 : 0);
   }
   // mark the chord being heard on the circle of fifths (a green outline on its spot, major or minor ring)
   // a small circle of fifths inside the listener, so the chord you play shows on it wherever you are on the page
