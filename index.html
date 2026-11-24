@@ -648,6 +648,39 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .lssegw .lsx { top: 4px; right: 4px; }
 .lscap-row { padding-top: 6px; }
 .lsstrip { padding-top: 6px; }
+/* account sign-in (own hosting) */
+.libacct { display: grid; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.acctrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.acctrow > span { min-width: 0; flex: 1 1 220px; }
+.acctform input { flex: 1 1 220px; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); }
+.libacct .hint { margin: 0; font-size: 0.82rem; color: var(--muted); }
+.libstatus.signedout::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--muted); vertical-align: 1px; }
+/* mini circle of fifths in the chord listener */
+.lsside { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 12px; align-items: center; min-width: 0; }
+@media (min-width: 641px) { .lsnow { grid-template-columns: minmax(0, 1fr) minmax(0, 520px); } }
+.lsmini { display: block; width: 200px; height: 200px; padding: 0; border: 0; background: none; cursor: pointer; }
+.lsmini[hidden] { display: none; }
+.lsmini svg { display: block; width: 100%; height: 100%; }
+.lsmini .mseg { fill: var(--bg); stroke: var(--line); stroke-width: 1; }
+.lsmini .mseg.near { fill: var(--accent-soft); }
+.lsmini .mseg.home { fill: color-mix(in srgb, var(--accent) 45%, var(--bg)); }
+.lsmini .mseg.heard { fill: color-mix(in srgb, var(--live) 45%, var(--bg)); stroke: var(--live); stroke-width: 5; }
+.lsmini .mlab { fill: var(--muted); font-weight: 600; pointer-events: none; }
+.lsmini .mlab.heard { fill: var(--fg); font-weight: 800; }
+.lsmini .mkey { fill: var(--fg); font-weight: 700; }
+.lsmini .mkey2 { fill: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .lsmini .mseg.heard { animation: heardpulse 1.6s ease-in-out infinite; } }
+@media (max-width: 640px) { .lsside { grid-template-columns: 1fr; justify-items: center; } .lsmini { width: min(240px, 70vw); height: min(240px, 70vw); } .lsbars { width: 100%; } }
+/* live guitar listening in the pattern editor */
+.gtrbtn { display: inline-flex; align-items: center; gap: 6px; }
+.gtrbtn svg { width: 16px; height: 16px; }
+.gtrbtn.live { background: var(--live); border-color: var(--live); color: #fff; }
+.gtrlive { display: grid; gap: 6px; margin-top: 8px; padding: 10px; border: 1.5px solid var(--live); border-radius: 10px; background: color-mix(in srgb, var(--live) 7%, var(--panel)); }
+.gtrmeter { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.gtrmeter i { display: block; height: 100%; width: 0; background: var(--live); transition: width 0.1s linear; }
+.gtrdots { position: relative; height: 22px; border-radius: 6px; background: var(--bg); overflow: hidden; }
+.gtrdots i { position: absolute; top: 4px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--root-dot); }
+.gtrinfo { margin: 0; font-size: 0.85rem; color: var(--muted); }
 </style>
 <canvas id="fx" aria-hidden="true"></canvas>
 <div class="info-pop" id="infoPop" role="dialog" aria-label="Explanation" hidden></div>
@@ -749,6 +782,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
           </div>
           <div class="lsacts">
             <button type="button" class="play" id="lsLive" aria-pressed="false">Listen live</button>
+            <button type="button" class="tapbtn" data-ls="strum">Listen for my strumming</button>
             <label class="tapbtn strong filebtn lsup"><span class="lsupi"></span>Upload a clip<input type="file" id="lsFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.caf,.mov,.mp4"></label>
           </div>
         </div>
@@ -764,7 +798,10 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
               <button type="button" class="tapbtn" id="lsFollow" data-ls="follow" aria-pressed="true">Follow on the circle</button>
             </div>
           </div>
-          <div class="lsbars" id="lsBars" aria-hidden="true"></div>
+          <div class="lsside">
+            <button type="button" class="lsmini" id="lsMini" data-ls="circle" title="Open in the Key explorer" hidden></button>
+            <div class="lsbars" id="lsBars" aria-hidden="true"></div>
+          </div>
           <div class="lscapbox" id="lsCapBox" hidden>
             <div class="lscaphead"><b>Captured</b><span><button type="button" class="tapbtn lssmall" data-ls="addcap">Add all</button> <button type="button" class="tapbtn lssmall" data-ls="clearcap">Clear</button></span></div>
             <div class="lscap-row" id="lsCap"></div>
@@ -836,7 +873,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <div class="rtools">
               <button type="button" class="tapbtn strong" id="rNew">+ New pattern</button>
               <button type="button" class="tapbtn" id="rPad">Strum pad and record</button>
-              <button type="button" class="tapbtn" id="rFile">From your guitar (recording)</button>
+              <button type="button" class="tapbtn" id="rFile">From your guitar (live or recording)</button>
               <span class="rshow">Show:</span>
               <label class="check"><input type="checkbox" data-view="sugg" checked> Suggested patterns</label>
               <label class="check"><input type="checkbox" data-view="chart" checked> Strum chart</label>
@@ -866,6 +903,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
         <details class="wsec mylib" data-sec="saved" open>
           <summary><span>My progressions</span><small id="secSavedSum"></small><button type="button" class="info" data-info="saved" aria-label="About saving progressions">i</button></summary>
           <p class="libstatus loading" id="libStatus">Loading your saved progressions…</p>
+          <div class="libacct" id="libAcct" hidden></div>
           <div class="libsave">
             <input type="text" id="libName" maxlength="60" placeholder="Name this progression, e.g. Verse in C" aria-label="Progression name" autocomplete="off">
             <button type="button" class="tapbtn strong" id="libSave">Save</button>
@@ -2498,7 +2536,7 @@ if (typeof module !== 'undefined') {
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -3816,14 +3854,16 @@ if (typeof module !== 'undefined') {
       + `<div class="strumpad" id="strumPad">${[0, 1, 2, 3, 4, 5].map((s) => `<span class="pstr" data-pstr="${s}" style="top:${((s + 0.5) / 6 * 100).toFixed(2)}%"><i>${STR_NAMES[s]}</i></span>`).join('')}</div>`
       + `<div class="padbtns">${[['D', '↓ Down'], ['U', '↑ Up'], ['d', '↓ Soft'], ['u', '↑ Soft'], ['x', '× Mute']].map(([k, l]) => `<button type="button" class="tapbtn" data-padhit="${k}">${l}</button>`).join('')}</div>`
       + `<p class="hint2">Keyboard: ↓ and ↑ arrows strum (hold Shift for soft), X mutes, keys 1–6 pick strings (1 = high e, 6 = low E).</p></div>`
-      + `<div class="padwrap txwrap" id="txBlock"><div class="padhead"><b>From your guitar</b><span>Record yourself playing the pattern on your real guitar, with your phone's voice recorder or any recorder, then choose the file. Start on beat 1 and play it once or twice. Each hit becomes a box: muted hits become ×, quieter ones become soft strums. In Picking mode it works out which string each note was on, from the shape of ${esc(pc.name)}.</span></div>`
-      + `<div class="txrow"><label class="tapbtn strong filebtn">Choose a recording<input type="file" id="txFile" accept="audio/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.caf"></label>`
+      + `<div class="padwrap txwrap" id="txBlock"><div class="padhead"><b>From your guitar</b><span>Play the pattern on your real guitar and the site writes it down. Press <b>Listen to my guitar</b> and strum it live, or choose a recording. Start on beat 1 and play it once or twice. Each hit becomes a box: muted hits become ×, quieter ones become soft strums, and the tempo follows your playing. In Picking mode it works out which string each note was on, from the shape of ${esc(pc.name)}.</span></div>`
+      + `<div class="txrow"><button type="button" class="tapbtn strong gtrbtn${GTR.on ? ' live' : ''}" id="gtrBtn" aria-pressed="${GTR.on}">${GTR.on ? ICON.stopf + ' Stop and write it down' : ICON.mic + ' Listen to my guitar'}</button>`
+      + `<label class="tapbtn filebtn">Choose a recording<input type="file" id="txFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.caf"></label>`
       + `<label class="check"><input type="checkbox" id="txAuto"${ED.txAuto ? ' checked' : ''}> Take the tempo from the recording</label>`
       + `<div class="field"><span>Up or down strokes</span><div class="seg">${segb('txdir', 'beat', 'By beat (down on the beat)', ED.txDir === 'beat')}${segb('txdir', 'sound', 'From the sound', ED.txDir === 'sound')}</div></div>`
       + (ED.tx ? `<button type="button" class="tapbtn" id="txAgain">Read it again with these settings</button>` : '') + `</div>`
       + (ED.tx ? `<canvas class="txwave" id="txWave" height="90" aria-label="The recording, with each hit marked"></canvas><p class="txkey"><i class="k hit"></i> strum or note <i class="k ghost"></i> soft <i class="k mute"></i> muted</p>` : '')
+      + `<div class="gtrlive" id="gtrLive"${GTR.on ? '' : ' hidden'}><div class="gtrmeter"><i id="gtrLevel"></i></div><div class="gtrdots" id="gtrDots"></div><p class="gtrinfo" id="gtrInfo">Listening… start strumming on beat 1.</p></div>`
       + `<p class="recstate" id="txState" role="status">${esc(ED.txMsg)}</p>`
-      + `<p class="hint2">Live listening through the microphone is not allowed on pages inside Claude, so the recording is read from a file. It never leaves your device.</p></div>`
+      + `<p class="hint2">The sound never leaves your device. Pages shown inside the Claude app cannot use the microphone; there, choose a recording instead.</p></div>`
       + `<div class="ed-actions"><button type="button" class="tapbtn" id="edHear">Hear it</button><button type="button" class="tapbtn" id="edClear">Clear boxes</button>`
       + `<button type="button" class="tapbtn strong" id="edSave">${ED.id ? 'Save changes' : 'Save pattern'}</button><button type="button" class="tapbtn" id="edCancel">Close</button></div>`;
     box.innerHTML = h;
@@ -3853,8 +3893,124 @@ if (typeof module !== 'undefined') {
       g.fillRect(x - 1, 4, 3, 82);
     });
   }
+  const txSay = (m) => { ED.txMsg = m; const st = $('txState'); if (st) st.textContent = m; };
+  // turn a recording (mono samples) into hits, and the hits into a pattern
+  function transcribeSamples(x, sr, name) {
+    const len = x.length;
+    let mx = 0;
+    for (let i = 0; i < len; i++) mx = Math.max(mx, Math.abs(x[i]));
+    if (mx > 0) for (let i = 0; i < len; i++) x[i] /= mx;
+    const hits = classifyHits(analyzeHits(x, sr).hits);
+    if (!hits.length) { txSay('No clear hits were found. Play a little closer to the microphone, with less background noise, and try again.'); return false; }
+    const sl = practiceChord();
+    hits.forEach((h) => { h.string = stringForHit(x, sr, h.t, sl); });
+    const wave = new Float32Array(600);
+    const per = Math.max(1, Math.floor(len / 600));
+    for (let i = 0; i < 600; i++) { let m = 0; for (let k = i * per; k < Math.min(len, (i + 1) * per); k++) m = Math.max(m, Math.abs(x[k])); wave[i] = m; }
+    ED.tx = { hits, dur: len / sr, wave, step: estimateStep(hits), name };
+    applyTx();
+    return true;
+  }
+
+  /* live: listen to the guitar through the microphone while you strum, then write the pattern down */
+  const GTR = { on: false, stream: null, src: null, node: null, sink: null, chunks: [], n: 0, sr: 44100, t0: 0, hits: [], avg: 0, floor: 0, last: -1, quiet: 0, peak: 0, timer: 0, ui: 0 };
+  const GTR_MAX_SEC = 30;
+  async function gtrStart() {
+    const c = audio();
+    if (!c || GTR.on) return;
+    if (REC.on) stopRec();
+    if (PL.on) stopProg();
+    if (LS.live) lsStop();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { gtrBlocked(); return; }
+    txSay('Asking to use the microphone…');
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    } catch (e) { gtrBlocked(); return; }
+    if (c.state !== 'running') { try { await c.resume(); } catch (e) {} }
+    const src = c.createMediaStreamSource(stream);
+    const node = c.createScriptProcessor ? c.createScriptProcessor(2048, 1, 1) : null;
+    if (!node) { stream.getTracks().forEach((t) => t.stop()); txSay('This browser cannot record from the microphone here. Choose a recording instead.'); return; }
+    const sink = c.createGain();
+    sink.gain.value = 0;                     // runs the recorder without sending the guitar back out of the speakers
+    src.connect(node); node.connect(sink); sink.connect(c.destination);
+    Object.assign(GTR, { on: true, stream, src, node, sink, chunks: [], n: 0, sr: c.sampleRate, hits: [], avg: 0, floor: 0.002, bfloor: 0.001, last: -1, peak: 0, lastLoud: 0, heard: false, autoStop: false, prevSample: 0, level: 0 });
+    node.onaudioprocess = (ev) => gtrBlock(ev.inputBuffer.getChannelData(0));
+    txSay('');
+    renderEditor();
+    GTR.ui = setInterval(gtrUi, 120);
+  }
+  function gtrBlocked() {
+    txSay('The microphone is not available here. Pages shown inside the Claude app cannot use it; on your own hosted site (or localhost) it works. For now, record yourself and choose the file.');
+  }
+  // every ~45 ms of sound: keep it, and spot new strums (a sudden jump in loudness) for the live view
+  function gtrBlock(d) {
+    if (!GTR.on) return;
+    GTR.chunks.push(new Float32Array(d));
+    const F = 256;
+    for (let i = 0; i + F <= d.length; i += F) {
+      // loudness, and the loudness of the bright part of the sound (a pick or strum attack is bright, a ringing chord is not)
+      let e = 0, b = 0, prev = i ? d[i - 1] : GTR.prevSample || 0;
+      for (let k = i; k < i + F; k++) { e += d[k] * d[k]; const df = d[k] - prev; b += df * df; prev = d[k]; }
+      e = Math.sqrt(e / F); b = Math.sqrt(b / F);
+      const t = (GTR.n + i) / GTR.sr;
+      if (t < 0.3) { GTR.floor = Math.max(GTR.floor, e * 2.5); GTR.bfloor = Math.max(GTR.bfloor || 0.001, b * 2.5); GTR.avg = b; continue; }   // the first moment sets the room's noise level
+      if (e > GTR.peak) GTR.peak = e;
+      if (e > Math.max(GTR.floor, GTR.peak * 0.08)) { GTR.lastLoud = t; GTR.heard = true; }
+      if (b > GTR.bfloor && b > GTR.avg * 1.7 && t - GTR.last > 0.09) {
+        GTR.last = t;
+        GTR.hits.push({ t, e });
+      }
+      GTR.avg = 0.7 * GTR.avg + 0.3 * b;
+      GTR.level = e;
+    }
+    GTR.prevSample = d[d.length - 1];
+    GTR.n += d.length;
+    const now = GTR.n / GTR.sr;
+    if (GTR.heard && now - GTR.lastLoud > 2.2) GTR.autoStop = true;   // you stopped playing
+    if (now > GTR_MAX_SEC) GTR.autoStop = true;
+  }
+  function gtrUi() {
+    if (!GTR.on) return;
+    if (GTR.autoStop) { gtrStop(true); return; }
+    const lv = $('gtrLevel');
+    if (lv && lv.style) lv.style.width = Math.min(100, Math.round(((GTR.level || 0) / Math.max(0.02, GTR.peak || 0.02)) * 100)) + '%';
+    const dots = $('gtrDots');
+    if (dots && dots.children && dots.children.length !== GTR.hits.length) {
+      const span = Math.max(4, GTR.n / GTR.sr);
+      dots.innerHTML = GTR.hits.slice(-64).map((h) => `<i style="left:${((h.t / span) * 100).toFixed(1)}%"></i>`).join('');
+    }
+    const info = $('gtrInfo');
+    if (info) {
+      const secs = (GTR.n / GTR.sr).toFixed(1);
+      const step = GTR.hits.length >= 4 ? estimateStep(GTR.hits) : null;
+      const bpm = step ? Math.round(60 / (step * ED.grid)) : 0;
+      info.textContent = GTR.hits.length
+        ? GTR.hits.length + ' hits · ' + secs + ' s' + (bpm >= 40 && bpm <= 240 ? ' · about ' + bpm + ' BPM' : '') + ' · stop playing for a moment, or press Stop, to write it down'
+        : 'Listening… start strumming on beat 1. (' + secs + ' s)';
+    }
+  }
+  function gtrStop(write) {
+    if (!GTR.on) return;
+    GTR.on = false;
+    GTR.autoStop = false;
+    clearInterval(GTR.ui);
+    try { GTR.node.onaudioprocess = null; GTR.src.disconnect(); GTR.node.disconnect(); GTR.sink.disconnect(); } catch (e) {}
+    try { GTR.stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    const total = GTR.chunks.reduce((a, b) => a + b.length, 0);
+    const x = new Float32Array(total);
+    let o = 0;
+    GTR.chunks.forEach((ch) => { x.set(ch, o); o += ch.length; });
+    GTR.chunks = [];
+    renderEditor();
+    if (write === false) { txSay('Stopped.'); return; }
+    if (total < GTR.sr * 0.5) { txSay('That was too short. Press Listen to my guitar and play the pattern once or twice.'); return; }
+    txSay('Writing down what you played…');
+    setTimeout(() => transcribeSamples(x, GTR.sr, 'live recording'), 20);
+  }
+
   async function transcribeFile(file) {
-    const say2 = (m) => { ED.txMsg = m; const st = $('txState'); if (st) st.textContent = m; };
+    const say2 = txSay;
     const c = audio();
     if (!c || !file) return;
     if (REC.on) stopRec();
@@ -3865,18 +4021,7 @@ if (typeof module !== 'undefined') {
       const sr = ab.sampleRate, len = Math.min(ab.length, Math.floor(sr * 40));
       const x = new Float32Array(len);
       for (let ch = 0; ch < ab.numberOfChannels; ch++) { const d = ab.getChannelData(ch); for (let i = 0; i < len; i++) x[i] += d[i] / ab.numberOfChannels; }
-      let mx = 0;
-      for (let i = 0; i < len; i++) mx = Math.max(mx, Math.abs(x[i]));
-      if (mx > 0) for (let i = 0; i < len; i++) x[i] /= mx;
-      const hits = classifyHits(analyzeHits(x, sr).hits);
-      if (!hits.length) { say2('No clear hits were found. Record a little closer to the guitar, with less background noise, and try again.'); return; }
-      const sl = practiceChord();
-      hits.forEach((h) => { h.string = stringForHit(x, sr, h.t, sl); });
-      const wave = new Float32Array(600);
-      const per = Math.max(1, Math.floor(len / 600));
-      for (let i = 0; i < 600; i++) { let m = 0; for (let k = i * per; k < Math.min(len, (i + 1) * per); k++) m = Math.max(m, Math.abs(x[k])); wave[i] = m; }
-      ED.tx = { hits, dur: len / sr, wave, step: estimateStep(hits), name: file.name || 'recording' };
-      applyTx();
+      transcribeSamples(x, sr, file.name || 'recording');
     } catch (e) {
       say2('This file could not be read. Try a different format (m4a, mp3 or wav) or record it again.');
     }
@@ -4120,6 +4265,7 @@ if (typeof module !== 'undefined') {
       return true;
     }
     if (t.closest('#txAgain')) { applyTx(); return true; }
+    if (t.closest('#gtrBtn')) { if (GTR.on) gtrStop(true); else gtrStart(); return true; }
     if (t.closest('#rPad')) { if (!ED.open) openEditor(null); focusIn('#strumPad'); return true; }
     if (t.closest('#rFile')) { if (!ED.open) openEditor(null); focusIn('#txBlock'); return true; }
     if (t.closest('#recBtn')) { if (REC.on) stopRec('Recording stopped.'); else startRec(); return true; }
@@ -4141,7 +4287,7 @@ if (typeof module !== 'undefined') {
       return true;
     }
     if (t.closest('#edClear')) { if (REC.on) stopRec(); if (ED.mode === 'pick') ED.picks = ED.picks.map(() => 0); else ED.steps = ED.steps.map(() => '.'); renderEditor(); return true; }
-    if (t.closest('#edCancel')) { if (REC.on) stopRec(); ED.open = false; renderEditor(); return true; }
+    if (t.closest('#edCancel')) { if (REC.on) stopRec(); if (GTR.on) gtrStop(false); ED.open = false; renderEditor(); return true; }
     if (t.closest('#edSave')) {
       if (REC.on) stopRec();
       if (edEmpty()) { say('Put at least one stroke in the pattern first.'); return true; }
@@ -4329,7 +4475,42 @@ if (typeof module !== 'undefined') {
     heardMark();
   }
   // mark the chord being heard on the circle of fifths (a green outline on its spot, major or minor ring)
+  // a small circle of fifths inside the listener, so the chord you play shows on it wherever you are on the page
+  function miniCircle() {
+    const box = $('lsMini');
+    if (!box) return;
+    const h = LS.cur;
+    const show = LS.live || !!h;
+    box.hidden = !show;
+    if (!show) return;
+    const mode = S.hm === 'minor' ? 'minor' : 'major';
+    const p = mode === 'major' ? (S.hk * 7) % 12 : (((S.hk + 3) % 12) * 7) % 12;   // the key's spot (its relative major's index)
+    let hi = -1, hMinor = false;
+    if (h) {
+      const t = HEAR_TYPES.find((x) => x.sym === h.sym) || HEAR_TYPES[0];
+      hMinor = t.iv[1] === 3;
+      hi = hMinor ? ((h.root + 3) * 7) % 12 : (h.root * 7) % 12;
+    }
+    let s = '';
+    for (let ring = 0; ring < 2; ring++) {
+      const maj = ring === 0;
+      for (let i = 0; i < 12; i++) {
+        const dd = (i - p + 12) % 12;
+        const near = dd === 0 || dd === 1 || dd === 11;
+        const home = dd === 0 && maj === (mode === 'major');
+        const heard = i === hi && maj === !hMinor;
+        const pt = polar(maj ? 122 : 81, i * 30 - 90);
+        const label = maj ? CIRC_MAJ[i] : CIRC_MIN[i];
+        s += `<path class="mseg${near ? ' near' : ''}${home ? ' home' : ''}${heard ? ' heard' : ''}" d="${arcPath(i, maj ? 100 : 64, maj ? 144 : 98)}"/>`;
+        s += `<text class="mlab${heard ? ' heard' : ''}" x="${pt[0].toFixed(1)}" y="${(pt[1] + 5).toFixed(1)}" text-anchor="middle" font-size="${label.length > 3 ? (maj ? 15 : 12) : (maj ? 22 : 17)}">${esc(label.split('/')[0])}</text>`;
+      }
+    }
+    const nm = (S.flats ? FLAT_NAMES : SHARP_NAMES)[S.hk];
+    s += `<text class="mkey" x="150" y="152" text-anchor="middle" font-size="34">${esc(nm)}</text><text class="mkey2" x="150" y="176" text-anchor="middle" font-size="16">${mode}</text>`;
+    box.innerHTML = `<svg viewBox="4 4 292 292" role="img" aria-label="Circle of fifths${h ? ', showing the chord you are playing' : ''}">${s}</svg>`;
+  }
   function heardMark() {
+    miniCircle();
     const svg = $('circle');
     if (!svg || !svg.querySelector) return;
     const old = svg.querySelector('.heard');
@@ -4375,6 +4556,7 @@ if (typeof module !== 'undefined') {
     const c = audio();
     if (!c) { lsSay('This browser cannot listen to sound.'); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { lsBlocked(); return; }
+    if (GTR.on) gtrStop(false);
     lsSay('Asking to use the microphone…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
@@ -4573,6 +4755,14 @@ if (typeof module !== 'undefined') {
     if (a === 'add' && LS.cur) addToProg(lsFresh(LS.cur));
     else if (a === 'circle') lsToCircle(lsFresh(LS.cur));
     else if (a === 'auto') { LS.auto = !LS.auto; renderListen(); }
+    else if (a === 'strum') {
+      // go to the pattern editor and start listening to the strumming hand
+      if (LS.live) lsStop();
+      if (!ED.open) openEditor(null);
+      if (LAYOUT === 'tabs' && TAB !== 'progression') setTab('progression');
+      focusIn('#txBlock');
+      gtrStart();
+    }
     else if (a === 'follow') { LS.follow = !LS.follow; renderListen(); lsFollow(); }
     else if (a === 'addcap') lsAddAll(LS.cap.map(lsFresh), false);
     else if (a === 'clearcap') { LS.cap = []; renderListen(); }
@@ -4794,7 +4984,144 @@ if (typeof module !== 'undefined') {
     if (why) libSay(why);
     renderLib();
   }
+  /* Accounts on the site's own hosting: Supabase sign-in (an emailed link, or Google), with each person's progressions in a table only they can read.
+     Turned on by config.js (supabaseUrl + supabaseAnonKey); inside Claude the Claude account is used instead. */
+  const CLOUD = { sb: null, user: null, cfg: null, sent: '', busy: false };
+  const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src; s.async = true;
+      s.onload = () => res(); s.onerror = () => rej(new Error('script'));
+      document.head.appendChild(s);
+    });
+  }
+  async function initCloud(cfg) {
+    CLOUD.cfg = cfg;
+    LIB.mode = 'loading';
+    renderLib();
+    try {
+      if (!window.supabase || !window.supabase.createClient) await loadScript(SUPABASE_JS);
+      // PKCE: the sign-in link comes back as ?code=…, which leaves the page's #tab address alone
+      CLOUD.sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+    } catch (e) {
+      useBrowser('Accounts cannot be reached right now, so progressions are saved in this browser only.');
+      return;
+    }
+    CLOUD.sb.auth.onAuthStateChange((ev, session) => { setTimeout(() => cloudSession(session), 0); });
+    try {
+      const r = await CLOUD.sb.auth.getSession();
+      await cloudSession(r && r.data && r.data.session);
+    } catch (e) { await cloudSession(null); }
+  }
+  async function cloudSession(session) {
+    const u = session && session.user ? session.user : null;
+    if (u && CLOUD.user && CLOUD.user.id === u.id && LIB.mode === 'cloud') return;
+    CLOUD.user = u;
+    if (!u) {
+      LIB.mode = 'signedout';
+      LIB.who = '';
+      LIB.items = loadLocal();
+      renderLib();
+      return;
+    }
+    CLOUD.sent = '';
+    LIB.who = u.email || '';
+    LIB.mode = 'loading';
+    renderLib();
+    await cloudFetch();
+  }
+  async function cloudFetch() {
+    try {
+      const r = await CLOUD.sb.from('progressions').select('id,name,data,updated_at').order('updated_at', { ascending: false });
+      if (r.error) throw r.error;
+      LIB.mode = 'cloud';
+      LIB.items = (r.data || []).map((row) => cleanItem(row.id, Object.assign({}, row.data, { name: row.name, updatedAt: Date.parse(row.updated_at) || 0 }))).filter(Boolean);
+      renderLib();
+    } catch (e) {
+      LIB.mode = 'signedout';
+      LIB.items = loadLocal();
+      libSay('Signed in, but your saved progressions could not be loaded' + (e && e.message ? ' (' + e.message + ')' : '') + '. Saving in this browser for now.');
+      renderLib();
+    }
+  }
+  const cloudRow = (id, rec) => ({ user_id: CLOUD.user.id, id, name: rec.name, data: rec, updated_at: new Date(rec.updatedAt || Date.now()).toISOString() });
+  async function cloudSignIn(kind) {
+    if (!CLOUD.sb || CLOUD.busy) return;
+    const back = location.origin + location.pathname + '#progression';
+    if (kind === 'google') {
+      try { await CLOUD.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } }); } catch (e) { libSay('Google sign-in could not start. Try the email link instead.'); }
+      return;
+    }
+    const inp = $('libEmail');
+    const email = inp ? String(inp.value || '').trim() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { libSay('Type your email address first.'); if (inp && inp.focus) inp.focus(); return; }
+    CLOUD.busy = true;
+    libSay('Sending…');
+    try {
+      const r = await CLOUD.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: back } });
+      if (r && r.error) throw r.error;
+      CLOUD.sent = email;
+      libSay('');
+    } catch (e) {
+      libSay('The sign-in email could not be sent' + (e && e.message ? ' (' + e.message + ')' : '') + '. Wait a minute and try again.');
+    }
+    CLOUD.busy = false;
+    renderLib();
+  }
+  async function cloudSignOut() {
+    if (!CLOUD.sb) return;
+    try { await CLOUD.sb.auth.signOut(); } catch (e) {}
+    await cloudSession(null);
+    libSay('Signed out. Your progressions stay safe in your account.');
+  }
+  // progressions saved in this browser before signing in can be copied into the account
+  async function cloudCopyLocal() {
+    const local = loadLocal().filter((x) => !LIB.items.some((y) => y.id === x.id));
+    if (!local.length) return;
+    try {
+      const r = await CLOUD.sb.from('progressions').upsert(local.map((it) => cloudRow(it.id, it)), { onConflict: 'user_id,id' });
+      if (r && r.error) throw r.error;
+      libSay('Copied ' + local.length + ' progression' + (local.length === 1 ? '' : 's') + ' from this browser to your account.');
+      await cloudFetch();
+    } catch (e) {
+      libSay('They could not be copied' + (e && e.message ? ' (' + e.message + ')' : '') + '. Nothing was changed.');
+    }
+  }
+  function renderAcct() {
+    const box = $('libAcct');
+    if (!box) return;
+    box.hidden = !CLOUD.cfg;
+    if (!CLOUD.cfg) return;
+    if (LIB.mode === 'cloud' && CLOUD.user) {
+      const extra = loadLocal().filter((x) => !LIB.items.some((y) => y.id === x.id)).length;
+      box.innerHTML = `<div class="acctrow"><span class="acctwho">Signed in as <b>${esc(CLOUD.user.email || 'you')}</b></span><button type="button" class="tapbtn" data-acct="out">Sign out</button></div>`
+        + (extra ? `<div class="acctrow"><span>${extra} progression${extra === 1 ? ' is' : 's are'} saved only in this browser.</span><button type="button" class="tapbtn strong" data-acct="copy">Copy to my account</button></div>` : '');
+    } else if (CLOUD.sent) {
+      box.innerHTML = `<div class="acctrow"><span>Check your email: we sent a sign-in link to <b>${esc(CLOUD.sent)}</b>. Open it on this device to finish signing in.</span><button type="button" class="tapbtn" data-acct="again">Use another email</button></div>`;
+    } else if (LIB.mode !== 'loading') {
+      box.innerHTML = `<div class="acctrow acctform"><input type="email" id="libEmail" placeholder="you@example.com" aria-label="Email address" autocomplete="email"><button type="button" class="tapbtn strong" data-acct="email">Email me a sign-in link</button>`
+        + (CLOUD.cfg.google ? `<button type="button" class="tapbtn" data-acct="google">Sign in with Google</button>` : '') + `</div>`
+        + `<p class="hint">Sign in to keep your progressions in your account and open them on any device. No password: we email you a link.</p>`;
+      const inp = $('libEmail');
+      if (inp && inp.addEventListener) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); cloudSignIn('email'); } });
+    } else box.innerHTML = '';
+  }
+  function acctClick(t) {
+    const b = t.closest('[data-acct]');
+    if (!b) return false;
+    const a = b.dataset.acct;
+    if (a === 'email') cloudSignIn('email');
+    else if (a === 'google') cloudSignIn('google');
+    else if (a === 'out') cloudSignOut();
+    else if (a === 'copy') cloudCopyLocal();
+    else if (a === 'again') { CLOUD.sent = ''; renderLib(); }
+    return true;
+  }
   async function initLib() {
+    const cfg = window.FRETBOARD_CONFIG || {};
+    const inClaude = !!(window.claude && window.claude.use);
+    if (!inClaude && cfg.supabaseUrl && cfg.supabaseAnonKey) { initCloud(cfg); return; }
     let db = null, user = null;
     try {
       if (window.claude && window.claude.use) [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
@@ -4828,8 +5155,11 @@ if (typeof module !== 'undefined') {
     if (!st) return;
     st.textContent = LIB.mode === 'loading' ? 'Loading your saved progressions…'
       : LIB.mode === 'account' ? 'Saved to your Claude account' + (LIB.who ? ' (' + LIB.who + ')' : '') + '. Only you can see them, on any device.'
-      : 'Saved in this browser only. Open this page while signed in to Claude to keep them in your account.';
-    st.className = 'libstatus ' + LIB.mode;
+      : LIB.mode === 'cloud' ? 'Saved to your account. Only you can see them, on any device.'
+      : LIB.mode === 'signedout' ? 'Saved in this browser for now. Sign in to keep them in your account.'
+      : CLOUD.cfg ? 'Saved in this browser only.' : 'Saved in this browser only. Open this page while signed in to Claude to keep them in your account.';
+    st.className = 'libstatus ' + (LIB.mode === 'cloud' ? 'account' : LIB.mode);
+    renderAcct();
     const cur = LIB.items.find((x) => x.id === LIB.current);
     if (!cur) LIB.current = null;
     $('libSave').textContent = cur ? 'Save changes' : 'Save';
@@ -4837,7 +5167,7 @@ if (typeof module !== 'undefined') {
     $('libSave').disabled = !P.slots.length || LIB.mode === 'loading';
     $('libSaveNew').disabled = !P.slots.length || LIB.mode === 'loading';
     const items = LIB.items.slice().sort((a, b) => b.updatedAt - a.updatedAt);
-    $('secSavedSum').textContent = LIB.mode === 'loading' ? '' : items.length + ' saved' + (LIB.mode === 'account' ? ' in your account' : ' in this browser');
+    $('secSavedSum').textContent = LIB.mode === 'loading' ? '' : items.length + ' saved' + (LIB.mode === 'account' || LIB.mode === 'cloud' ? ' in your account' : ' in this browser');
     $('myProgList').innerHTML = items.length
       ? items.map((it) => `<li class="libitem${it.id === LIB.current ? ' cur' : ''}"><div class="libinfo"><b>${esc(it.name)}</b><small>${esc(libSummary(it))}</small></div>`
         + `<button type="button" class="tapbtn" data-libload="${esc(it.id)}">${it.id === LIB.current ? 'Reload' : 'Open'}</button>`
@@ -4850,6 +5180,22 @@ if (typeof module !== 'undefined') {
     const name = (typed || P.slots.map((s) => s.name).join(' – ')).slice(0, 60);
     const id = (!asNew && LIB.current) || 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     const rec = { name, slots: JSON.parse(JSON.stringify(P.slots)), bpm: P.bpm, speed: P.speed, style: P.style, loop: P.loop, click: P.click, customs: JSON.parse(JSON.stringify(P.customs)), updatedAt: Date.now() };
+    if (LIB.mode === 'cloud') {
+      $('libSave').disabled = true;
+      try {
+        const r = await CLOUD.sb.from('progressions').upsert(cloudRow(id, rec), { onConflict: 'user_id,id' });
+        if (r && r.error) throw r.error;
+        const it = cleanItem(id, rec);
+        if (it) LIB.items = LIB.items.filter((x) => x.id !== id).concat([it]);
+        LIB.current = id;
+        $('libName').value = name;
+        libSay('Saved “' + name + '” to your account.');
+      } catch (e) {
+        libSay('Could not save to your account' + (e && e.message ? ' (' + e.message + ')' : '') + '. Nothing was changed; try again in a moment.');
+      }
+      renderLib();
+      return;
+    }
     if (LIB.mode === 'account') {
       $('libSave').disabled = true;
       try {
@@ -4902,7 +5248,14 @@ if (typeof module !== 'undefined') {
       return;
     }
     LIB.armed = null;
-    if (LIB.mode === 'account') {
+    if (LIB.mode === 'cloud') {
+      try {
+        const r = await CLOUD.sb.from('progressions').delete().eq('id', id);
+        if (r && r.error) throw r.error;
+        LIB.items = LIB.items.filter((x) => x.id !== id);
+        libSay('Deleted “' + it.name + '”.');
+      } catch (e) { libSay('Could not delete it' + (e && e.message ? ' (' + e.message + ')' : '') + '.'); }
+    } else if (LIB.mode === 'account') {
       try { await libCol().doc(id).delete(); libSay('Deleted “' + it.name + '”.'); } catch (e) { libSay('Could not delete it' + (e && e.code ? ' (' + e.code + ')' : '') + '.'); }
     } else {
       LIB.items = LIB.items.filter((x) => x.id !== id);
@@ -4933,9 +5286,9 @@ if (typeof module !== 'undefined') {
     listen: { t: 'Chord listener', b: '<p>Strum a chord on your guitar and the listener names it. The bars show how loudly each of the 12 notes is sounding; the lit ones are the notes of the chord it hears.</p><p>It also tells you the chord\u2019s number in your key (like <b>V</b> in C major), or that it is outside the key. <b>Show on the circle</b> opens it in the Key explorer with its next moves.</p><p><b>Upload a clip</b> reads a whole recording, like the chord track in a DAW or the Moises app, and guesses its key. Tap a chord to hear it, play the clip to follow along, then add the chords to your progression.</p><p>Tips: let each chord ring, keep the phone close, and keep background music and talking down. It knows major, minor, 7, maj7, m7, sus2, sus4 and dim chords.</p><p><b>Live listening</b> needs the microphone, which pages inside the Claude app cannot use. It works once the site is hosted on its own.</p>' },
     common: { t: 'Common progressions', tour: 'progression', b: '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' },
     playback: { t: 'Tempo and playback', b: '<p><b>Tempo</b> is speed in beats per minute (BPM). 60 BPM is one beat a second; most pop songs sit between 80 and 130. <b>Tap</b> the button in time to set it.</p><p><b>Speed</b> plays everything slower or faster while keeping your tempo setting: great for practising at half speed.</p><p><b>Click track</b> adds a metronome tick on each beat; the first beat of each bar is higher.</p>' },
-    patterns: { t: 'Strumming and picking patterns', tour: 'patterns', b: '<p>The rhythm your strumming hand plays. Each box is a step in time: <b>1 & 2 &</b> are eighth notes, <b>1 e & a</b> are sixteenths.</p><p><b>↓</b> is a down-strum, <b>↑</b> an up-strum. <b>Faint arrows</b> are ghost (soft) strums. <b>×</b> is a muted strum: rest your fretting hand on the strings so they click instead of ringing. B and b are bass notes; • and 1–3 are single picked strings.</p><p>Make your own with <b>New pattern</b>, the strum pad, or a recording of your guitar.</p>' },
+    patterns: { t: 'Strumming and picking patterns', tour: 'patterns', b: '<p>The rhythm your strumming hand plays. Each box is a step in time: <b>1 & 2 &</b> are eighth notes, <b>1 e & a</b> are sixteenths.</p><p><b>↓</b> is a down-strum, <b>↑</b> an up-strum. <b>Faint arrows</b> are ghost (soft) strums. <b>×</b> is a muted strum: rest your fretting hand on the strings so they click instead of ringing. B and b are bass notes; • and 1–3 are single picked strings.</p><p>Make your own with <b>New pattern</b>, the strum pad, or your real guitar: press <b>Listen to my guitar</b> and strum, and the site writes down your pattern and takes your tempo.</p>' },
     find: { t: 'Chord names', b: '<p>How chord names work: the letter is the root. Nothing after it means <b>major</b> (happy). <b>m</b> is minor (sad). <b>7</b> adds a bluesy 7th. <b>maj7</b> is soft and jazzy. <b>m7</b> is mellow minor. <b>dim</b> (°) is tense, <b>aug</b> (+) is dreamy and unstable. <b>sus2</b> and <b>sus4</b> swap the 3rd for a more open sound. <b>m7♭5</b> (ø) is half-diminished, the ii chord of a minor key.</p>' },
-    saved: { t: 'Saving progressions', b: '<p>Give your progression a name and press <b>Save</b>. When you open this page signed in to Claude, it goes to your account and only you can see it. Otherwise it stays in this browser.</p>' },
+    saved: { t: 'Saving progressions', b: '<p>Give your progression a name and press <b>Save</b>. When you are signed in, it goes to your account: only you can see it, and it is there on any device you sign in on. Otherwise it stays in this browser, and you can copy it to your account after signing in.</p><p>Signing in needs no password: type your email and open the link we send you.</p>' },
     details: { t: 'Pattern details', b: '<p>The notes of what is on the neck, with their intervals. The <b>step pattern</b> shows the gaps between scale notes in semitones: the major scale is 2 2 1 2 2 2 1 (whole, whole, half, whole, whole, whole, half).</p>' },
     drop: { t: 'Drop 2 and Drop 3 voicings', b: '<p>Four-note chords spread across the strings the way jazz players use them. Take the chord’s notes stacked closely, then drop the 2nd (or 3rd) highest note down an octave: the shape becomes easy to finger. Choose a string set and an inversion (which note is in the bass).</p>' },
   };
@@ -5267,6 +5620,7 @@ if (typeof module !== 'undefined') {
     if (t.closest('#rvHear')) { previewRhythm(rhythmShown || P.style); return; }
     if (edClick(t)) return;
     if (lsClick(t)) return;
+    if (acctClick(t)) return;
     const ll = t.closest('[data-libload]');
     if (ll) { libLoad(ll.dataset.libload); return; }
     const ld = t.closest('[data-libdel]');

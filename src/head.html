@@ -640,6 +640,39 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .lssegw .lsx { top: 4px; right: 4px; }
 .lscap-row { padding-top: 6px; }
 .lsstrip { padding-top: 6px; }
+/* account sign-in (own hosting) */
+.libacct { display: grid; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.acctrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.acctrow > span { min-width: 0; flex: 1 1 220px; }
+.acctform input { flex: 1 1 220px; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); }
+.libacct .hint { margin: 0; font-size: 0.82rem; color: var(--muted); }
+.libstatus.signedout::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--muted); vertical-align: 1px; }
+/* mini circle of fifths in the chord listener */
+.lsside { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 12px; align-items: center; min-width: 0; }
+@media (min-width: 641px) { .lsnow { grid-template-columns: minmax(0, 1fr) minmax(0, 520px); } }
+.lsmini { display: block; width: 200px; height: 200px; padding: 0; border: 0; background: none; cursor: pointer; }
+.lsmini[hidden] { display: none; }
+.lsmini svg { display: block; width: 100%; height: 100%; }
+.lsmini .mseg { fill: var(--bg); stroke: var(--line); stroke-width: 1; }
+.lsmini .mseg.near { fill: var(--accent-soft); }
+.lsmini .mseg.home { fill: color-mix(in srgb, var(--accent) 45%, var(--bg)); }
+.lsmini .mseg.heard { fill: color-mix(in srgb, var(--live) 45%, var(--bg)); stroke: var(--live); stroke-width: 5; }
+.lsmini .mlab { fill: var(--muted); font-weight: 600; pointer-events: none; }
+.lsmini .mlab.heard { fill: var(--fg); font-weight: 800; }
+.lsmini .mkey { fill: var(--fg); font-weight: 700; }
+.lsmini .mkey2 { fill: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .lsmini .mseg.heard { animation: heardpulse 1.6s ease-in-out infinite; } }
+@media (max-width: 640px) { .lsside { grid-template-columns: 1fr; justify-items: center; } .lsmini { width: min(240px, 70vw); height: min(240px, 70vw); } .lsbars { width: 100%; } }
+/* live guitar listening in the pattern editor */
+.gtrbtn { display: inline-flex; align-items: center; gap: 6px; }
+.gtrbtn svg { width: 16px; height: 16px; }
+.gtrbtn.live { background: var(--live); border-color: var(--live); color: #fff; }
+.gtrlive { display: grid; gap: 6px; margin-top: 8px; padding: 10px; border: 1.5px solid var(--live); border-radius: 10px; background: color-mix(in srgb, var(--live) 7%, var(--panel)); }
+.gtrmeter { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.gtrmeter i { display: block; height: 100%; width: 0; background: var(--live); transition: width 0.1s linear; }
+.gtrdots { position: relative; height: 22px; border-radius: 6px; background: var(--bg); overflow: hidden; }
+.gtrdots i { position: absolute; top: 4px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--root-dot); }
+.gtrinfo { margin: 0; font-size: 0.85rem; color: var(--muted); }
 </style>
 <canvas id="fx" aria-hidden="true"></canvas>
 <div class="info-pop" id="infoPop" role="dialog" aria-label="Explanation" hidden></div>
@@ -741,6 +774,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
           </div>
           <div class="lsacts">
             <button type="button" class="play" id="lsLive" aria-pressed="false">Listen live</button>
+            <button type="button" class="tapbtn" data-ls="strum">Listen for my strumming</button>
             <label class="tapbtn strong filebtn lsup"><span class="lsupi"></span>Upload a clip<input type="file" id="lsFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.caf,.mov,.mp4"></label>
           </div>
         </div>
@@ -756,7 +790,10 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
               <button type="button" class="tapbtn" id="lsFollow" data-ls="follow" aria-pressed="true">Follow on the circle</button>
             </div>
           </div>
-          <div class="lsbars" id="lsBars" aria-hidden="true"></div>
+          <div class="lsside">
+            <button type="button" class="lsmini" id="lsMini" data-ls="circle" title="Open in the Key explorer" hidden></button>
+            <div class="lsbars" id="lsBars" aria-hidden="true"></div>
+          </div>
           <div class="lscapbox" id="lsCapBox" hidden>
             <div class="lscaphead"><b>Captured</b><span><button type="button" class="tapbtn lssmall" data-ls="addcap">Add all</button> <button type="button" class="tapbtn lssmall" data-ls="clearcap">Clear</button></span></div>
             <div class="lscap-row" id="lsCap"></div>
@@ -828,7 +865,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <div class="rtools">
               <button type="button" class="tapbtn strong" id="rNew">+ New pattern</button>
               <button type="button" class="tapbtn" id="rPad">Strum pad and record</button>
-              <button type="button" class="tapbtn" id="rFile">From your guitar (recording)</button>
+              <button type="button" class="tapbtn" id="rFile">From your guitar (live or recording)</button>
               <span class="rshow">Show:</span>
               <label class="check"><input type="checkbox" data-view="sugg" checked> Suggested patterns</label>
               <label class="check"><input type="checkbox" data-view="chart" checked> Strum chart</label>
@@ -858,6 +895,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
         <details class="wsec mylib" data-sec="saved" open>
           <summary><span>My progressions</span><small id="secSavedSum"></small><button type="button" class="info" data-info="saved" aria-label="About saving progressions">i</button></summary>
           <p class="libstatus loading" id="libStatus">Loading your saved progressions…</p>
+          <div class="libacct" id="libAcct" hidden></div>
           <div class="libsave">
             <input type="text" id="libName" maxlength="60" placeholder="Name this progression, e.g. Verse in C" aria-label="Progression name" autocomplete="off">
             <button type="button" class="tapbtn strong" id="libSave">Save</button>
