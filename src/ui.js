@@ -1566,7 +1566,7 @@
       + `<div class="field"><span>Up or down strokes</span><div class="seg">${segb('txdir', 'beat', 'By beat (down on the beat)', ED.txDir === 'beat')}${segb('txdir', 'sound', 'From the sound', ED.txDir === 'sound')}</div></div>`
       + (ED.tx ? `<button type="button" class="tapbtn" id="txAgain">Read it again with these settings</button>` : '') + `</div>`
       + (ED.tx ? `<canvas class="txwave" id="txWave" height="90" aria-label="The recording, with each hit marked"></canvas><p class="txkey"><i class="k hit"></i> strum or note <i class="k ghost"></i> soft <i class="k mute"></i> muted</p>` : '')
-      + `<div class="gtrlive" id="gtrLive"${GTR.on ? '' : ' hidden'}><div class="gtrmeter"><i id="gtrLevel"></i></div><div class="gtrdots" id="gtrDots"></div><p class="gtrinfo" id="gtrInfo">Listening… start strumming on beat 1.</p></div>`
+      + `<div class="gtrlive" id="gtrLive"${GTR.on ? '' : ' hidden'}><div class="gtrmain"><div class="gtrmeter"><i id="gtrLevel"></i></div><div class="gtrdots" id="gtrDots"></div><p class="gtrinfo" id="gtrInfo">Listening… start strumming on beat 1.</p><p class="gtrchord" id="gtrChord"></p></div><button type="button" class="lsmini gtrmini" id="gtrMini" data-ls="circle" title="Open in the Key explorer"></button></div>`
       + `<p class="recstate" id="txState" role="status">${esc(ED.txMsg)}</p>`
       + `<p class="hint2">The sound never leaves your device. Pages shown inside the Claude app cannot use the microphone; there, choose a recording instead.</p></div>`
       + `<div class="ed-actions"><button type="button" class="tapbtn" id="edHear">Hear it</button><button type="button" class="tapbtn" id="edClear">Clear boxes</button>`
@@ -1641,8 +1641,11 @@
     src.connect(node); node.connect(sink); sink.connect(c.destination);
     Object.assign(GTR, { on: true, stream, src, node, sink, chunks: [], n: 0, sr: c.sampleRate, hits: [], avg: 0, floor: 0.002, bfloor: 0.001, last: -1, peak: 0, lastLoud: 0, heard: false, autoStop: false, prevSample: 0, level: 0 });
     node.onaudioprocess = (ev) => gtrBlock(ev.inputBuffer.getChannelData(0));
+    GTR.tail = new Float32Array(16384);
+    LS.ema = null; LS.cand = null; LS.candN = 0; LS.quietN = 0;
     txSay('');
     renderEditor();
+    miniCircle();
     GTR.ui = setInterval(gtrUi, 120);
   }
   function gtrBlocked() {
@@ -1670,6 +1673,8 @@
       GTR.level = e;
     }
     GTR.prevSample = d[d.length - 1];
+    // the last ~0.35 s, for naming the chord you are strumming
+    if (GTR.tail) { const T = GTR.tail; if (d.length >= T.length) T.set(d.subarray(d.length - T.length)); else { T.copyWithin(0, d.length); T.set(d, T.length - d.length); } }
     GTR.n += d.length;
     const now = GTR.n / GTR.sr;
     if (GTR.heard && now - GTR.lastLoud > 2.2) GTR.autoStop = true;   // you stopped playing
@@ -1678,6 +1683,7 @@
   function gtrUi() {
     if (!GTR.on) return;
     if (GTR.autoStop) { gtrStop(true); return; }
+    if (GTR.tail) lsHear(GTR.tail, GTR.sr);   // name the chord too: it lights up on the circles
     const lv = $('gtrLevel');
     if (lv && lv.style) lv.style.width = Math.min(100, Math.round(((GTR.level || 0) / Math.max(0.02, GTR.peak || 0.02)) * 100)) + '%';
     const dots = $('gtrDots');
@@ -2148,12 +2154,12 @@
     $('lsLive').setAttribute('aria-pressed', String(LS.live));
     const upi = document.querySelector && document.querySelector('.lsupi');
     if (upi && !upi.firstChild) upi.innerHTML = ICON.upload;
-    const show = LS.live || LS.cur || LS.cap.length;
+    const show = true;
     now.hidden = !show;
     if (show) {
       const ch = lsFresh(LS.cur);
-      $('lsName').textContent = ch ? ch.name : '–';
-      $('lsSub').innerHTML = ch ? esc(ch.tones.map((t) => t.name).join(' ')) + ' · ' + lsWhere(ch) : (LS.live ? 'Listening… strum a chord and let it ring.' : '');
+      $('lsName').textContent = ch ? ch.name : (LS.live || GTR.on ? 'Listening…' : 'Ready');
+      $('lsSub').innerHTML = ch ? esc(ch.tones.map((t) => t.name).join(' ')) + ' · ' + lsWhere(ch) : (LS.live || GTR.on ? 'Listening… strum a chord and let it ring.' : 'Press <b>Listen live</b> and play a chord. It lights up on the circle.');
       $('lsCircle').hidden = !ch;
       $('lsCircle').textContent = ch && !ch.inKey ? 'Show in its own key' : 'Show on the circle';
       $('lsAdd').hidden = !ch;
@@ -2181,13 +2187,7 @@
   }
   // mark the chord being heard on the circle of fifths (a green outline on its spot, major or minor ring)
   // a small circle of fifths inside the listener, so the chord you play shows on it wherever you are on the page
-  function miniCircle() {
-    const box = $('lsMini');
-    if (!box) return;
-    const h = LS.cur;
-    const show = LS.live || !!h;
-    box.hidden = !show;
-    if (!show) return;
+  function miniCircleSvg(h) {
     const mode = S.hm === 'minor' ? 'minor' : 'major';
     const p = mode === 'major' ? (S.hk * 7) % 12 : (((S.hk + 3) % 12) * 7) % 12;   // the key's spot (its relative major's index)
     let hi = -1, hMinor = false;
@@ -2212,7 +2212,14 @@
     }
     const nm = (S.flats ? FLAT_NAMES : SHARP_NAMES)[S.hk];
     s += `<text class="mkey" x="150" y="152" text-anchor="middle" font-size="34">${esc(nm)}</text><text class="mkey2" x="150" y="176" text-anchor="middle" font-size="16">${mode}</text>`;
-    box.innerHTML = `<svg viewBox="4 4 292 292" role="img" aria-label="Circle of fifths${h ? ', showing the chord you are playing' : ''}">${s}</svg>`;
+    return `<svg viewBox="4 4 292 292" role="img" aria-label="Circle of fifths${h ? ', showing the chord you are playing' : ''}">${s}</svg>`;
+  }
+  // the listener's own circle, and one inside the pattern editor while it listens to your strumming
+  function miniCircle() {
+    const svg = miniCircleSvg(LS.cur);
+    ['lsMini', 'gtrMini'].forEach((id) => { const box = $(id); if (box) { box.hidden = false; box.innerHTML = svg; } });
+    const gn = $('gtrChord');
+    if (gn) { const ch = lsFresh(LS.cur); gn.innerHTML = ch ? `<b>${esc(ch.name)}</b> <small>${ch.inKey ? esc(ch.roman) + ' in ' + esc(homeName()) : 'not in ' + esc(homeName())}</small>` : '<small>Chord: listening…</small>'; }
   }
   function heardMark() {
     miniCircle();
@@ -2298,6 +2305,9 @@
   function lsTick(buf, sr) {
     if (!LS.an) return;
     LS.an.getFloatTimeDomainData(buf);
+    lsHear(buf, sr);
+  }
+  function lsHear(buf, sr) {
     const d = downTo11k(buf, sr);
     const f = chromaFrame(d.x, d.sr, Math.max(0, d.x.length - CHROMA_N));
     if (!LS.ema) { LS.ema = new Float64Array(12); LS.emaB = new Float64Array(12); }

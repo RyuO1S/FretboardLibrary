@@ -18,6 +18,7 @@ Then open http://localhost:8000 in Chrome, Edge or Safari and press **Listen liv
 - `src/head.html`: styles and page markup
 - `src/theory.js`: the music engine (scales, chords, rhythm, recording and chord analysis)
 - `src/ui.js`: the app
+- `config.js`: optional Supabase settings for account-based progression sync
 - `snd/`: guitar samples (one MP3 per instrument, with a JSON index of where each note starts)
 - `build.sh`: joins the sources into `index.html`
 
