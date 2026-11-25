@@ -762,6 +762,23 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .annotes { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .annext { display: flex; flex-wrap: wrap; gap: 8px; }
 .slot-tools { display: inline-flex; gap: 4px; }
+/* chord type buttons in the chord editor */
+.leqbtns { display: flex; flex-wrap: wrap; gap: 5px; }
+.leqbtns .qbtn { padding: 5px 9px; font-size: 0.82rem; }
+/* how sure the chord listener is */
+.lssure { display: grid; gap: 6px; }
+.lssure:empty { display: none; }
+.sure { display: flex; align-items: center; gap: 8px; }
+.surebar { width: 120px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.surebar i { display: block; height: 100%; border-radius: 4px; background: var(--live); }
+.sure.mid .surebar i { background: var(--root-dot); }
+.sure.lo .surebar i { background: var(--muted); }
+.sure small { color: var(--muted); }
+.alts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.alts > span:first-child { color: var(--muted); font-size: 0.85rem; }
+.alts .hint { font-size: 0.8rem; color: var(--muted); }
+.lsseg.unsure { border-style: dashed; }
+.lsseg.unsure b { color: var(--root-dot); }
 </style>
 <canvas id="fx" aria-hidden="true"></canvas>
 <div class="info-pop" id="infoPop" role="dialog" aria-label="Explanation" hidden></div>
@@ -874,6 +891,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <div class="lsread">
               <div class="lsname" id="lsName">–</div>
               <div class="lssub" id="lsSub"></div>
+              <div class="lssure" id="lsSure"></div>
               <div class="lsbtns">
                 <button type="button" class="shapeadd" id="lsAdd" data-ls="add">+ Add to progression</button>
                 <button type="button" class="tapbtn" id="lsEditBtn" data-ls="edit">✎ Edit chord</button>
@@ -957,6 +975,21 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
           <p class="progmsg" id="progMsg" role="status" aria-live="polite"></p>
         </details>
 
+        <details class="wsec picker" data-sec="find" open>
+          <summary><span>Find any chord</span><button type="button" class="info" data-info="find" aria-label="About chord names">i</button></summary>
+          <p class="hint2">Type a chord name, or pick a root and a type. You hear it when you pick it, then tap each shape to hear it and press Add on the one you like.</p>
+          <input type="search" id="chordSearch" class="csearch" placeholder="Search a chord: Cm7, F#dim, Bbmaj7, G7, dim…" aria-label="Search a chord" autocomplete="off" spellcheck="false">
+          <div class="csresults" id="csResults"></div>
+          <div class="row">
+            <label class="field"><span>Root</span><select id="pcRoot"></select></label>
+            <button type="button" class="tapbtn" id="pcHear">Hear it</button>
+            <button type="button" class="tapbtn strong" id="pcAdd">Add best shape</button>
+          </div>
+          <div class="field" style="margin-bottom:10px"><span>Chord type</span><div class="qbtns" id="pcQual" role="group" aria-label="Chord type"></div></div>
+          <h3 class="pctitle" id="pcTitle"></h3>
+          <div class="shapes-grid" id="pcShapes"></div>
+        </details>
+
         <details class="wsec" data-sec="analysis" open>
           <summary><span>Analysis</span><small id="secAnaSum"></small><button type="button" class="info" data-info="analysis" aria-label="About the analysis">i</button></summary>
           <div class="progana" id="progAna"></div>
@@ -999,20 +1032,6 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
           <div class="rhythmedit" id="rhythmEdit" hidden></div>
         </details>
 
-        <details class="wsec picker" data-sec="find" open>
-          <summary><span>Find any chord</span><button type="button" class="info" data-info="find" aria-label="About chord names">i</button></summary>
-          <p class="hint2">Type a chord name, or pick a root and a type. You hear it when you pick it, then tap each shape to hear it and press Add on the one you like.</p>
-          <input type="search" id="chordSearch" class="csearch" placeholder="Search a chord: Cm7, F#dim, Bbmaj7, G7, dim…" aria-label="Search a chord" autocomplete="off" spellcheck="false">
-          <div class="csresults" id="csResults"></div>
-          <div class="row">
-            <label class="field"><span>Root</span><select id="pcRoot"></select></label>
-            <button type="button" class="tapbtn" id="pcHear">Hear it</button>
-            <button type="button" class="tapbtn strong" id="pcAdd">Add best shape</button>
-          </div>
-          <div class="field" style="margin-bottom:10px"><span>Chord type</span><div class="qbtns" id="pcQual" role="group" aria-label="Chord type"></div></div>
-          <h3 class="pctitle" id="pcTitle"></h3>
-          <div class="shapes-grid" id="pcShapes"></div>
-        </details>
 
         <details class="wsec mylib" data-sec="saved" open>
           <summary><span>My progressions</span><small id="secSavedSum"></small><button type="button" class="info" data-info="saved" aria-label="About saving progressions">i</button></summary>
