@@ -779,10 +779,15 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .alts .hint { font-size: 0.8rem; color: var(--muted); }
 .lsseg.unsure { border-style: dashed; }
 .lsseg.unsure b { color: var(--root-dot); }
-/* Shared-password gate: browser-only convenience. This is not access control for sensitive data. */
+.ip-mood { font-weight: 700; color: var(--accent); }
+.ip-tip { color: var(--muted); font-size: 0.86rem; }
+.itemrow { display: flex; align-items: center; gap: 4px; }
+.itemrow .item { flex: 1 1 auto; min-width: 0; }
+.itemi { flex: none; transform: scale(0.85); opacity: 0.75; }
+.itemrow:hover .itemi, .itemi:focus-visible { opacity: 1; }
 .sitegate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: var(--bg); }
 .sitegate[hidden] { display: none; }
-.gatebox { width: min(380px, 100%); display: grid; gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+.gatebox { width: min(380px,100%); display: grid; gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 12px 40px rgba(0,0,0,.18); }
 .gatebox h2 { margin: 0; font-family: var(--font-head); }
 .gatebox p { margin: 0; color: var(--muted); }
 .gateform { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
@@ -872,7 +877,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
       <section class="panel" id="boardPanel" data-tab-of="fretboard" aria-label="Fretboard">
         <div class="board-head">
           <div>
-            <div class="h2row"><h2 id="patTitle"></h2><button type="button" class="info" data-info="board" aria-label="About reading the fretboard">i</button></div>
+            <div class="h2row"><h2 id="patTitle"></h2><button type="button" class="info" data-info="entry" aria-label="About this scale or chord">i</button><button type="button" class="info" data-info="board" aria-label="About reading the fretboard" title="Reading the fretboard">?</button></div>
             <p id="patMeta"></p>
           </div>
           <div class="now" id="now" style="visibility:hidden"><span>♪</span> <b>C</b></div>
@@ -957,6 +962,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
         <div class="slbody" id="slBody">
           <div class="slleft">
             <div class="slnow" id="slNow"></div>
+            <div class="gtrmeter slmeter"><i id="slLevel"></i></div>
             <div class="slnotes" id="slNotes" aria-hidden="true"></div>
             <p class="sltrail" id="slTrail"></p>
           </div>
@@ -998,10 +1004,11 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
         <details class="wsec picker" data-sec="find" open>
           <summary><span>Find any chord</span><button type="button" class="info" data-info="find" aria-label="About chord names">i</button></summary>
           <p class="hint2">Type a chord name, or pick a root and a type. You hear it when you pick it, then tap each shape to hear it and press Add on the one you like.</p>
-          <input type="search" id="chordSearch" class="csearch" placeholder="Search a chord: Cm7, F#dim, Bbmaj7, G7, dim…" aria-label="Search a chord" autocomplete="off" spellcheck="false">
+          <input type="search" id="chordSearch" class="csearch" placeholder="Search a chord: Cm7, F#dim, C/E, D/F#, G7, dim…" aria-label="Search a chord" autocomplete="off" spellcheck="false">
           <div class="csresults" id="csResults"></div>
           <div class="row">
             <label class="field"><span>Root</span><select id="pcRoot"></select></label>
+            <label class="field"><span>Bass note</span><select id="pcBass" aria-label="Bass note (for slash chords like C/E)"></select></label>
             <button type="button" class="tapbtn" id="pcHear">Hear it</button>
             <button type="button" class="tapbtn strong" id="pcAdd">Add best shape</button>
           </div>

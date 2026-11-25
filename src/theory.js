@@ -400,13 +400,17 @@ function fingerCount(fr) {
 }
 
 const SHAPE_CACHE = new Map();
-function chordShapes(tones, max) {
+// bass (optional): the note that must be lowest, for slash chords like C/E or A/B
+function chordShapes(tones, max, bass) {
   max = max || 4;
-  const ck = tones.map((t) => t.pc).join(',') + '|' + max;
+  const slash = Number.isInteger(bass) && bass !== tones[0].pc ? bass : null;
+  const ck = tones.map((t) => t.pc).join(',') + '|' + max + '|' + (slash === null ? '' : slash);
   if (SHAPE_CACHE.has(ck)) return SHAPE_CACHE.get(ck);
   const pcs = new Set(tones.map((t) => t.pc));
-  const rootPc = tones[0].pc;
-  const need = tones.length >= 4 ? [tones[0].pc, tones[1].pc, tones[3].pc] : tones.map((t) => t.pc);
+  const bassIsTone = slash === null || pcs.has(slash);
+  if (slash !== null) pcs.add(slash);
+  const rootPc = slash === null ? tones[0].pc : slash;
+  const need = (tones.length >= 4 ? [tones[0].pc, tones[1].pc, tones[3].pc] : tones.map((t) => t.pc)).concat(slash === null ? [] : [slash]);
   const all = [];
   const seen = new Set();
   for (const strict of [true, false]) {
@@ -429,7 +433,9 @@ function chordShapes(tones, max) {
         cur.forEach((f, s) => { if (f >= 0) here.add((OPEN[s] + f) % 12); });
         if (!need.every((p) => here.has(p))) return;
         const bassPc = (OPEN[first] + cur[first]) % 12;
-        if (strict && bassPc !== rootPc) return;
+        if ((strict || slash !== null) && bassPc !== rootPc) return;
+        // a bass note that is not in the chord (the B of A/B) belongs only at the bottom
+        if (!bassIsTone && cur.some((f, s) => s !== first && f >= 0 && (OPEN[s] + f) % 12 === slash)) return;
         const key = cur.join(',');
         if (seen.has(key)) return;
         const fg = fingerCount(cur);
@@ -470,7 +476,7 @@ function chordShapes(tones, max) {
 /* ---------- Progression workspace helpers (pure: no audio, no page) ----------
    A slot is one chord in the progression:
    { name, roman, tones: [{name, pc, label, semis}], frets: [6 numbers] or null, beats: 1..8 } */
-const PROG_MAX = 16;
+const PROG_MAX = 128;   // plenty of room: a whole song
 const SPEEDS = [0.5, 0.75, 1, 1.5, 2];
 /* Strumming and picking patterns. steps: one character per step, `grid` steps per beat, the pattern repeats.
    D down-strum  U up-strum (top strings)  d u soft ghost strums  x muted chuck  C "chick" strum of the upper strings
@@ -550,14 +556,16 @@ function slotMidis(slot) {
     slot.frets.forEach((f, s) => { if (f >= 0) m.push(OPEN[s] + f); });
     return m.sort((a, b) => a - b);
   }
-  // no fingering found: stack the chord tones upward from the root near middle C
+  // no fingering found: stack the chord tones upward from the root near middle C (with a slash bass under them)
   let prev = 48 + ((((slot.tones[0].pc - 48) % 12) + 12) % 12) - 1;
-  return slot.tones.map((t) => {
+  const up = slot.tones.map((t) => {
     let m = prev + 1;
     while (m % 12 !== t.pc) m++;
     prev = m;
     return m;
   });
+  if (Number.isInteger(slot.bass) && slot.bass !== slot.tones[0].pc) { let b = up[0] - 1; while (b % 12 !== slot.bass) b--; up.unshift(b); }
+  return up;
 }
 
 // What to play for one slot, as times in seconds from the start of the slot. bs = seconds per beat.
@@ -568,7 +576,7 @@ function rhythmPlan(slot, r, bs, startBeat) {
   const dur = slot.beats * bs;
   const notes = [], hits = [];
   if (!n) return { dur, notes, hits };
-  const root = slot.tones[0].pc;
+  const root = Number.isInteger(slot.bass) ? slot.bass : slot.tones[0].pc;
   const fifth = slot.tones[2] ? slot.tones[2].pc : null;
   const bass = midis.find((m) => m % 12 === root) || midis[0];
   const alt = (fifth !== null && midis.find((m) => m > bass && m % 12 === fifth && m < bass + 12)) || midis.find((m) => m > bass) || bass;
@@ -685,6 +693,7 @@ function cleanProg(raw) {
         beats: Math.max(1, Math.min(8, Number.isInteger(s.beats) ? s.beats : 4)),
         style: okStyle(s.style) ? s.style : '',
       });
+      if (Number.isInteger(s.bass) && s.bass >= 0 && s.bass < 12 && s.bass !== s.tones[0].pc) out.slots[out.slots.length - 1].bass = s.bass;
     });
   }
   if (Number.isFinite(raw.bpm)) out.bpm = Math.max(40, Math.min(220, Math.round(raw.bpm)));
@@ -719,6 +728,13 @@ const QUAL = {
   '7♭9': { short: '7♭9', alias: ['7♭9', '7b9'] },
   '7♯9': { short: '7♯9', alias: ['7♯9', '7#9'] },
 };
+// a chord with another note in the bass (C → C/E). The bass is spelled like the chord, unless told otherwise
+function withBass(ch, bass, flats) {
+  if (!Number.isInteger(bass) || bass === ch.tones[0].pc) return Object.assign({}, ch, { bass: undefined });
+  const inChord = ch.tones.find((t) => t.pc === bass);
+  const nm = inChord ? inChord.name : (flats === undefined ? (ch.flats ? FLAT_NAMES : SHARP_NAMES) : (flats ? FLAT_NAMES : SHARP_NAMES))[bass];
+  return Object.assign({}, ch, { bass, bassName: nm, name: ch.name.replace(/\/.*$/, '') + '/' + nm });
+}
 // A chord from the picker list: spelled with the fewest accidentals unless a spelling is forced
 function pickerChord(qi, pc, flatsPref, forced) {
   const e = ARP_ENTRIES[qi] || ARP_ENTRIES[0];
@@ -728,8 +744,16 @@ function pickerChord(qi, pc, flatsPref, forced) {
   return { q: qi, root: pc, flats, name: tones[0].name + e.sym, roman: '', tones };
 }
 function chordSearch(text, flatsPref) {
-  const s = String(text || '').trim().replace(/\s+/g, '');
-  if (!s) return [];
+  const raw = String(text || '').trim().replace(/\s+/g, '');
+  if (!raw) return [];
+  // a slash chord: the chord, then "/" and the bass note
+  const sl = /^(.+)\/([A-Ga-g])(#|♯|b|♭)?$/.exec(raw);
+  if (sl) {
+    const L = sl[2].toUpperCase();
+    const bpc = ((([0, 2, 4, 5, 7, 9, 11][LETTERS.indexOf(L)] + (sl[3] === '#' || sl[3] === '♯' ? 1 : sl[3] ? -1 : 0)) % 12) + 12) % 12;
+    return chordSearch(sl[1], flatsPref).map((c) => withBass(c, bpc, sl[3] ? (sl[3] === '#' || sl[3] === '♯' ? false : true) : flatsPref));
+  }
+  const s = raw;
   const out = [];
   const seen = new Set();
   const push = (qi, pc, forced) => {
@@ -1365,7 +1389,8 @@ function analyzeProg(slots, hint) {
   const chords = (slots || []).filter((s) => s && s.tones && s.tones.length).map((s) => {
     const pcs = s.tones.map((t) => t.pc);
     const root = pcs[0];
-    return { name: s.name, root, pcs, sym: chordSym(root, pcs), beats: s.beats || 4 };
+    const bass = Number.isInteger(s.bass) && s.bass !== root ? s.bass : null;
+    return { name: s.name, root, pcs, keyPcs: bass === null || pcs.indexOf(bass) >= 0 ? pcs : pcs.concat([bass]), bass, sym: chordSym(root, pcs), beats: s.beats || 4 };
   });
   if (!chords.length) return null;
   const total = chords.reduce((a, c) => a + c.beats, 0);
@@ -1377,7 +1402,7 @@ function analyzeProg(slots, hint) {
       if (m === 'minor') sc.push((t + 11) % 12);   // the raised 7th of harmonic minor (for V and vii°)
       let s = 0;
       chords.forEach((c) => {
-        const inn = c.pcs.filter((p) => sc.indexOf(p) >= 0).length / c.pcs.length;
+        const inn = c.keyPcs.filter((p) => sc.indexOf(p) >= 0).length / c.keyPcs.length;
         s += c.beats * (inn + (inn === 1 ? 0.3 : 0));
       });
       s /= total;
@@ -1414,7 +1439,7 @@ function analyzeProg(slots, hint) {
     if (kind === 'secondary') fn = 'D';
     else if (M === 'major') fn = { 0: 'T', 4: 'T', 9: 'T', 2: 'PD', 5: 'PD', 7: 'D', 11: 'D', 8: 'PD', 10: 'PD', 3: 'T', 1: 'PD' }[rel] || '';
     else fn = { 0: 'T', 3: 'T', 8: 'PD', 2: 'PD', 5: 'PD', 7: 'D', 11: 'D', 10: 'D', 1: 'PD' }[rel] || '';
-    return { name: c.name, root: c.root, sym: c.sym, roman, label, base, kind, target, fn, rel };
+    return { name: c.name, root: c.root, sym: c.sym, roman, label, base, kind, target, fn, rel, bass: c.bass };
   });
   // what happens from one chord to the next (and from the last back to the first, since progressions loop)
   const notes = [];
@@ -1516,5 +1541,5 @@ function scaleMatches(weights, opts) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches };
+  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches };
 }
