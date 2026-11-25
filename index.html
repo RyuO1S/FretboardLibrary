@@ -2697,10 +2697,7 @@ if (typeof module !== 'undefined') {
     let unlocked = false;
     try { unlocked = sessionStorage.getItem('fretboard-site-gate') === 'unlocked'; } catch (e) {}
     if (unlocked) gate.hidden = true;
-    else {
-      gate.hidden = false;
-      setTimeout(() => gatePassword.focus(), 50);
-    }
+    else { gate.hidden = false; setTimeout(() => gatePassword.focus(), 50); }
     gateForm.addEventListener('submit', (e) => {
       e.preventDefault();
       if (gatePassword.value === 'SR567432') {
@@ -2736,6 +2733,7 @@ if (typeof module !== 'undefined') {
   const ICON = {
     plus: ln('M12 5v14M5 12h14'),
     minus: ln('M5 12h14'),
+    edit: ln('M4 20h4L19 9l-4-4L4 16v4zM13 7l4 4'),
     mic: ln('M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3'),
     upload: ln('M12 16V4M7 9l5-5 5 5M5 20h14'),
     playf: '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>',
@@ -2954,7 +2952,7 @@ if (typeof module !== 'undefined') {
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -3014,7 +3012,7 @@ if (typeof module !== 'undefined') {
     } else if (FX === 'subtle') { if (!circ) ripple(el, e); fxRadial(el, e); }
     setTimeout(() => pressAnim(sel), 0);
   }, true);
-  const S = { key: 0, flats: true, id: ENTRIES[0].id, labels: 'note', from: 0, to: MAX_FRET, ghost: false, set: 0, inv: 0, pos: 'all', pat: 'all', zoom: true, chord: 'none', chordType: 'triad', chordOnly: false, cx: null, hk: 0, hm: 'major', q: '' };
+  const S = { key: 0, flats: true, id: ENTRIES[0].id, labels: 'note', from: 0, to: MAX_FRET, ghost: false, set: 0, inv: 0, pos: 'all', pat: 'all', zoom: true, chord: 'none', chordType: 'triad', chordOnly: false, cx: null, hk: 0, hm: 'major', q: '', nxView: 'chords' };
   try {
     const sv = JSON.parse(localStorage.getItem('fretboard-theory') || 'null');
     // a chord picked in the Key explorer is a passing choice: it is not brought back on the next visit
@@ -3457,7 +3455,8 @@ if (typeof module !== 'undefined') {
       for (const e of items) {
         const toks = e.f.split(' ');
         const small = toks.length <= 5 ? toks.map(fmtLabel).join(' ') : toks.length + ' notes';
-        html += `<button type="button" class="item" data-id="${e.id}" aria-current="${e.id === S.id}"><span>${esc(e.name)}</span><small>${esc(small)}</small></button>`;
+        html += `<div class="itemrow"><button type="button" class="item" data-id="${e.id}" aria-current="${e.id === S.id}"><span>${esc(e.name)}</span><small>${esc(small)}</small></button>`
+          + (e.kind === 'scale' ? `<button type="button" class="info itemi" data-info="scale:${e.id}" aria-label="What is the ${esc(e.name)} scale?">i</button>` : '') + `</div>`;
       }
       html += `</div>`;
     });
@@ -3682,14 +3681,18 @@ if (typeof module !== 'undefined') {
     // ---- what comes next: suggestions under the heading, and highlights on the circle ----
     const findHub = (base) => hubList.findIndex((c) => romanBase(c.roman) === base);
     const selIdx = S.cx ? hubList.findIndex((c) => c.name === S.cx.name && c.roman === S.cx.roman) : -1;
-    const sel = selIdx >= 0 ? hubList[selIdx] : null;
+    const picked = selIdx >= 0 ? hubList[selIdx] : null;
+    // with no chord chosen, the panel starts from the home chord (I or i); "Related keys" shows how this key connects to others
+    const keysView = !picked && S.nxView === 'keys';
+    const sel = keysView ? null : picked || hubList[0];
     const KIND = { strong: 'Strong pull', common: 'Common', colour: 'Colour' };
+    const viewSeg = `<div class="seg nxview" role="group" aria-label="What the circle shows"><button type="button" data-nxview="chords" aria-pressed="${!keysView}">Next chords</button><button type="button" data-nxview="keys" aria-pressed="${keysView}">Related keys</button></div>`;
     let nx;
     let moves = [];
     if (sel) {
       moves = nextMoves(sel.roman, mode).map((m) => Object.assign({}, m, { i: findHub(m.to) })).filter((m) => m.i >= 0);
-      nx = `<div class="nextbox"><h3>What comes next after ${esc(sel.name)} <span class="nxr">${esc(sel.roman)}</span> <button type="button" class="info" data-info="next" aria-label="About what comes next">i</button></h3>`
-        + `<p class="hint">The circle highlights the same chords. Tap a chord to hear it and keep going; press + to add it to your progression.</p>`
+      nx = `<div class="nextbox"><div class="nxhead"><h3>What comes next after ${picked ? '' : 'the home chord '}${esc(sel.name)} <span class="nxr">${esc(sel.roman)}</span> <button type="button" class="info" data-info="next" aria-label="About what comes next">i</button></h3>${viewSeg}</div>`
+        + `<p class="hint">${picked ? '' : 'Most songs start and end on ' + esc(sel.name) + '. Tap any chord in the key to see its moves instead. '}The circle highlights the same chords: orange is the strongest pull, blue is common, grey adds colour. Tap a chord to hear it and keep going; press + to add it to your progression.</p>`
         + ['strong', 'common', 'colour'].map((k) => {
           const list = moves.filter((m) => m.kind === k);
           if (!list.length) return '';
@@ -3700,9 +3703,19 @@ if (typeof module !== 'undefined') {
           }).join('') + `</div></div>`;
         }).join('') + `</div>`;
     } else {
-      const ti = hubList[0];
-      nx = `<div class="nextbox"><h3>What comes next <button type="button" class="info" data-info="next" aria-label="About what comes next">i</button></h3>`
-        + `<p class="hint">Tap any chord below to see which chords usually follow it, highlighted on the circle of fifths. Most songs start and end on ${esc(ti.name)} (${esc(ti.roman)}), the home chord. The highlights on the circle show the keys that go with ${esc(keyName)}.</p></div>`;
+      // related keys: where a song in this key can move, and why
+      const mj = mode === 'major';
+      const kn = (pc, m) => names[((pc % 12) + 12) % 12] + ' ' + m;
+      const rel = [
+        [mj ? (S.hk + 7) % 12 : (S.hk + 7) % 12, mode, 'V', 'strong', 'Dominant: one step clockwise. One sharp more (or one flat less), so it shares 6 of 7 notes. The most common key change.'],
+        [(S.hk + 5) % 12, mode, 'IV', 'common', 'Subdominant: one step anticlockwise. One flat more (or one sharp less). Feels like moving away, gently.'],
+        [mj ? (S.hk + 9) % 12 : (S.hk + 3) % 12, mj ? 'minor' : 'major', 'rel', 'common', 'Relative ' + (mj ? 'minor' : 'major') + ': exactly the same notes, a different home. Same spot on the circle, ' + (mj ? 'inner' : 'outer') + ' ring.'],
+        [S.hk, mj ? 'minor' : 'major', 'par', 'colour', 'Parallel ' + (mj ? 'minor' : 'major') + ': same root, other mood. Its chords are the "borrowed" chords, for a darker or brighter colour.'],
+      ];
+      nx = `<div class="nextbox"><div class="nxhead"><h3>Keys related to ${esc(keyName)} <button type="button" class="info" data-info="related" aria-label="About related keys">i</button></h3>${viewSeg}</div>`
+        + `<p class="hint">Keys that sit close to this one, so songs often move between them. They are marked on the circle. Tap one to move there.</p>`
+        + rel.map(([pc, m, tag, k, why]) => `<div class="nxrow"><span class="nxk ${k}">${tag === 'rel' ? 'Relative' : tag === 'par' ? 'Parallel' : tag === 'V' ? 'Dominant' : 'Subdominant'}</span><div class="nxlist"><div class="nxitem"><button type="button" class="nxbtn ${k}" data-gokey="${pc}:${m}"><b>${esc(kn(pc, m))}</b><small>${esc(tag)}</small></button><span class="nxwhy">${esc(why)}</span></div></div></div>`).join('')
+        + `</div>`;
     }
     h = nx + h;
     // harmony highlights (like a colour wheel's harmony marks): tint the related spots instead of drawing arrows
@@ -3748,6 +3761,7 @@ if (typeof module !== 'undefined') {
     if (note) note.textContent = sel ? 'Highlighted: where ' + sel.name + ' usually goes next. Orange outline: the strongest pull. Blue: common. Grey dashed: adds colour. Faded chords are less likely next.' : 'Lit up: the keys that go with ' + keyName + '. V and IV are its neighbours, rel is the relative key (same notes), par is the parallel key (same root).';
     const chordsHtml = h;
     renderListen();
+    renderScaleListen();
     h = '';
     // scales
     const sBtn = (group, name, note, label, small) => {
@@ -4026,7 +4040,7 @@ if (typeof module !== 'undefined') {
   const PL = { on: false, idx: 0, next: 0, beat: 0, events: [], steps: [], active: -1, timer: 0, ended: false, endAt: 0, out: null };
   // the "add any chord" picker
   const ARPS = ENTRIES.filter((e) => e.kind === 'arp');
-  const PK = { root: 0, q: 0, chord: null, list: [], forced: undefined };
+  const PK = { root: 0, q: 0, chord: null, list: [], forced: undefined, bass: -1 };
   let progVisible = false, flashTimer = 0, flashText = '', clearArmed = 0;
   const taps = [];
   const SPEED_LABEL = { 0.5: '½×', 0.75: '¾×', 1: '1×', 1.5: '1.5×', 2: '2×' };
@@ -4040,7 +4054,7 @@ if (typeof module !== 'undefined') {
   function shapeOf(sl) {
     if (!sl.frets) return null;
     const k = sl.frets.join(',');
-    const hit = chordShapes(sl.tones, 4).all.find((c) => c.frets.join(',') === k);
+    const hit = chordShapes(sl.tones, 4, sl.bass).all.find((c) => c.frets.join(',') === k);
     if (hit) return hit;
     const fr = sl.frets.filter((f) => f > 0);
     return { frets: sl.frets, min: fr.length ? Math.min.apply(null, fr) : 0, max: fr.length ? Math.max.apply(null, fr) : 0, barre: null, inversion: false };
@@ -4124,15 +4138,15 @@ if (typeof module !== 'undefined') {
 
   function slotHtml(sl, i) {
     const sh = shapeOf(sl);
-    const forms = chordShapes(sl.tones, 4).list;
+    const forms = chordShapes(sl.tones, 4, sl.bass).list;
     const fi = sl.frets ? forms.findIndex((f) => f.frets.join(',') === sl.frets.join(',')) : -1;
     const form = sh ? shapeLabel(sh) : 'No simple shape';
     const formTxt = forms.length > 1 && fi >= 0 ? (fi + 1) + '/' + forms.length + ' · ' + form : form;
     const last = i === P.slots.length - 1;
     const ib = (act, icon, label, dis) => `<button type="button" class="ib" data-act="${act}" data-i="${i}" aria-label="${esc(label)}"${dis ? ' disabled' : ''}>${icon}</button>`;
     return `<div class="slot${i === PL.active && PL.on ? ' playing' : ''}" data-slot="${i}" draggable="true" role="group" aria-label="Chord ${i + 1} of ${P.slots.length}: ${esc(slotName(sl))}, ${sl.beats} beats">`
-      + `<div class="slot-top"><span class="num">${i + 1}</span>${ib('del', ICON.x, 'Remove ' + sl.name + ' from the progression')}</div>`
-      + `<button type="button" class="slot-hear" data-act="hear" data-i="${i}" aria-label="Hear ${esc(sl.name)}"><small>${esc(sl.roman) || '&nbsp;'}</small><b>${esc(sl.name)}</b>`
+      + `<div class="slot-top"><span class="num">${i + 1}</span><span class="slot-tools">${ib('edit', ICON.edit, 'Edit ' + sl.name)}${ib('del', ICON.x, 'Remove ' + sl.name + ' from the progression')}</span></div>`
+      + `<button type="button" class="slot-hear" data-act="hear" data-i="${i}" aria-label="Hear ${esc(sl.name)}"><small>${esc((AN && AN.chords[i] ? AN.chords[i].label : sl.roman) + (AN && AN.chords[i] && Number.isInteger(sl.bass) && sl.name.indexOf('/') > 0 ? '/' + sl.name.split('/')[1] : '')) || '&nbsp;'}</small><b>${esc(sl.name)}</b>`
       + (sh ? `<span class="mini">${shapeSvg(sh, sl.tones, sl.name)}</span><span class="tabtxt">${esc(tabText(sh))}</span>` : '<span class="tabtxt">notes only</span>')
       + `</button>`
       + `<div class="slot-row">${ib('fprev', ICON.prev, 'Previous shape for ' + sl.name, forms.length < 2)}<span class="slot-lbl" title="Shape">${esc(formTxt)}</span>${ib('fnext', ICON.next, 'Next shape for ' + sl.name, forms.length < 2)}</div>`
@@ -4145,8 +4159,73 @@ if (typeof module !== 'undefined') {
       + `<span class="bar"></span></div>`;
   }
 
+  /* ---------- Analysis of your progression: key, each chord's type, number and job, cadences, and what kind of progression it is ---------- */
+  let AN = null;
+  const FN_NAME = { T: 'Home', PD: 'Away', D: 'Tension' };
+  const KIND_NAME = { diatonic: 'In the key', secondary: 'Secondary dominant', borrowed: 'Borrowed', chromatic: 'Outside the key' };
+  const typeName = (sym, c) => { const e = ARP_ENTRIES.find((x) => x.sym === sym); return (e ? e.name.replace(' triad', '') : 'Custom chord') + (c && Number.isInteger(c.bass) && c.name.indexOf('/') > 0 ? ', ' + c.name.split('/')[1] + ' in the bass' : ''); };
+  function renderAnalysis() {
+    const box = $('progAna');
+    if (!box) return;
+    const sum = $('secAnaSum');
+    if (!AN || P.slots.length < 2) {
+      box.innerHTML = '<p class="hint">Add at least two chords and the analysis appears here: the key, what kind of progression it is (a 2–5–1, a pop loop…), each chord\u2019s job, and what to play next.</p>';
+      if (sum) sum.textContent = '';
+      return;
+    }
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    const k = AN.key;
+    const keyName = names[k.tonic] + ' ' + k.mode;
+    const formula = AN.chords.map((c) => c.label + (Number.isInteger(c.bass) && c.name.indexOf('/') > 0 ? '/' + c.name.split('/')[1] : '')).join(' – ');
+    const norm = (s) => s.replace(/[°ø+]/g, '');
+    const types = AN.matches.length
+      ? AN.matches.map((m) => `<div class="anmatch"><b>${esc(m.name)}</b> <span class="anf">${esc(m.alt)}</span><p>${esc(m.hint)}</p></div>`).join('')
+      : `<div class="anmatch"><b>Your own progression</b><p>It is not one of the well-known loops, so it is all yours. The notes below show how it moves.</p></div>`;
+    const has251 = AN.notes.some((x) => x.kind === '251') || AN.matches.some((m) => m.id === '251' || m.id === 'm251');
+    const cards = AN.chords.map((c, i) => `<div class="anchord ${c.kind}"><small>${i + 1}</small><b>${esc(c.name)}</b><span class="antype">${esc(typeName(c.sym, c))}</span><span class="anroman">${esc(c.label + (Number.isInteger(c.bass) && c.name.indexOf('/') > 0 ? '/' + c.name.split('/')[1] : ''))}</span>`
+      + (c.fn ? `<span class="anfn fn-${c.fn}">${esc(FN_NAME[c.fn])}</span>` : '') + `<span class="ankind">${esc(KIND_NAME[c.kind])}</span></div>`).join('');
+    const last = AN.chords[AN.chords.length - 1];
+    const nexts = nextMoves(last.base, k.mode).slice(0, 4).map((m) => {
+      const r = chordFromRoman(m.to, k.tonic);
+      if (!r) return '';
+      const qi = ARP_ENTRIES.findIndex((e) => e.sym === r.sym);
+      const ch = pickerChord(qi < 0 ? 0 : qi, r.root, S.flats);
+      return `<button type="button" class="nxbtn ${m.kind}" data-ana-add="${r.root}:${esc(r.sym)}" title="${esc(m.why)}"><b>${esc(ch.name)}</b><small>${esc(m.to)}</small></button>`;
+    }).join('');
+    const sc = k.mode === 'major' ? [['e0', 'major scale'], ['e4', 'major pentatonic']] : [['e1', 'natural minor scale'], ['e5', 'minor pentatonic'], ['e6', 'blues scale']];
+    box.innerHTML = `<div class="anhead"><div><span class="ankey">Key: <b>${esc(keyName)}</b></span> <span class="hint">${k.fit}% of the chords are in the key${k.alt && k.alt[0] ? ' · could also be ' + esc(names[k.alt[0].tonic] + ' ' + k.alt[0].mode) : ''}</span></div>`
+      + `<button type="button" class="tapbtn" data-ana="key">Open ${esc(keyName)} in the Key explorer</button></div>`
+      + `<div class="anrow"><h4>What kind of progression</h4>${types}<p class="anformula">In numbers: <b>${esc(formula)}</b>${has251 ? ' · <span class="an251">contains a 2–5–1</span>' : ' · no 2–5–1 in it'}</p></div>`
+      + `<div class="anrow"><h4>Each chord</h4><div class="anchords">${cards}</div><p class="hint"><span class="anfn fn-T">Home</span> rests, <span class="anfn fn-PD">Away</span> moves off, <span class="anfn fn-D">Tension</span> wants to resolve.</p></div>`
+      + (AN.notes.length ? `<div class="anrow"><h4>What is happening</h4><ul class="annotes">${AN.notes.map((x) => `<li>${esc(x.text)}</li>`).join('')}</ul></div>` : '')
+      + (nexts ? `<div class="anrow"><h4>Try next, after ${esc(last.name)}</h4><div class="annext">${nexts}</div><p class="hint">Tap one to add it.</p></div>` : '')
+      + `<div class="anrow"><h4>Solo or write a melody with</h4><div class="annext">${sc.map(([id, nm]) => `<button type="button" class="tapbtn" data-ana-scale="${id}:${k.tonic}">${esc(names[k.tonic] + ' ' + nm)}</button>`).join('')}</div></div>`;
+    if (sum) sum.textContent = keyName + (AN.matches[0] ? ' · ' + AN.matches[0].name : '') + (has251 ? ' · 2–5–1' : '');
+  }
+  function anaClick(t) {
+    const add = t.closest('[data-ana-add]');
+    if (add) {
+      const [root, sym] = add.dataset.anaAdd.split(':');
+      const qi = ARP_ENTRIES.findIndex((e) => e.sym === sym);
+      addToProg(pickerChord(qi < 0 ? 0 : qi, +root, S.flats));
+      return true;
+    }
+    const scb = t.closest('[data-ana-scale]');
+    if (scb) {
+      const [id, root] = scb.dataset.anaScale.split(':');
+      S.key = +root; S.id = id; S.pat = 'all'; S.pos = 'all'; S.chord = 'none'; S.cx = null;
+      render();
+      if (LAYOUT === 'tabs') setTab('fretboard'); else showBoard();
+      return true;
+    }
+    const kb = t.closest('[data-ana="key"]');
+    if (kb && AN) { setHome(AN.key.tonic, AN.key.mode); setTab('keys'); return true; }
+    return false;
+  }
+
   function renderProg() {
     const n = P.slots.length;
+    try { AN = n ? analyzeProg(P.slots, { hk: S.hk, hm: S.hm }) : null; } catch (e) { AN = null; }
     $('progSlots').innerHTML = n
       ? P.slots.map(slotHtml).join('')
       : '<p class="slots-empty">Nothing here yet. Press <b>+</b> on any chord, or <b>Add</b> under any chord shape, to put it here.</p>';
@@ -4171,6 +4250,7 @@ if (typeof module !== 'undefined') {
     $('secPlaySum').textContent = P.bpm + ' BPM · ' + SPEED_LABEL[P.speed] + (P.loop ? ' · loop' : '') + (P.click ? ' · click' : '');
     $('secRhythmSum').textContent = rhythmOf(P.style).name;
     if (typeof LIB !== 'undefined' && LIB.mode !== 'loading') renderLib();
+    renderAnalysis();
     syncTransport();
   }
 
@@ -4339,6 +4419,7 @@ if (typeof module !== 'undefined') {
     if (REC.on) stopRec();
     if (PL.on) stopProg();
     if (LS.live) lsStop();
+    if (SL.live) slStop();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { gtrBlocked(); return; }
     txSay('Asking to use the microphone…');
     let stream;
@@ -4814,14 +4895,17 @@ if (typeof module !== 'undefined') {
       flash('Progression is full');
       return false;
     }
-    const shape = sh || chordShapes(ch.tones, 4).best;
-    P.slots.push({
+    const slash = Number.isInteger(ch.bass) && ch.bass !== ch.tones[0].pc ? ch.bass : undefined;
+    const shape = sh || chordShapes(ch.tones, 4, slash).best;
+    const slot = {
       name: ch.name,
       roman: ch.roman || '',
       tones: ch.tones.map((t) => ({ name: t.name, pc: t.pc, label: t.label, semis: t.semis || 0 })),
       frets: shape ? shape.frets.slice() : null,
       beats: 4,
-    });
+    };
+    if (slash !== undefined) slot.bass = slash;
+    P.slots.push(slot);
     saveProg();
     renderProg();
     if (opts && opts.quiet) return true;
@@ -4836,8 +4920,39 @@ if (typeof module !== 'undefined') {
   const lsSay = (m) => { const el = $('lsMsg'); if (el) el.textContent = m || ''; };
   const pcName = (pc) => (S.flats ? FLAT_NAMES : SHARP_NAMES)[((pc % 12) + 12) % 12];
   // a heard chord ({root, sym}) as a chord the rest of the site understands, named and numbered as in the current key when it belongs there
+  const INT_LABELS = ['1', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♯5', '6', '♭7', '7'];
+  // a chord made of any notes you picked, when it has no standard name
+  function customChord(root, pcs) {
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    const list = Array.from(new Set(pcs.map((p) => ((p % 12) + 12) % 12))).sort((a, b) => ((a - root + 12) % 12) - ((b - root + 12) % 12));
+    const tones = list.map((pc) => { const s = (pc - root + 12) % 12; return { name: names[pc], pc, label: INT_LABELS[s], semis: s }; });
+    return { name: names[root] + ' (custom)', roman: '', tones, custom: true };
+  }
+  // which standard chord a set of notes makes (the chosen root first, then any other note as the root)
+  function nameNotes(pcs, root) {
+    const set = Array.from(new Set(pcs)).sort((a, b) => a - b).join();
+    const tryRoot = (r) => {
+      for (let qi = 0; qi < ARP_ENTRIES.length; qi++) {
+        const t = buildPattern(ARP_ENTRIES[qi], r, S.flats).notes.map((n) => n.pc);
+        if (Array.from(new Set(t)).sort((a, b) => a - b).join() === set) return { root: r, sym: ARP_ENTRIES[qi].sym };
+      }
+      return null;
+    };
+    if (root !== undefined && pcs.indexOf(root) >= 0) { const hit = tryRoot(root); if (hit) return hit; }
+    for (const r of pcs) { const hit = tryRoot(r); if (hit) return hit; }
+    const r = root !== undefined && pcs.indexOf(root) >= 0 ? root : pcs[0];
+    return { root: r, pcs: pcs.slice(), custom: true };
+  }
+  const chordPcs = (h) => { const c = lsChord(h); return c ? c.tones.map((t) => t.pc) : []; };
+  const chordMinor = (h) => { const p = chordPcs(h); return p.indexOf((h.root + 3) % 12) >= 0 && p.indexOf((h.root + 4) % 12) < 0; };
   function lsChord(h) {
     if (!h) return null;
+    if (h.custom) {
+      const ch = customChord(h.root, h.pcs || [h.root]);
+      const key = ch.tones.map((t) => t.pc).sort((a, b) => a - b).join();
+      const hub = hubList.find((c) => c.tones.map((t) => t.pc).sort((a, b) => a - b).join() === key);
+      return Object.assign(ch, hub ? { inKey: true, roman: hub.roman } : { inKey: false });
+    }
     const qi = ARP_ENTRIES.findIndex((e) => e.sym === h.sym);
     if (qi < 0) return null;
     const ch = pickerChord(qi, h.root, S.flats);
@@ -4847,14 +4962,24 @@ if (typeof module !== 'undefined') {
     // a richer or plainer version of a chord in the key (G7 when the key shows G, or G when it shows Gmaj7) still belongs: same root, one set of notes inside the other
     const pcs = new Set(ch.tones.map((t) => t.pc));
     const near = hubList.find((c) => c.tones[0].pc === h.root && (c.tones.every((t) => pcs.has(t.pc)) || ch.tones.every((t) => c.tones.some((u) => u.pc === t.pc))));
-    if (near) {
+    // ...but only when its extra notes are in the key too (G7 in C is V7; C7 in C is not I7), or it is the V7 of a minor key
+    const scale = (S.hm === 'minor' ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11]).map((s) => (S.hk + s) % 12);
+    const fits = near && (ch.tones.every((t) => scale.indexOf(t.pc) >= 0) || (h.sym === '7' && romanBase(near.roman) === 'V'));
+    if (near && fits) {
       const extra = h.sym === 'maj7' ? 'maj7' : /7/.test(h.sym) ? '7' : '';
       const base = romanBase(near.roman);
       return Object.assign(ch, { inKey: true, roman: extra && !/7/.test(near.roman) ? base + extra : (extra ? near.roman : base), hub: near });
     }
     return Object.assign(ch, { inKey: false });
   }
-  const lsFresh = (h) => { const c = h && lsChord(h); return c ? Object.assign(c, { root: h.root, sym: h.sym }) : null; };
+  const lsFresh = (h) => {
+    let c = h && lsChord(h);
+    if (!c) return null;
+    if (Number.isInteger(h.bass) && h.bass >= 0 && h.bass !== h.root) c = withBass(c, h.bass, S.flats);
+    return Object.assign(c, { root: h.root, sym: h.sym, custom: !!h.custom, pcs: h.pcs });
+  };
+  const chordRef = (h) => { if (!h) return null; const r = h.custom ? { root: h.root, custom: true, pcs: (h.pcs || []).slice() } : { root: h.root, sym: h.sym }; if (Number.isInteger(h.bass) && h.bass >= 0 && h.bass !== h.root) r.bass = h.bass; return r; };
+  const refId = (h) => (h ? h.root + ':' + (h.custom ? 'c' + (h.pcs || []).slice().sort((a, b) => a - b).join('.') : h.sym) + (Number.isInteger(h.bass) ? '/' + h.bass : '') : '');
   const homeName = () => pcName(S.hk) + ' ' + (S.hm === 'minor' ? 'minor' : 'major');
   function lsWhere(ch) {
     if (!ch) return '';
@@ -4876,6 +5001,8 @@ if (typeof module !== 'undefined') {
       $('lsCircle').hidden = !ch;
       $('lsCircle').textContent = ch && !ch.inKey ? 'Show in its own key' : 'Show on the circle';
       $('lsAdd').hidden = !ch;
+      $('lsEditBtn').hidden = !ch;
+      lsSure();
       $('lsAuto').setAttribute('aria-pressed', String(LS.auto));
       $('lsAuto').hidden = !LS.live;
       $('lsFollow').setAttribute('aria-pressed', String(LS.follow));
@@ -4888,15 +5015,19 @@ if (typeof module !== 'undefined') {
       const t = LS.track;
       const total = Math.max(0.1, t.dur);
       $('lsTrackHead').innerHTML = `<b>${t.segs.length} chord${t.segs.length === 1 ? '' : 's'}</b> in ${esc(LS.name || 'your clip')} (${Math.round(t.dur)} s)`
-        + (t.key ? ` · sounds like <b>${esc(pcName(t.key.root) + ' ' + t.key.mode)}</b> <button type="button" class="tapbtn lssmall" data-ls="key">Use this key</button>` : '');
+        + (t.key ? ` · sounds like <b>${esc(pcName(t.key.root) + ' ' + t.key.mode)}</b> <button type="button" class="tapbtn lssmall" data-ls="key">Use this key</button>` : '')
+        + (Math.abs(t.tune || 0) > 0.12 ? `<span class="hint"> · the guitar is about ${Math.round(Math.abs(t.tune) * 100)} cents ${t.tune > 0 ? 'sharp' : 'flat'} (allowed for)</span>` : '')
+        + (t.segs.some((g) => g.confidence !== undefined && g.confidence < 0.8) ? `<span class="hint"> · chords marked <b>?</b> were hard to hear: tap one to check it, then ✎ Edit chord</span>` : '');
       $('lsStrip').innerHTML = t.segs.map((g, i) => {
         const w = Math.max(4, ((g.end - g.start) / total) * 100);
         const ch = lsFresh(g) || g.ch;
-        return `<span class="lsw lssegw" style="flex-grow:${w.toFixed(2)}"><button type="button" class="lsseg${i === LS.sel ? ' on' : ''}${ch.inKey ? '' : ' out'}" data-lseg="${i}" title="${esc(ch.name)} at ${g.start.toFixed(1)} s"><b>${esc(ch.name)}</b><small>${esc(ch.inKey ? ch.roman : 'out of key')}</small></button><button type="button" class="lsx" data-lsegdel="${i}" aria-label="Remove ${esc(ch.name)} at ${g.start.toFixed(1)} seconds" title="Remove this chord">${ICON.x}</button></span>`;
+        const unsure = g.confidence !== undefined && g.confidence < 0.8;
+        return `<span class="lsw lssegw" style="flex-grow:${w.toFixed(2)}"><button type="button" class="lsseg${i === LS.sel ? ' on' : ''}${ch.inKey ? '' : ' out'}${unsure ? ' unsure' : ''}" data-lseg="${i}" title="${esc(ch.name)} at ${g.start.toFixed(1)} s${unsure ? ' (not sure: check it)' : ''}"><b>${esc(ch.name)}${unsure ? '?' : ''}</b><small>${esc(ch.inKey ? ch.roman : 'out of key')}</small></button><button type="button" class="lsx" data-lsegdel="${i}" aria-label="Remove ${esc(ch.name)} at ${g.start.toFixed(1)} seconds" title="Remove this chord">${ICON.x}</button></span>`;
       }).join('');
       $('lsPlay').innerHTML = (LS.player ? ICON.stopf : ICON.playf) + (LS.player ? ' Stop' : ' Play clip');
     }
     heardMark();
+    if (LE.open) renderLsEdit();
     // the note bars are always there, flat until sound comes in
     const bb = $('lsBars');
     if (bb && (!bb.firstChild || bb.dataset.flats !== String(S.flats))) lsBars(LS.ema || new Float64Array(12), LS.ema ? 1 : 0);
@@ -4908,8 +5039,7 @@ if (typeof module !== 'undefined') {
     const p = mode === 'major' ? (S.hk * 7) % 12 : (((S.hk + 3) % 12) * 7) % 12;   // the key's spot (its relative major's index)
     let hi = -1, hMinor = false;
     if (h) {
-      const t = HEAR_TYPES.find((x) => x.sym === h.sym) || HEAR_TYPES[0];
-      hMinor = t.iv[1] === 3;
+      hMinor = chordMinor(h);
       hi = hMinor ? ((h.root + 3) * 7) % 12 : (h.root * 7) % 12;
     }
     let s = '';
@@ -4947,8 +5077,7 @@ if (typeof module !== 'undefined') {
     const h = LS.cur;
     if (note) note.hidden = !h;
     if (!h) return;
-    const t = HEAR_TYPES.find((x) => x.sym === h.sym) || HEAR_TYPES[0];
-    const minor = t.iv[1] === 3;
+    const minor = chordMinor(h);
     const i = minor ? ((h.root + 3) * 7) % 12 : (h.root * 7) % 12;
     const tip = polar(minor ? 98 : 144, i * 30 - 90);
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -4972,8 +5101,26 @@ if (typeof module !== 'undefined') {
     S.chord = 'none';
     render();
   }
+  // how sure the listener is, what else it could be, and a way to compare by ear
+  function lsSure() {
+    const box = $('lsSure');
+    if (!box) return;
+    const ch = lsFresh(LS.cur);
+    if (!ch || LS.focus && LS.focus.kind !== 'cur' || !(LS.conf > 0)) {
+      box.innerHTML = ch ? `<button type="button" class="tapbtn lssmall" data-ls="compare">Hear ${esc(ch.name)} to compare</button>` : '';
+      return;
+    }
+    const c = Math.round((LS.conf || 0) * 100);
+    const word = c >= 70 ? 'Sure' : c >= 40 ? 'Fairly sure' : 'Not sure';
+    const alts = (LS.alts || []).map(lsFresh).filter(Boolean);
+    const tune = LS.tune || 0;
+    box.innerHTML = `<div class="sure ${c >= 70 ? 'hi' : c >= 40 ? 'mid' : 'lo'}"><span class="surebar"><i style="width:${Math.max(6, c)}%"></i></span><b>${word}</b> <small>${c}%</small></div>`
+      + (alts.length && c < 85 ? `<div class="alts"><span>Could also be:</span>${alts.map((a, i) => `<button type="button" class="tapbtn lssmall" data-lsalt="${i}">${esc(a.name)}</button>`).join('')}<span class="hint">Tap the right one if it is wrong.</span></div>` : '')
+      + `<div class="alts"><button type="button" class="tapbtn lssmall" data-ls="compare">Hear ${esc(ch.name)} to compare</button>`
+      + (Math.abs(tune) > 0.12 ? `<span class="hint">Your guitar sounds about ${Math.round(Math.abs(tune) * 100)} cents ${tune > 0 ? 'sharp' : 'flat'}. The listener allows for it, but tuning up helps.</span>` : '') + `</div>`;
+  }
   function lsShowNow(h, quiet) {
-    LS.cur = h ? { root: h.root, sym: h.sym } : null;
+    LS.cur = chordRef(h);
     renderListen();
     lsFollow();
     const ch = lsFresh(LS.cur);
@@ -4985,6 +5132,7 @@ if (typeof module !== 'undefined') {
     if (!c) { lsSay('This browser cannot listen to sound.'); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { lsBlocked(); return; }
     if (GTR.on) gtrStop(false);
+    if (SL.live) slStop();
     lsSay('Asking to use the microphone…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
@@ -4995,7 +5143,7 @@ if (typeof module !== 'undefined') {
       LS.an.fftSize = 16384;
       LS.src.connect(LS.an);              // not to the speakers: no feedback
       LS.live = true;
-      LS.ema = null; LS.cand = null; LS.candN = 0; LS.quietN = 0;
+      LS.ema = null; LS.cand = null; LS.candN = 0; LS.quietN = 0; LS.tS = 0; LS.tC = 0; LS.tune = 0; LS.conf = 0; LS.alts = [];
       lsSay('Listening. Strum a chord and let it ring for a moment.');
       const buf = new Float32Array(LS.an.fftSize);
       LS.timer = setInterval(() => lsTick(buf, c.sampleRate), 90);
@@ -5023,30 +5171,53 @@ if (typeof module !== 'undefined') {
     LS.an.getFloatTimeDomainData(buf);
     lsHear(buf, sr);
   }
+  // chords that belong to the key in use get a small head start when two chords sound almost alike
+  let priorFor = '', priorSet = new Set();
+  function keyPrior() {
+    const k = S.hk + ':' + S.hm + ':' + hubList.length;
+    if (k !== priorFor) {
+      priorFor = k;
+      priorSet = new Set(hubList.map((c) => { const p = c.tones.map((t) => t.pc); const s = chordSym(p[0], p); return p[0] + ':' + (s === null ? '?' : s); }));
+    }
+    return (root, sym) => (priorSet.has(root + ':' + sym) ? 0.02 : 0);
+  }
   function lsHear(buf, sr) {
+    if (LS.pauseUntil && Date.now() < LS.pauseUntil) return;   // the site is playing a chord to compare: do not listen to itself
     const d = downTo11k(buf, sr);
-    const f = chromaFrame(d.x, d.sr, Math.max(0, d.x.length - CHROMA_N));
+    const f = chromaFrame(d.x, d.sr, Math.max(0, d.x.length - CHROMA_N), LS.tune || 0);
+    // keep a running estimate of how the guitar is tuned, and read notes relative to it
+    if (f.rms > 0.01) { LS.tS = 0.92 * (LS.tS || 0) + f.ts; LS.tC = 0.92 * (LS.tC || 0) + f.tc; LS.tune = tuneFrom(LS.tS, LS.tC); }
     if (!LS.ema) { LS.ema = new Float64Array(12); LS.emaB = new Float64Array(12); }
     for (let i = 0; i < 12; i++) { LS.ema[i] = 0.55 * LS.ema[i] + 0.45 * f.chroma[i]; LS.emaB[i] = 0.55 * LS.emaB[i] + 0.45 * f.bass[i]; }
     lsBars(LS.ema, f.rms);
-    const h = hearChord(LS.ema, LS.emaB, f.rms);
+    let h = hearChord(LS.ema, LS.emaB, f.rms, keyPrior());
+    if (h) LS.conf = 0.7 * (LS.conf || 0) + 0.3 * h.conf;
     if (!h || h.score < 0.72) {
       if (++LS.quietN > 8 && LS.cur) { LS.cur = null; LS.held = 0; renderListen(); }
       LS.cand = null; LS.candN = 0;
       return;
     }
     LS.quietN = 0;
-    const id = h.root + ':' + h.sym;
+    // you corrected this sound before: show your chord instead
+    const fix = LS.fixes && LS.fixes[h.root + ':' + h.sym];
+    if (fix) { h = Object.assign({}, h, fix, { conf: 1, others: [] }); LS.conf = 1; }
+    const id = refId(h.custom ? h : { root: h.root, sym: h.sym });
     if (LS.cand === id) LS.candN++; else { LS.cand = id; LS.candN = 1; }
-    const curId = LS.cur ? LS.cur.root + ':' + LS.cur.sym : '';
+    const curId = refId(LS.cur);
     if (LS.candN >= 3 && id !== curId) {
       const ch = lsChord(h);
-      if (ch) { LS.cur = { root: h.root, sym: h.sym }; LS.held = 0; renderListen(); lsFollow(); }
+      if (ch) {
+        LS.cur = chordRef(h.custom ? h : { root: h.root, sym: h.sym });
+        LS.heardId = h.heard || h.root + ':' + h.sym;
+        LS.alts = h.others.filter((o) => !(o.root === h.root && o.sym === h.sym)).slice(0, 3).map((o) => ({ root: o.root, sym: o.sym }));
+        LS.focus = { kind: 'cur' }; LS.held = 0; renderListen(); lsFollow();
+      }
     } else if (id === curId) {
       LS.held++;
+      if (LS.held % 4 === 0) lsSure();
       // auto-capture: once a chord has rung for about half a second, add it to the captured row (if it is a new chord)
       const last = LS.cap[LS.cap.length - 1];
-      if (LS.auto && LS.held === 5 && (!last || last.root + ':' + last.sym !== curId) && LS.cap.length < PROG_MAX) { LS.cap.push(LS.cur); renderListen(); }
+      if (LS.auto && LS.held === 5 && (!last || refId(last) !== curId) && LS.cap.length < PROG_MAX) { LS.cap.push(LS.cur); renderListen(); }
     }
   }
   function lsBars(chroma, rms) {
@@ -5090,7 +5261,7 @@ if (typeof module !== 'undefined') {
       LS.buf = ab;
       LS.name = file.name || 'your clip';
       const segs = tr.segments.map((g) => Object.assign({}, g, { ch: Object.assign(lsChord(g) || {}, { root: g.root, sym: g.sym }) })).filter((g) => g.ch.name);
-      LS.track = { segs, dur: len / sr, key: tr.key };
+      LS.track = { segs, dur: len / sr, key: tr.key, tune: tr.tune || 0 };
       LS.sel = -1;
       lsSay(segs.length ? 'Tap a chord in the strip to hear it and see where it sits; add them one by one or all at once.' + (ab.length > len ? ' Only the first ' + Math.round(LS_MAX_SEC / 60) + ' minutes were read.' : '') : 'No clear chords were found. Strum each chord a few times and let it ring, close to the phone, with little background noise.');
       renderListen();
@@ -5149,7 +5320,289 @@ if (typeof module !== 'undefined') {
     if (fresh && fresh.inKey) { S.cx = { name: fresh.name, roman: fresh.roman, tones: fresh.tones }; S.chord = 'none'; render(); }
     if (LAYOUT === 'one' || TAB !== 'keys') setTab('keys');
   }
+  /* ---------- Scale listener: play notes one at a time, it names them and finds the scales that fit ---------- */
+  const SL = { live: false, stream: null, src: null, an: null, timer: 0, w: new Array(12).fill(0), seq: [], first: -1, last: -1, low: 999, cand: -1, candN: 0, cur: -1, curF: 0, res: [], dirty: false, lastRender: 0 };
+  const slSay = (m) => { const el = $('slMsg'); if (el) el.textContent = m || ''; };
+  function slReset() { Object.assign(SL, { w: new Array(12).fill(0), seq: [], first: -1, last: -1, low: 999, cand: -1, candN: 0, cur: -1, res: [] }); renderScaleListen(); }
+  function slNote(midi, dt) {
+    const pc = ((midi % 12) + 12) % 12;
+    SL.w[pc] += dt;
+    if (SL.first < 0) SL.first = pc;
+    SL.last = pc;
+    if (midi < SL.low) SL.low = midi;
+    if (SL.seq[SL.seq.length - 1] !== midi) { SL.seq.push(midi); if (SL.seq.length > 40) SL.seq.shift(); SL.dirty = true; }
+  }
+  function slMatch() {
+    SL.res = scaleMatches(SL.w, { first: SL.first, last: SL.last, lowest: SL.low < 999 ? SL.low % 12 : undefined });
+  }
+  async function slStart() {
+    const c = audio();
+    if (!c) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { slBlocked(); return; }
+    if (LS.live) lsStop();
+    if (GTR.on) gtrStop(false);
+    slSay('Asking to use the microphone…');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      if (c.state !== 'running') { try { await c.resume(); } catch (e) {} }
+      SL.stream = stream;
+      SL.src = c.createMediaStreamSource(stream);
+      SL.an = c.createAnalyser();
+      SL.an.fftSize = 2048;
+      SL.src.connect(SL.an);
+      SL.live = true;
+      SL.floor = undefined; SL.peak = 0; SL.ticks = 0;
+      const buf = new Float32Array(SL.an.fftSize);
+      slSay('Listening. Play the notes one at a time and let each one ring a moment.');
+      SL.timer = setInterval(() => slTick(buf, c.sampleRate), 70);
+      renderScaleListen();
+    } catch (e) { slBlocked(); }
+  }
+  function slBlocked() {
+    SL.live = false;
+    slSay('The microphone is not available here. Pages shown inside the Claude app cannot use it; on your own hosted site (or localhost) it works. For now, record yourself playing the scale and upload the clip.');
+    renderScaleListen();
+  }
+  function slStop() {
+    clearInterval(SL.timer);
+    try { if (SL.src) SL.src.disconnect(); } catch (e) {}
+    try { if (SL.stream) SL.stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    SL.stream = SL.src = SL.an = null;
+    SL.live = false;
+    slSay(SL.seq.length ? 'Stopped. The scales that fit what you played are below.' : '');
+    renderScaleListen();
+  }
+  // one moment of sound: the note being played, if it is clear
+  function pitchOf(x, sr, from, len, gate) {
+    let e = 0;
+    for (let i = from; i < from + len && i < x.length; i++) e += x[i] * x[i];
+    const rms = Math.sqrt(e / len);
+    if (rms < (gate || 0.006)) return { rms, midi: null };
+    const f = detectPitch(x, sr, from / sr, len / sr);
+    if (!(f > 70 && f < 1200)) return { rms, midi: null };
+    return { rms, midi: Math.round(69 + 12 * Math.log2(f / 440)), f };
+  }
+  function slTick(buf, sr) {
+    if (!SL.an) return;
+    SL.an.getFloatTimeDomainData(buf);
+    // quiet microphones: learn the room's noise level and listen to anything clearly above it
+    let e = 0;
+    for (let i = 0; i < buf.length; i++) e += buf[i] * buf[i];
+    const rms = Math.sqrt(e / buf.length);
+    SL.floor = SL.floor === undefined ? rms : Math.min(rms, SL.floor * 1.002 + 0.00001);
+    SL.peak = Math.max(rms, (SL.peak || 0) * 0.995);
+    SL.level = rms;
+    SL.ticks = (SL.ticks || 0) + 1;
+    const lv = $('slLevel');
+    if (lv && lv.style) lv.style.width = Math.min(100, Math.round((rms / Math.max(0.01, SL.peak)) * 100)) + '%';
+    if (SL.ticks === 90 && !SL.seq.length && SL.peak < 0.003) slSay('I can hardly hear anything. Check that the right microphone is chosen in your browser, and play closer to it.');
+    const p = pitchOf(buf, sr, 0, buf.length, Math.max(0.0012, SL.floor * 3));
+    if (p.midi === null) { SL.candN = 0; SL.cand = -1; if (SL.cur >= 0 && rms < Math.max(0.001, SL.floor * 2)) { SL.cur = -1; renderScaleListen(); } return; }
+    // octave slips are common in pitch reading: a steady note is the same note name, in any octave
+    if (SL.cand >= 0 && (p.midi - SL.cand) % 12 === 0) { if (p.midi !== SL.cand && Math.abs(p.midi - SL.cand) === 12) p.midi = Math.min(p.midi, SL.cand); SL.candN++; SL.cand = p.midi; } else { SL.cand = p.midi; SL.candN = 1; }
+    if (SL.candN >= 2) {
+      slNote(p.midi, 0.07);
+      if (SL.cur !== p.midi) { SL.cur = p.midi; SL.curF = p.f; }
+    }
+    const now = Date.now();
+    if (SL.dirty || now - SL.lastRender > 400) { SL.dirty = false; SL.lastRender = now; slMatch(); renderScaleListen(); }
+  }
+  async function slFile(file) {
+    const c = audio();
+    if (!c || !file) return;
+    if (SL.live) slStop();
+    slSay('Reading the recording…');
+    try {
+      const raw = file.arrayBuffer ? await file.arrayBuffer() : await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsArrayBuffer(file); });
+      const ab = await new Promise((res, rej) => { const p = c.decodeAudioData(raw, res, rej); if (p && p.then) p.then(res, rej); });
+      const sr = ab.sampleRate, len = Math.min(ab.length, Math.floor(sr * 120));
+      const x = new Float32Array(len);
+      for (let ch = 0; ch < ab.numberOfChannels; ch++) { const d = ab.getChannelData(ch); for (let i = 0; i < len; i++) x[i] += d[i] / ab.numberOfChannels; }
+      let mx = 0;
+      for (let i = 0; i < len; i++) mx = Math.max(mx, Math.abs(x[i]));
+      if (mx > 0) for (let i = 0; i < len; i++) x[i] = (x[i] / mx) * 0.5;
+      slReset();
+      const hop = Math.floor(sr * 0.04), win = 2048;
+      let prev = null;
+      for (let s = 0; s + win < len; s += hop) {
+        const p = pitchOf(x, sr, s, win);
+        if (p.midi !== null && p.midi === prev) slNote(p.midi, hop / sr);
+        prev = p.midi;
+      }
+      slMatch();
+      slSay(SL.seq.length ? 'Read ' + (file.name || 'the clip') + '. The scales that fit it are below.' : 'No clear single notes were found. Play one note at a time, close to the microphone.');
+      renderScaleListen();
+    } catch (e) {
+      slSay('This file could not be read. Try a different format (m4a, mp3, wav or a phone video) or record it again.');
+    }
+  }
+  function renderScaleListen() {
+    const box = $('slBody');
+    if (!box) return;
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    $('slLive').innerHTML = (SL.live ? ICON.stopf : ICON.mic) + (SL.live ? ' Stop listening' : ' Listen live');
+    $('slLive').setAttribute('aria-pressed', String(SL.live));
+    const mx = Math.max.apply(null, SL.w) || 1;
+    const nowNote = SL.cur >= 0 ? names[SL.cur % 12] + (Math.floor(SL.cur / 12) - 1) : (SL.live ? '…' : '');
+    $('slNow').innerHTML = SL.cur >= 0 ? `<b>${esc(names[SL.cur % 12])}</b><small>${esc(nowNote)}${SL.curF ? ' · ' + Math.round(SL.curF) + ' Hz' : ''}</small>` : `<b>${SL.live ? 'Listening…' : 'Ready'}</b><small>${SL.live ? 'play a note' : SL.seq.length ? SL.seq.length + ' notes heard' : 'press Listen live and play'}</small>`;
+    $('slNotes').innerHTML = names.map((n, pc) => { const v = SL.w[pc] / mx; const on = v > 0.08; return `<span class="slnote${on ? ' on' : ''}${pc === (SL.cur % 12) && SL.cur >= 0 ? ' now' : ''}"><i style="height:${Math.round(on ? 20 + v * 80 : 6)}%"></i><em>${esc(n)}</em></span>`; }).join('');
+    $('slTrail').textContent = SL.seq.length ? 'Played: ' + SL.seq.slice(-24).map((m) => names[m % 12]).join(' ') : '';
+    const res = SL.res.slice(0, 5);
+    $('slResults').innerHTML = res.length
+      ? `<h4>Scales that fit</h4>` + res.map((r, i) => {
+        const fits = r.extra.length ? 'misses ' + r.extra.map((p) => names[p]).join(', ') : r.missing.length ? 'fits every note you played · not played yet: ' + r.missing.map((p) => names[p]).join(', ') : 'fits every note, and you played all of them';
+        return `<div class="slres${i === 0 ? ' best' : ''}"><div><b>${esc(names[r.root] + ' ' + r.name)} <button type="button" class="info" data-info="scale:${r.id}" aria-label="About the ${esc(r.name)} scale">i</button></b><small>${esc(fits)}</small></div><button type="button" class="tapbtn" data-sl-show="${r.id}:${r.root}">Show on fretboard</button><button type="button" class="tapbtn" data-sl-hear="${r.id}:${r.root}">Hear it</button></div>`;
+      }).join('') + `<p class="hint">The first one is the best guess. The home note matters: the same notes make C major and A minor, so play the note you hear as "home" first and last.</p>`
+      : `<p class="hint">Play a scale or a melody, one note at a time. The notes light up here and the scales that fit appear.</p>`;
+  }
+  function slClick(t) {
+    if (t.closest('#slLive')) { if (SL.live) slStop(); else slStart(); return true; }
+    if (t.closest('[data-sl="clear"]')) { slReset(); slSay(''); return true; }
+    const sh = t.closest('[data-sl-show]');
+    if (sh) {
+      const [id, root] = sh.dataset.slShow.split(':');
+      S.key = +root; S.id = id; S.pat = 'all'; S.pos = 'all'; S.chord = 'none'; S.cx = null;
+      render();
+      if (LAYOUT === 'tabs') setTab('fretboard'); else showBoard();
+      return true;
+    }
+    const hr = t.closest('[data-sl-hear]');
+    if (hr) {
+      const [id, root] = hr.dataset.slHear.split(':');
+      const e = ENTRIES.find((x) => x.id === id);
+      if (e) {
+        const notes = buildPattern(e, +root, S.flats).notes;
+        const base = 48 + +root;
+        const up = notes.map((n) => base + n.semis).sort((a, b) => a - b).concat([base + 12]);
+        up.concat(up.slice(0, -1).reverse()).forEach((m, k) => pluck(m, k * 0.22, 0.8));
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /* ---------- Chord editor / creator: fix a heard chord, or build one note by note ---------- */
+  const LE = { open: false, target: null, root: 0, pcs: [], host: 'lsEdit', bass: -1 };
+  function leOpen(target, host) {
+    let src = null;
+    let bass = -1;
+    if (target && target.kind === 'slot') { const sl = P.slots[target.i]; if (sl) { const pcs = sl.tones.map((t) => t.pc); src = nameNotes(pcs, pcs[0]); if (Number.isInteger(sl.bass)) bass = sl.bass; } }
+    if (target && target.kind === 'cap') src = LS.cap[target.i];
+    else if (target && target.kind === 'seg') src = LS.track && LS.track.segs[target.i];
+    else if (target && target.kind === 'cur') src = LS.cur;
+    if (!src) src = LS.cur || { root: S.hk, sym: S.hm === 'minor' ? 'm' : '' };
+    if (LE.open && LE.host !== (host || 'lsEdit')) { const old = $(LE.host); if (old) { old.hidden = true; old.innerHTML = ''; } }
+    if (bass < 0 && src && Number.isInteger(src.bass)) bass = src.bass;
+    Object.assign(LE, { open: true, target: target || null, root: src.root, pcs: chordPcs(src), host: host || 'lsEdit', bass });
+    renderLsEdit();
+    focusIn('#' + LE.host);
+  }
+  function leResult() { const r = nameNotes(LE.pcs, LE.root); if (r && LE.bass >= 0 && LE.bass !== r.root) r.bass = LE.bass; return r; }
+  function renderLsEdit() {
+    ['lsEdit', 'pwEdit'].forEach((id) => { if (id !== LE.host) { const o = $(id); if (o) { o.hidden = true; o.innerHTML = ''; } } });
+    const box = $(LE.host);
+    if (!box) return;
+    box.hidden = !LE.open;
+    if (!LE.open) { box.innerHTML = ''; return; }
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    const r = LE.pcs.length ? leResult() : null;
+    const ch = r ? lsFresh(r) : null;
+    const tgt = LE.target ? (LE.target.kind === 'cap' ? 'captured chord ' + (LE.target.i + 1) : LE.target.kind === 'seg' ? 'chord ' + (LE.target.i + 1) + ' of the clip' : LE.target.kind === 'slot' ? 'chord ' + (LE.target.i + 1) + ' of your progression' : 'the heard chord') : '';
+    const qi = r && !r.custom ? ARP_ENTRIES.findIndex((e) => e.sym === r.sym) : -1;
+    box.innerHTML = `<div class="lehead"><b>${LE.target ? 'Edit ' + esc(tgt) : 'Chord creator'}</b><span>Pick a root and type, or tap notes to build any chord.</span></div>`
+      + `<div class="lequick"><label class="field"><span>Root</span><select id="leRoot">${names.map((n, i) => `<option value="${i}"${i === LE.root ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`
+      + `<label class="field"><span>Bass note</span><select id="leBass"><option value="-1"${LE.bass < 0 ? ' selected' : ''}>Root (normal)</option>${names.map((n, i) => `<option value="${i}"${i === LE.bass ? ' selected' : ''}>/${esc(n)}</option>`).join('')}</select></label>`
+      + `</div><div class="field"><span>Type${r && r.custom ? ' (now: custom notes)' : ''}</span><div class="leqbtns" role="group" aria-label="Chord type">${ARP_ENTRIES.map((e, i) => `<button type="button" class="qbtn" data-leq="${i}" aria-pressed="${i === qi}" title="${esc(e.name)}">${esc(QUAL[e.sym].short)}</button>`).join('')}</div></div>`
+      + `<div class="lenotes" role="group" aria-label="Notes in the chord">${names.map((n, pc) => { const on = LE.pcs.indexOf(pc) >= 0; const root = on && pc === (r ? r.root : LE.root); return `<button type="button" class="lenote${on ? ' on' : ''}${root ? ' root' : ''}" data-le="note:${pc}" aria-pressed="${on}"><b>${esc(n)}</b><small>${on ? (root ? 'root' : INT_LABELS[(pc - (r ? r.root : LE.root) + 12) % 12]) : ''}</small></button>`; }).join('')}</div>`
+      + `<p class="leout">${ch ? `<b>${esc(ch.name)}</b> <span>${esc(ch.tones.map((t) => t.name).join(' '))} · ${ch.inKey ? '<b>' + esc(ch.roman) + '</b> in ' + esc(homeName()) : 'not in ' + esc(homeName())}</span>` : '<span>Tap at least one note.</span>'}</p>`
+      + `<div class="lsbtns"><button type="button" class="tapbtn" data-le="hear"${ch ? '' : ' disabled'}>Hear it</button>`
+      + (LE.target ? `<button type="button" class="tapbtn strong" data-le="apply"${ch ? '' : ' disabled'}>Use this chord</button>` : '')
+      + `<button type="button" class="shapeadd" data-le="add"${ch ? '' : ' disabled'}>+ Add to progression</button>`
+      + (LE.target || LE.host !== 'lsEdit' ? '' : `<button type="button" class="tapbtn" data-le="cap"${ch ? '' : ' disabled'}>Add to captured</button>`)
+      + `<button type="button" class="tapbtn" data-le="close">Close</button></div>`;
+  }
+  function leHear(ch) {
+    let sh = null;
+    try { sh = chordShapes(ch.tones, 4, ch.bass).best; } catch (e) { sh = null; }
+    if (sh) { strumShape(sh, ch.tones); return; }
+    // no playable shape for these notes: play them stacked from the root
+    let prev = 48 + ch.tones[0].pc - 1;
+    ch.tones.forEach((t, k) => { let m = prev + 1; while (m % 12 !== t.pc) m++; prev = m; pluck(m, k * STRUM_GAP, 2.0); });
+  }
+  function leClick(t) {
+    const qb = t.closest('[data-leq]');
+    if (qb) {
+      LE.pcs = pickerChord(+qb.dataset.leq, LE.root, S.flats).tones.map((x) => x.pc);
+      renderLsEdit();
+      const r = leResult(), ch = r && lsFresh(r);
+      if (ch) leHear(ch);
+      return true;
+    }
+    const b = t.closest('[data-le]');
+    if (!b) return false;
+    const a = b.dataset.le;
+    if (a.indexOf('note:') === 0) {
+      const pc = +a.slice(5);
+      const at = LE.pcs.indexOf(pc);
+      if (at >= 0) LE.pcs.splice(at, 1); else LE.pcs.push(pc);
+      if (LE.pcs.indexOf(LE.root) < 0 && LE.pcs.length) LE.root = LE.pcs[0];
+      if (at < 0) pluck(60 + ((pc - 0 + 12) % 12), 0, 0.9);
+      renderLsEdit();
+      return true;
+    }
+    if (a === 'close') { LE.open = false; renderLsEdit(); return true; }
+    const r = LE.pcs.length ? leResult() : null;
+    const ch = r && lsFresh(r);
+    if (!ch) return true;
+    if (a === 'hear') leHear(ch);
+    else if (a === 'add') addToProg(ch);
+    else if (a === 'cap') { if (LS.cap.length < PROG_MAX) { LS.cap.push(chordRef(r)); renderListen(); say('Added ' + ch.name + ' to the captured chords.'); } }
+    else if (a === 'apply' && LE.target && LE.target.kind === 'slot') {
+      const i = LE.target.i, old = P.slots[i];
+      if (old) {
+        let sh = null;
+        try { sh = chordShapes(ch.tones, 4, ch.bass).best; } catch (e) { sh = null; }
+        P.slots[i] = Object.assign({}, old, { name: ch.name, roman: ch.inKey ? ch.roman : '', tones: ch.tones.map((t) => ({ name: t.name, pc: t.pc, label: t.label, semis: t.semis || 0 })), frets: sh ? sh.frets.slice() : null });
+        if (Number.isInteger(ch.bass) && ch.bass !== ch.tones[0].pc) P.slots[i].bass = ch.bass; else delete P.slots[i].bass;
+        saveProg();
+        LE.open = false;
+        renderLsEdit();
+        renderProg();
+        say('Chord ' + (i + 1) + ' is now ' + ch.name + '.');
+      }
+    }
+    else if (a === 'apply' && LE.target) {
+      const ref = chordRef(r);
+      const T = LE.target;
+      if (T.kind === 'cap' && LS.cap[T.i]) LS.cap[T.i] = ref;
+      else if (T.kind === 'seg' && LS.track && LS.track.segs[T.i]) { const g = LS.track.segs[T.i]; delete g.sym; delete g.pcs; delete g.custom; Object.assign(g, ref); }
+      LS.cur = ref;
+      LE.open = false;
+      renderLsEdit();
+      renderListen();
+      lsFollow();
+      say('Changed it to ' + ch.name + '.');
+    }
+    return true;
+  }
+  function leChange(id, v) {
+    if (id === 'leRoot') {
+      const root = +v;
+      const r = LE.pcs.length ? leResult() : null;
+      if (r && !r.custom) { const qi = ARP_ENTRIES.findIndex((e) => e.sym === r.sym); LE.pcs = pickerChord(qi, root, S.flats).tones.map((t) => t.pc); }
+      else { const shift = root - LE.root; LE.pcs = LE.pcs.map((p) => (((p + shift) % 12) + 12) % 12); }
+      LE.root = root;
+    } else if (id === 'leBass') {
+      LE.bass = +v;
+    } else if (id === 'leQual' && +v >= 0) {
+      LE.pcs = pickerChord(+v, LE.root, S.flats).tones.map((t) => t.pc);
+    } else return false;
+    renderLsEdit();
+    return true;
+  }
   function lsClick(t) {
+    if (leClick(t)) return true;
+    if (t.closest('#pwCreate')) { leOpen(null, 'pwEdit'); return true; }
     // remove a wrongly heard chord (from the captured row, or from a clip's chord strip)
     const cd = t.closest('[data-lscapdel]');
     if (cd) {
@@ -5175,17 +5628,42 @@ if (typeof module !== 'undefined') {
       const i = +seg.dataset.lseg;
       LS.sel = LS.sel === i ? -1 : i;
       const g = LS.track && LS.track.segs[i];
-      if (g && LS.sel === i) { lsShowNow({ root: g.root, sym: g.sym }); }
+      if (g && LS.sel === i) { LS.focus = { kind: 'seg', i }; lsShowNow(g); }
       else renderListen();
       return true;
     }
-    if (cap) { const c = LS.cap[+cap.dataset.lscap]; if (c) lsShowNow(c); return true; }
+    const alt = t.closest('[data-lsalt]');
+    if (alt) {
+      const a = (LS.alts || [])[+alt.dataset.lsalt];
+      if (a) {
+        // you said it was this chord: swap it in (and in the captured row, if it was just captured)
+        const old = LS.cur, lastCap = LS.cap[LS.cap.length - 1];
+        LS.fixes = LS.fixes || {};
+        if (LS.heardId) LS.fixes[LS.heardId] = Object.assign(chordRef(a), { heard: LS.heardId });
+        if (lastCap && old && refId(lastCap) === refId(old)) LS.cap[LS.cap.length - 1] = chordRef(a);
+        LS.alts = old ? [old].concat((LS.alts || []).filter((x) => x !== a)) : LS.alts;
+        LS.cur = chordRef(a);
+        LS.conf = 1;
+        renderListen();
+        lsFollow();
+        say('Changed it to ' + (lsFresh(a) || {}).name + '.');
+        lsSay('Got it: when it hears that sound again it will show ' + (lsFresh(a) || {}).name + '. (Until you reload the page.)');
+      }
+      return true;
+    }
+    if (cap) { const c = LS.cap[+cap.dataset.lscap]; if (c) { LS.focus = { kind: 'cap', i: +cap.dataset.lscap }; lsShowNow(c); } return true; }
     if (t.closest('#lsLive')) { if (LS.live) lsStop(); else lsStart(); return true; }
     if (!b) return false;
     const a = b.dataset.ls;
     if (a === 'add' && LS.cur) addToProg(lsFresh(LS.cur));
     else if (a === 'circle') lsToCircle(lsFresh(LS.cur));
     else if (a === 'auto') { LS.auto = !LS.auto; renderListen(); }
+    else if (a === 'compare') {
+      const ch = lsFresh(LS.cur);
+      if (ch) { LS.pauseUntil = Date.now() + 2600; audition(ch); }
+    }
+    else if (a === 'edit') leOpen(LS.focus && (LS.focus.kind !== 'cur' || LS.cur) ? LS.focus : (LS.cur ? { kind: 'cur' } : null));
+    else if (a === 'create') leOpen(null);
     else if (a === 'strum') {
       // go to the pattern editor and start listening to the strumming hand
       if (LS.live) lsStop();
@@ -5222,6 +5700,7 @@ if (typeof module !== 'undefined') {
     const sl = P.slots[i];
     if (!sl) return;
     if (a === 'hear') { auditionSlot(sl); return; }
+    if (a === 'edit') { leOpen({ kind: 'slot', i }, 'pwEdit'); return; }
     if (a === 'del') {
       P.slots.splice(i, 1);
       say('Removed ' + sl.name + '.');
@@ -5233,7 +5712,7 @@ if (typeof module !== 'undefined') {
     else if (a === 'bminus') sl.beats = Math.max(1, sl.beats - 1);
     else if (a === 'bplus') sl.beats = Math.min(8, sl.beats + 1);
     else if (a === 'fprev' || a === 'fnext') {
-      const forms = chordShapes(sl.tones, 4).list;
+      const forms = chordShapes(sl.tones, 4, sl.bass).list;
       if (forms.length < 2) return;
       const cur = sl.frets ? forms.findIndex((f) => f.frets.join(',') === sl.frets.join(',')) : -1;
       const d = a === 'fnext' ? 1 : -1;
@@ -5350,19 +5829,23 @@ if (typeof module !== 'undefined') {
   function renderPickerRoots() {
     const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
     $('pcRoot').innerHTML = options(names.map((n, i) => [i, n]), PK.root);
+    const pb = $('pcBass');
+    if (pb) pb.innerHTML = options([[-1, 'Root (normal)']].concat(names.map((n, i) => [i, '/' + n])), PK.bass);
     // every chord type as a button, so diminished and the rest are always in sight
     $('pcQual').innerHTML = ARP_ENTRIES.map((e, i) => `<button type="button" class="qbtn" data-pq="${i}" aria-pressed="${i === PK.q}" title="${esc(e.name)}">${esc(QUAL[e.sym].short)}</button>`).join('');
     renderPicker(false);
   }
   function renderPicker(sound) {
     // spelled with the fewest accidentals (F♯m7, not G♭m7), unless the search asked for a spelling
-    const ch = pickerChord(PK.q, PK.root, S.flats, PK.forced);
-    const res = chordShapes(ch.tones, 4);
+    let ch = pickerChord(PK.q, PK.root, S.flats, PK.forced);
+    if (PK.bass >= 0 && PK.bass !== PK.root) ch = withBass(ch, PK.bass);
+    const res = chordShapes(ch.tones, 4, ch.bass);
     PK.chord = ch;
     PK.list = res.list;
     qsa($('pcQual'), '[data-pq]').forEach( (b) => b.setAttribute('aria-pressed', String(+b.getAttribute('data-pq') === PK.q)));
     if ($('pcRoot').value !== undefined) $('pcRoot').value = String(PK.root);
-    $('pcTitle').textContent = ch.name + ' (' + ARP_ENTRIES[PK.q].name + ') · ' + ch.tones.map((t) => t.name).join(' ');
+    if ($('pcBass') && $('pcBass').value !== undefined) $('pcBass').value = String(PK.bass);
+    $('pcTitle').textContent = ch.name + ' (' + ARP_ENTRIES[PK.q].name + (ch.bass !== undefined ? ', ' + ch.bassName + ' in the bass' : '') + ') · ' + (ch.bass !== undefined ? ch.bassName + ' + ' : '') + ch.tones.map((t) => t.name).join(' ');
     $('pcShapes').innerHTML = shapeCards(ch, res.list, 'picker');
     if (sound) strumShape(res.best, ch.tones);
   }
@@ -5384,6 +5867,7 @@ if (typeof module !== 'undefined') {
     PK.root = c.root;
     PK.q = c.q;
     PK.forced = c.flats;
+    PK.bass = Number.isInteger(c.bass) ? c.bass : -1;
     renderPicker(sound);
     qsa($('csResults'), '[data-cs]').forEach( (b) => b.setAttribute('aria-pressed', String(+b.getAttribute('data-cs') === i)));
   }
@@ -5715,6 +6199,8 @@ if (typeof module !== 'undefined') {
     workspace: { t: 'The progression workspace', tour: 'progression', b: '<p>A <b>chord progression</b> is the order of chords in a song. Build one here: add chords with <b>+</b> anywhere, drag cards to reorder, set how many beats each chord lasts, choose a strumming pattern and press <b>Play</b> to hear it loop.</p><p>Not sure where to start? Pick one of the <b>Common progressions</b>.</p>' },
     next: { t: 'What comes next', tour: 'keys', b: '<p>Chords have jobs. <b>I</b> is home and feels at rest. <b>IV</b> and <b>ii</b> move away. <b>V</b> builds tension that wants to resolve back to I.</p><p>Many strong moves <b>fall a fifth</b>: one step anticlockwise on the circle (vi → ii → V → I). That is why the highlights so often sit right next to the chord you chose.</p><ul><li><b>Strong pull</b>: the move the ear expects, like V → I.</li><li><b>Common</b>: used all the time, like IV → I (the "amen" ending).</li><li><b>Colour</b>: a surprise or a borrowed flavour, like V → vi (the "deceptive" ending) or IV → iv.</li></ul><p>These are guides, not rules. If it sounds good, it is good.</p>' },
     listen: { t: 'Chord listener', b: '<p>Strum a chord on your guitar and the listener names it. The bars show how loudly each of the 12 notes is sounding; the lit ones are the notes of the chord it hears.</p><p>It also tells you the chord\u2019s number in your key (like <b>V</b> in C major), or that it is outside the key. <b>Show on the circle</b> opens it in the Key explorer with its next moves.</p><p><b>Upload a clip</b> reads a whole recording, like the chord track in a DAW or the Moises app, and guesses its key. Tap a chord to hear it, play the clip to follow along, then add the chords to your progression.</p><p>Tips: let each chord ring, keep the phone close, and keep background music and talking down. It knows major, minor, 7, maj7, m7, sus2, sus4 and dim chords.</p><p><b>Live listening</b> needs the microphone, which pages inside the Claude app cannot use. It works once the site is hosted on its own.</p>' },
+    analysis: { t: 'Progression analysis', b: '<p>The site works out which <b>key</b> your chords belong to, then gives each chord its number (I, ii, V…) and its job: <b>Home</b> (I, vi, iii) rests, <b>Away</b> (IV, ii) moves off, <b>Tension</b> (V, vii°) wants to resolve.</p><p>It names the <b>kind of progression</b> (a 2–5–1, the pop loop I–V–vi–IV, the Andalusian cadence…), points out <b>cadences</b> (how phrases end) and chords from outside the key, and suggests what could come next and which scales to solo with.</p>' },
+    scalelisten: { t: 'Scale listener', b: '<p>Play a scale, a riff or a melody one note at a time. The listener hears each note, keeps count of which of the 12 notes you used, and lists the scales that contain them, best first.</p><p>The same notes can make different scales (C major and A minor share every note). What decides it is the <b>home note</b>, so start and end on the note that sounds like home.</p><p>Tap <b>Show on fretboard</b> to see the scale on the neck. Live listening needs the microphone, which pages inside the Claude app cannot use; upload a clip there instead.</p>' },
     common: { t: 'Common progressions', tour: 'progression', b: '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' },
     playback: { t: 'Tempo and playback', b: '<p><b>Tempo</b> is speed in beats per minute (BPM). 60 BPM is one beat a second; most pop songs sit between 80 and 130. <b>Tap</b> the button in time to set it.</p><p><b>Speed</b> plays everything slower or faster while keeping your tempo setting: great for practising at half speed.</p><p><b>Click track</b> adds a metronome tick on each beat; the first beat of each bar is higher.</p>' },
     patterns: { t: 'Strumming and picking patterns', tour: 'patterns', b: '<p>The rhythm your strumming hand plays. Each box is a step in time: <b>1 & 2 &</b> are eighth notes, <b>1 e & a</b> are sixteenths.</p><p><b>↓</b> is a down-strum, <b>↑</b> an up-strum. <b>Faint arrows</b> are ghost (soft) strums. <b>×</b> is a muted strum: rest your fretting hand on the strings so they click instead of ringing. B and b are bass notes; • and 1–3 are single picked strings.</p><p>Make your own with <b>New pattern</b>, the strum pad, or your real guitar: press <b>Listen to my guitar</b> and strum, and the site writes down your pattern and takes your tempo.</p>' },
@@ -5804,8 +6290,53 @@ if (typeof module !== 'undefined') {
     if (pop) pop.hidden = true;
     infoOpen = null;
   }
+  /* ---------- What each scale is: shown by the (i) next to the fretboard title, and next to scales elsewhere ---------- */
+  // mood: how it sounds; what: how it is built; use: where you hear it and what to play it over
+  const SCALE_INFO = {
+    'Major (Ionian)': { mood: 'Bright, happy, settled.', what: 'The scale everything else is measured against: seven notes in the step pattern whole, whole, half, whole, whole, whole, half. Do–re–mi is the major scale. Its other name, <b>Ionian</b>, is its name as the 1st of the seven modes.', use: 'Pop, folk, rock, country, classical, nursery songs. Play it over the major chord on the same root (C major scale over C), or over any chord in that key.' },
+    'Natural minor (Aeolian)': { mood: 'Sad, serious, dark.', what: 'The major scale started from its 6th note: A minor uses the same notes as C major, with A as home. Compared with major it lowers the 3rd, 6th and 7th. As a mode it is called <b>Aeolian</b>.', use: 'Rock ballads, metal, pop, film music. Play it over minor chords (A natural minor over Am) and minor-key songs.' },
+    'Harmonic minor': { mood: 'Dramatic, exotic, classical.', what: 'Natural minor with the 7th raised a half step. That makes the big jump between ♭6 and 7 (a step and a half) that gives it its Middle-Eastern sound, and it turns the V chord major (E in A minor), so it pulls home strongly.', use: 'Classical, neoclassical metal, flamenco, Middle-Eastern flavours. Great over the V7 chord of a minor key (over E7 when you are in A minor).' },
+    'Melodic minor': { mood: 'Smooth, jazzy, bittersweet.', what: 'Natural minor with both the 6th and 7th raised: a minor scale whose top half is major. Jazz players use it going both up and down; in classical music it goes back to natural minor on the way down.', use: 'Jazz over minor chords such as m6 and m(maj7). Its modes give jazz sounds like Lydian dominant and the altered scale.' },
+    'Major pentatonic': { mood: 'Open, sunny, can’t-go-wrong.', what: 'Five notes: the major scale without its 4th and 7th, the two notes that clash most easily. With no half steps, every note sounds good over the key’s chords.', use: 'Country, folk, pop, Southern rock, happy blues solos. The easiest scale to improvise with over a major key.' },
+    'Minor pentatonic': { mood: 'Bluesy, cool, rock.', what: 'Five notes: the natural minor scale without its 2nd and 6th. It uses the same notes as the major pentatonic three notes higher (A minor pentatonic = C major pentatonic).', use: 'The guitar solo scale: blues, rock, funk, metal. Works over minor chords, and over blues progressions in the same key even when the chords are major.' },
+    'Blues': { mood: 'Gritty, soulful, crying.', what: 'Minor pentatonic plus one extra note: the ♭5, the "blue note". Slide through it on the way between 4 and 5 rather than resting on it.', use: 'Blues, rock, jazz. Over a 12-bar blues or any dominant 7th chord on the same root.' },
+    'Whole tone': { mood: 'Dreamy, floating, unresolved.', what: 'Six notes, every one a whole step apart. With no half steps there is no clear home note, so it sounds like a dream sequence. There are only two different whole-tone scales.', use: 'Impressionist music (Debussy), film dream scenes, jazz over augmented chords and 7♯5 chords.' },
+    'Diminished (whole-half)': { mood: 'Tense, mysterious, symmetrical.', what: 'Eight notes alternating whole step, half step. It repeats every minor 3rd, so it only exists in three versions.', use: 'Jazz and metal over diminished 7th chords (C°7 with C whole-half). Horror and suspense moods.' },
+    'Chromatic': { mood: 'Every note there is.', what: 'All twelve notes, each a half step apart. It is not a key: it is the full set of notes music is made from.', use: 'Passing notes that slide between scale notes, finger exercises, and learning where every note sits on the neck.' },
+    'Ionian': { mood: 'Bright and happy: the plain major sound.', what: 'Mode 1: the major scale itself, from the 1st note. In C: C D E F G A B.', use: 'Anywhere a major key is home. Over maj7 chords (Cmaj7).' },
+    'Dorian': { mood: 'Minor, but cool and hopeful.', what: 'Mode 2: the major scale played from its 2nd note (D to D using C major’s notes). It is natural minor with a raised 6th, which brightens it.', use: 'Funk, jazz, Santana-style rock, Celtic music. Over m7 chords, especially in vamps that stay on one minor chord.' },
+    'Phrygian': { mood: 'Dark, Spanish, heavy.', what: 'Mode 3: the major scale from its 3rd note (E to E with C major’s notes). The ♭2 right above home gives it a tense, Spanish sound.', use: 'Flamenco, metal riffs, film tension. Over minor chords where the ♭2 adds menace.' },
+    'Lydian': { mood: 'Floating, magical, wonder.', what: 'Mode 4: the major scale from its 4th note (F to F with C major’s notes). The raised 4th (♯4) gives it a dreamy lift.', use: 'Film scores (flying, magic, space), dream pop, jazz. Over maj7 chords, especially maj7♯11.' },
+    'Mixolydian': { mood: 'Major and bluesy, laid-back.', what: 'Mode 5: the major scale from its 5th note (G to G with C major’s notes). Major with a ♭7, so it fits dominant 7th chords exactly.', use: 'Rock, blues, funk, Celtic folk, jam bands. Over dominant 7th chords (G7) and I–♭VII rock progressions.' },
+    'Aeolian': { mood: 'Sad and serious: the plain minor sound.', what: 'Mode 6: the major scale from its 6th note (A to A with C major’s notes). The same as the natural minor scale.', use: 'Minor-key rock, pop and ballads. Over minor chords, especially i–♭VI–♭VII progressions.' },
+    'Locrian': { mood: 'Unstable, dark, unsettled.', what: 'Mode 7: the major scale from its 7th note (B to B with C major’s notes). Its ♭5 makes the home chord diminished, so it never feels at rest.', use: 'Rarely a home key; used in metal and jazz over half-diminished chords (Bm7♭5, the ii of a minor key).' },
+    'Dominant (Mixolydian)': { mood: 'Bluesy major.', what: 'The Mixolydian mode used for what it fits best: dominant 7th chords. Major scale with a ♭7.', use: 'Over any 7th chord that is not resolving dramatically: blues, funk, rock vamps.' },
+    'Lydian dominant': { mood: 'Bright, quirky, jazzy.', what: 'Mixolydian with a raised 4th (♯4), or Lydian with a ♭7. It is the 4th mode of melodic minor. Also called the "acoustic" or "Simpsons" scale.', use: 'Jazz over 7♯11 chords and over dominant chords that do not resolve down a fifth (like ♭VII7 or a tritone substitute).' },
+    'Altered': { mood: 'Maximum tension.', what: 'Every note that can be altered is: ♭9, ♯9, ♭5, ♯5 around the 3rd and ♭7. It is the 7th mode of melodic minor.', use: 'Jazz over the V7 chord right before it resolves (G7alt → C), for the strongest pull home.' },
+    'Phrygian dominant': { mood: 'Spanish, Middle-Eastern, intense.', what: 'The 5th mode of harmonic minor: Phrygian with a major 3rd. Its ♭2 and major 3rd make the famous flamenco and klezmer sound.', use: 'Flamenco, metal, Middle-Eastern music. Over the V7 chord of a minor key (E7 in A minor).' },
+    'Diminished (half-whole)': { mood: 'Tense, slippery, jazzy.', what: 'Eight notes alternating half step, whole step: the whole-half scale started one note later. It holds ♭9, ♯9, ♯11 and 13 together.', use: 'Jazz over dominant 7♭9 and 13♭9 chords.' },
+    'Bebop dominant': { mood: 'Swinging, flowing jazz lines.', what: 'Mixolydian with an extra passing note: the major 7th between ♭7 and the root. With eight notes, chord tones land on the beat when you run it in steady eighth notes.', use: 'Bebop and swing solos over dominant 7th chords.' },
+  };
+  const KIND_INFO = {
+    arp: (e) => `<p>An <b>arpeggio</b> is a chord played one note at a time: here the ${esc(e.name.toLowerCase())}. Instead of strumming, you pick its notes in order, up and down.</p><p>Soloists play arpeggios over the matching chord, because every note is a chord tone and sounds strong. It is also the best way to learn which notes make each chord, all over the neck.</p>`,
+    diatonic: (e) => `<p>One of the chords that belong to the key, shown as an arpeggio. <b>${esc(e.name)}</b> tells you which step of the scale it is built on (the Roman numeral) and its type.</p><p>Diatonic chords all use only the notes of one key, so they fit together. Learning them as arpeggios shows you the chord tones to aim for when you solo over each chord.</p>`,
+    drop: (e) => `<p>A <b>${esc(e.name)}</b> chord as a drop voicing: the four notes spread across the strings the way jazz guitarists play them, by dropping one note of a close stack down an octave. Pick a string set and an inversion (which note is lowest).</p>`,
+  };
+  function entryInfo(e) {
+    if (!e) return null;
+    const f = String(e.f || '').replace(/b/g, '♭').replace(/#/g, '♯');
+    if (e.kind === 'scale') {
+      const s = SCALE_INFO[e.name];
+      if (!s) return { t: e.name, b: `<p>Notes, counted from the root: <b>${esc(f)}</b>.</p>` };
+      return { t: e.name, b: `<p class="ip-mood">${s.mood}</p><p>${s.what}</p><p><b>Notes from the root:</b> ${esc(f)}</p><p><b>Where you hear it:</b> ${s.use}</p><p class="ip-tip">Tip: press Play to hear it go up and down, and choose a <b>Pattern</b> to learn one hand position at a time.</p>` };
+    }
+    const k = KIND_INFO[e.kind];
+    return { t: e.name, b: (k ? k(e) : '') + (f ? `<p><b>Notes from the root:</b> ${esc(f)}</p>` : '') };
+  }
+
   function showInfo(key, btn) {
-    const it = INFO[key];
+    // "entry" = whatever is on the fretboard now; "scale:<id>" = one library entry
+    const it = key === 'entry' ? entryInfo(ENTRIES.find((e) => e.id === S.id)) : key.indexOf('scale:') === 0 ? entryInfo(ENTRIES.find((e) => e.id === key.slice(6))) : INFO[key];
     const pop = $('infoPop');
     if (!it || !pop) return;
     if (infoOpen === key) { closeInfo(); return; }
@@ -6051,6 +6582,8 @@ if (typeof module !== 'undefined') {
     if (t.closest('#rvHear')) { previewRhythm(rhythmShown || P.style); return; }
     if (edClick(t)) return;
     if (lsClick(t)) return;
+    if (slClick(t)) return;
+    if (anaClick(t)) return;
     if (acctClick(t)) return;
     const ll = t.closest('[data-libload]');
     if (ll) { libLoad(ll.dataset.libload); return; }
@@ -6092,12 +6625,27 @@ if (typeof module !== 'undefined') {
       render();
       return;
     }
+    const nv = t.closest('[data-nxview]');
+    if (nv) {
+      S.nxView = nv.dataset.nxview === 'keys' ? 'keys' : 'chords';
+      if (S.nxView === 'keys') S.cx = null;
+      render();
+      return;
+    }
+    const gk = t.closest('[data-gokey]');
+    if (gk) {
+      const [pc, m] = gk.dataset.gokey.split(':');
+      setHome(+pc, m === 'minor' ? 'minor' : 'major');
+      playHome();
+      return;
+    }
     const hb = t.closest('[data-h]') || t.closest('[data-nh]');
     if (hb) {
       const ch = hubList[+(hb.dataset.h !== undefined ? hb.dataset.h : hb.dataset.nh)];
       if (ch) {
         const on = S.cx && S.cx.name === ch.name && S.cx.roman === ch.roman;
         S.cx = on ? null : { name: ch.name, roman: ch.roman, tones: ch.tones };
+        S.nxView = 'chords';
         S.chord = 'none';
         const cur = ENTRIES.find((e) => e.id === S.id);
         if (!on && cur && cur.kind === 'drop') S.id = (S.hm === 'minor' ? byName('Scales', 'Natural minor (Aeolian)') : byName('Scales', 'Major (Ionian)')).id;
@@ -6241,6 +6789,7 @@ if (typeof module !== 'undefined') {
     say('The progression is empty.');
   });
   $('pcRoot').addEventListener('change', (e) => { PK.root = +e.target.value; PK.forced = undefined; renderPicker(true); });
+  if ($('pcBass') && $('pcBass').addEventListener) $('pcBass').addEventListener('change', (e) => { PK.bass = +e.target.value; renderPicker(true); });
   $('chordSearch').addEventListener('input', (e) => renderSearch(e.target.value));
   $('chordSearch').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); pickHit(0, true); }
@@ -6328,6 +6877,8 @@ if (typeof module !== 'undefined') {
     if (id === 'txAuto') { ED.txAuto = !!e.target.checked; if (ED.tx) applyTx(); }
     if (id === 'txFile' && e.target.files && e.target.files[0]) transcribeFile(e.target.files[0]);
     if (id === 'lsFile' && e.target.files && e.target.files[0]) { lsFile(e.target.files[0]); e.target.value = ''; }
+    if (id === 'leRoot' || id === 'leQual' || id === 'leBass') leChange(id, e.target.value);
+    if (id === 'slFile' && e.target.files && e.target.files[0]) { slFile(e.target.files[0]); e.target.value = ''; }
   });
   if (window.addEventListener) window.addEventListener('resize', () => { if (ED.tx) drawTx(); });
   document.addEventListener('change', (e) => {
@@ -6430,6 +6981,7 @@ if (typeof module !== 'undefined') {
   if (LAYOUT === 'tabs') setTab(startTab);
   else { TAB = startTab; qsa(document, '[data-go]').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-go') === TAB))); }
 })();
+
 </script>
 </body>
 </html>
