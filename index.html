@@ -697,6 +697,79 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
   .lsmini { width: 128px; height: 128px; }
   .lsname { font-size: 2rem; }
 }
+/* What comes next: heading row with the view switch */
+.nxhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.nxhead h3 { margin: 0; }
+.nxview button { padding: 5px 10px; font-size: 0.82rem; }
+.nxview button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.nextbox .hint { margin: 8px 0 4px; }
+/* chord editor / creator */
+.lsedit { margin-top: 12px; padding: 12px; border: 1.5px solid var(--root-dot); border-radius: 12px; background: color-mix(in srgb, var(--root-dot) 6%, var(--panel)); display: grid; gap: 10px; }
+.lsedit[hidden] { display: none; }
+.lehead { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.lehead span { color: var(--muted); font-size: 0.86rem; }
+.lequick { display: flex; flex-wrap: wrap; gap: 10px; }
+.lenotes { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 5px; }
+@media (max-width: 640px) { .lenotes { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.lenote { display: grid; justify-items: center; gap: 1px; min-width: 0; padding: 8px 2px 6px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--bg); box-shadow: 0 2px 0 var(--edge); }
+.lenote b { font-size: 1rem; }
+.lenote small { min-height: 1em; font-size: 0.68rem; color: var(--muted); }
+.lenote.on { border-color: var(--accent); background: var(--accent-soft); }
+.lenote.root { border-color: var(--root-dot); background: color-mix(in srgb, var(--root-dot) 22%, var(--bg)); }
+.lenote.on small { color: var(--fg); }
+.leout { margin: 0; }
+.leout b { font-family: var(--font-head); font-size: 1.5rem; }
+.leout span { color: var(--muted); }
+.leout span b { font-family: inherit; font-size: inherit; color: var(--fg); }
+/* scale listener (sits right under the chord listener) */
+:root:not(.alltabs) .app[data-tab="fretboard"] #scalePanel { display: none !important; }
+:root.alltabs main > #scalePanel { order: 5; }
+.slbody { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 20px; margin-top: 12px; padding: 12px; border: 1.5px solid var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+@media (max-width: 760px) { .slbody { grid-template-columns: minmax(0, 1fr); } }
+.slleft { display: grid; gap: 10px; min-width: 0; align-content: start; }
+.slnow b { font-family: var(--font-head); font-size: 2.6rem; line-height: 1; }
+.slnow small { display: block; color: var(--muted); }
+.slnotes { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; height: 90px; align-items: end; max-width: 460px; }
+.slnote { display: grid; grid-template-rows: 1fr auto; height: 100%; align-items: end; justify-items: center; gap: 2px; }
+.slnote i { display: block; width: 100%; height: 6%; border-radius: 3px 3px 1px 1px; background: var(--line); transition: height 0.15s ease; }
+.slnote.on i { background: var(--accent); }
+.slnote.now i { background: var(--live); }
+.slnote em { font-style: normal; font-size: 0.62rem; color: var(--muted); }
+.slnote.on em { color: var(--fg); font-weight: 700; }
+.sltrail { margin: 0; color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+.slresults h4, .progana h4 { margin: 0 0 6px; font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.slres { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 0; border-top: 1px dashed var(--line); }
+.slres > div { flex: 1 1 180px; min-width: 0; }
+.slres b { display: block; }
+.slres small { color: var(--muted); }
+.slres.best b { color: var(--accent); font-size: 1.1rem; }
+/* progression analysis */
+.progana { display: grid; gap: 14px; }
+.anhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.ankey { font-size: 1.1rem; }
+.anrow { display: grid; gap: 6px; }
+.anmatch { padding: 8px 10px; border-left: 3px solid var(--root-dot); border-radius: 6px; background: var(--bg); }
+.anmatch b { font-size: 1.05rem; }
+.anmatch p { margin: 4px 0 0; color: var(--muted); font-size: 0.88rem; }
+.anf { color: var(--muted); }
+.anformula { margin: 0; }
+.an251 { color: var(--root-dot); font-weight: 700; }
+.anchords { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.anchord { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.anchord small { color: var(--muted); font-size: 0.7rem; }
+.anchord b { font-family: var(--font-head); font-size: 1.25rem; }
+.antype { font-size: 0.8rem; color: var(--muted); }
+.anroman { font-weight: 700; }
+.ankind { font-size: 0.72rem; color: var(--muted); }
+.anchord.borrowed, .anchord.secondary { border-color: var(--accent); }
+.anchord.chromatic { border-style: dashed; }
+.anfn { justify-self: start; padding: 1px 7px; border-radius: 99px; font-size: 0.72rem; font-weight: 700; }
+.anfn.fn-T { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.anfn.fn-PD { background: color-mix(in srgb, var(--live) 22%, transparent); }
+.anfn.fn-D { background: color-mix(in srgb, var(--root-dot) 30%, transparent); }
+.annotes { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.annext { display: flex; flex-wrap: wrap; gap: 8px; }
+.slot-tools { display: inline-flex; gap: 4px; }
 </style>
 <canvas id="fx" aria-hidden="true"></canvas>
 <div class="info-pop" id="infoPop" role="dialog" aria-label="Explanation" hidden></div>
@@ -799,6 +872,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
           <div class="lsacts">
             <button type="button" class="play" id="lsLive" aria-pressed="false">Listen live</button>
             <button type="button" class="tapbtn" data-ls="strum">Listen for my strumming</button>
+            <button type="button" class="tapbtn" data-ls="create">Chord creator</button>
             <label class="tapbtn strong filebtn lsup"><span class="lsupi"></span>Upload a clip<input type="file" id="lsFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.caf,.mov,.mp4"></label>
           </div>
         </div>
@@ -810,6 +884,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
               <div class="lssub" id="lsSub"></div>
               <div class="lsbtns">
                 <button type="button" class="shapeadd" id="lsAdd" data-ls="add">+ Add to progression</button>
+                <button type="button" class="tapbtn" id="lsEditBtn" data-ls="edit">✎ Edit chord</button>
                 <button type="button" class="tapbtn" id="lsCircle" data-ls="circle">Show on the circle</button>
                 <button type="button" class="tapbtn" id="lsAuto" data-ls="auto" aria-pressed="false" hidden>Capture each new chord</button>
                 <button type="button" class="tapbtn" id="lsFollow" data-ls="follow" aria-pressed="true">Follow on the circle</button>
@@ -823,6 +898,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <div class="lscap-row" id="lsCap"></div>
           </div>
         </div>
+        <div class="lsedit" id="lsEdit" hidden></div>
         <div class="lstrack" id="lsTrack" hidden>
           <div class="lstrackhead" id="lsTrackHead"></div>
           <div class="lsstrip" id="lsStrip"></div>
@@ -832,6 +908,29 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <button type="button" class="tapbtn" data-ls="addlen">+ Add all, keep lengths</button>
             <button type="button" class="tapbtn" data-ls="clear">Clear</button>
           </div>
+        </div>
+      </section>
+
+      <section class="panel listen" id="scalePanel" aria-label="Scale listener">
+        <div class="lshead">
+          <div style="flex:1 1 260px;min-width:0">
+            <div class="h2row"><h2 style="font-size:1.15rem">Scale listener</h2><button type="button" class="info" data-info="scalelisten" aria-label="About the scale listener">i</button></div>
+            <p>Play a scale or a melody one note at a time, and see which scale it is.</p>
+          </div>
+          <div class="lsacts">
+            <button type="button" class="play" id="slLive" aria-pressed="false">Listen live</button>
+            <label class="tapbtn strong filebtn">Upload a clip<input type="file" id="slFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.caf,.mov,.mp4"></label>
+            <button type="button" class="tapbtn" data-sl="clear">Start over</button>
+          </div>
+        </div>
+        <p class="lsmsg" id="slMsg" role="status" aria-live="polite"></p>
+        <div class="slbody" id="slBody">
+          <div class="slleft">
+            <div class="slnow" id="slNow"></div>
+            <div class="slnotes" id="slNotes" aria-hidden="true"></div>
+            <p class="sltrail" id="slTrail"></p>
+          </div>
+          <div class="slresults" id="slResults"></div>
         </div>
       </section>
 
@@ -859,9 +958,16 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
           <div class="slots" id="progSlots"></div>
           <div class="progfoot">
             <span id="progSum" class="progsum"></span>
+            <button type="button" class="tapbtn" id="pwCreate">Chord creator</button>
             <button type="button" class="tapbtn" id="progClear">Clear all</button>
           </div>
+          <div class="lsedit" id="pwEdit" hidden></div>
           <p class="progmsg" id="progMsg" role="status" aria-live="polite"></p>
+        </details>
+
+        <details class="wsec" data-sec="analysis" open>
+          <summary><span>Analysis</span><small id="secAnaSum"></small><button type="button" class="info" data-info="analysis" aria-label="About the analysis">i</button></summary>
+          <div class="progana" id="progAna"></div>
         </details>
 
         <details class="wsec" data-sec="playback" open>
