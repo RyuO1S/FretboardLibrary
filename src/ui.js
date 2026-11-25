@@ -1,6 +1,32 @@
 (function () {
   const $ = (id) => document.getElementById(id);
 
+  /* ---------- shared-password gate (browser-only convenience, not real security) ---------- */
+  const gate = $('siteGate');
+  const gateForm = $('gateForm');
+  const gatePassword = $('gatePassword');
+  const gateError = $('gateError');
+  if (gate && gateForm && gatePassword) {
+    let unlocked = false;
+    try { unlocked = sessionStorage.getItem('fretboard-site-gate') === 'unlocked'; } catch (e) {}
+    if (unlocked) gate.hidden = true;
+    else {
+      gate.hidden = false;
+      setTimeout(() => gatePassword.focus(), 50);
+    }
+    gateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (gatePassword.value === 'SR567432') {
+        try { sessionStorage.setItem('fretboard-site-gate', 'unlocked'); } catch (e) {}
+        gate.hidden = true;
+        gateError.textContent = '';
+      } else {
+        gateError.textContent = 'Incorrect password.';
+        gatePassword.select();
+      }
+    });
+  }
+
   /* ---------- theme: follows the system until the button is pressed, then remembers the choice ---------- */
   const root = document.documentElement;
   try {
