@@ -793,6 +793,30 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .itemrow .item { flex: 1 1 auto; min-width: 0; }
 .itemi { flex: none; transform: scale(0.85); opacity: 0.75; }
 .itemrow:hover .itemi, .itemi:focus-visible { opacity: 1; }
+/* the chord editor's live diagram */
+.leboard { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-start; }
+.lefretwrap { flex: 0 0 auto; display: flex; gap: 6px; align-items: stretch; max-width: 100%; touch-action: manipulation; }
+.lesvgbox { width: 240px; max-width: calc(100vw - 110px); }
+.lesvg { display: block; width: 100%; height: auto; user-select: none; }
+.lesvg .lstr { stroke: var(--muted); stroke-width: 1.4; }
+.lesvg .lfret { stroke: var(--line); stroke-width: 1.6; }
+.lesvg .lnut { stroke: var(--fg); stroke-width: 6; }
+.lesvg .lcell, .lesvg .leopen { cursor: pointer; }
+.lesvg .lcell:hover rect, .lesvg .leopen:hover rect { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
+.lesvg .ldot { fill: var(--accent); }
+.lesvg .ldot.root { fill: var(--root-dot); }
+.lesvg .ldotl { fill: #fff; font-size: 10px; font-weight: 700; pointer-events: none; }
+.lesvg .lo-open { fill: none; stroke: var(--accent); stroke-width: 2.2; }
+.lesvg .lo-open.root { stroke: var(--root-dot); }
+.lesvg .lo-mute { fill: var(--muted); font-size: 16px; font-weight: 700; }
+.lesvg .lghost { fill: var(--muted); font-size: 10px; opacity: 0.45; pointer-events: none; }
+.lesvg .lghost.intone { opacity: 0.85; fill: var(--accent); font-weight: 700; }
+.lesvg .lpos { fill: var(--muted); font-size: 11px; font-weight: 700; }
+.leside { flex: 1 1 220px; min-width: 0; display: grid; gap: 8px; align-content: start; }
+.leslide { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 40px; }
+.leslide input[type="range"] { writing-mode: vertical-lr; direction: ltr; width: 26px; flex: 1 1 auto; min-height: 120px; margin: 0; accent-color: var(--accent); }
+.letab { margin: 0; }
+.letab b { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.04em; }
 .sitegate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: var(--bg); }
 .sitegate[hidden] { display: none; }
 .gatebox { width: min(380px,100%); display: grid; gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 12px 40px rgba(0,0,0,.18); }
@@ -2711,29 +2735,6 @@ if (typeof module !== 'undefined') {
     });
   }
 
-  /* ---------- shared-password gate (browser-only convenience, not real security) ---------- */
-  const gate = $('siteGate');
-  const gateForm = $('gateForm');
-  const gatePassword = $('gatePassword');
-  const gateError = $('gateError');
-  if (gate && gateForm && gatePassword) {
-    let unlocked = false;
-    try { unlocked = sessionStorage.getItem('fretboard-site-gate') === 'unlocked'; } catch (e) {}
-    if (unlocked) gate.hidden = true;
-    else { gate.hidden = false; setTimeout(() => gatePassword.focus(), 50); }
-    gateForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      if (gatePassword.value === 'SR567432') {
-        try { sessionStorage.setItem('fretboard-site-gate', 'unlocked'); } catch (e) {}
-        gate.hidden = true;
-        gateError.textContent = '';
-      } else {
-        gateError.textContent = 'Incorrect password.';
-        gatePassword.select();
-      }
-    });
-  }
-
   /* ---------- theme: follows the system until the button is pressed, then remembers the choice ---------- */
   const root = document.documentElement;
   try {
@@ -2975,7 +2976,7 @@ if (typeof module !== 'undefined') {
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -3151,7 +3152,11 @@ if (typeof module !== 'undefined') {
     setTimeout(soundStatus, 400);
   }
   ['pointerdown', 'touchend', 'keydown'].forEach((ev) => document.addEventListener(ev, unlockSound, true));
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && unlocked) setTimeout(soundStatus, 300); });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && unlocked) setTimeout(soundStatus, 300);
+    // hidden tab: release the microphone (an open microphone can make some computers turn other sound down or switch headphones to call quality)
+    if (document.hidden) { try { if (typeof LS !== 'undefined' && LS.live) lsStop(); if (typeof SL !== 'undefined' && SL.live) slStop(); if (typeof GTR !== 'undefined' && GTR.on) gtrStop(false); } catch (e) {} }
+  });
   // a small bar that says when the browser is holding the sound back, with a button to turn it on
   function soundStatus() {
     const bar = $('soundBar');
@@ -3339,11 +3344,22 @@ if (typeof module !== 'undefined') {
     };
     setTimeout(step, 200);
   }
+  // The microphone gets its own audio context, closed again when listening stops. Opening a microphone inside the
+  // context that plays the guitar can leave its sound choppy on some computers (Windows, Bluetooth headsets), even after stopping.
+  function micContext() {
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return null;
+    try { return new C({ latencyHint: 'playback' }); } catch (e) { try { return new C(); } catch (e2) { return null; } }
+  }
+  function closeMic(mc) { try { if (mc && mc.state !== 'closed') mc.close(); } catch (e) {} }
+  // while the site itself is making sound, the listeners skip it (so they never hear the site instead of your guitar)
+  let selfSoundUntil = 0;
   function pluckAt(midi, when, dur, o) {
     const c = audio();
     if (!c) return;
     o = o || {};
     const t = Math.max(when, c.currentTime);
+    selfSoundUntil = Math.max(selfSoundUntil, Date.now() + (t - c.currentTime + Math.min(dur, 2) + 0.25) * 1000);
     if (INST !== 'synth') { guitarNote(c, midi, t, dur, o); return; }
     const f = 440 * Math.pow(2, (midi - 69) / 12);
     const v = o.vol || 0.2;
@@ -4437,8 +4453,7 @@ if (typeof module !== 'undefined') {
   const GTR = { on: false, stream: null, src: null, node: null, sink: null, chunks: [], n: 0, sr: 44100, t0: 0, hits: [], avg: 0, floor: 0, last: -1, quiet: 0, peak: 0, timer: 0, ui: 0 };
   const GTR_MAX_SEC = 30;
   async function gtrStart() {
-    const c = audio();
-    if (!c || GTR.on) return;
+    if (!(window.AudioContext || window.webkitAudioContext) || GTR.on) return;
     if (REC.on) stopRec();
     if (PL.on) stopProg();
     if (LS.live) lsStop();
@@ -4449,6 +4464,9 @@ if (typeof module !== 'undefined') {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     } catch (e) { gtrBlocked(); return; }
+    const c = micContext();
+    if (!c) { stream.getTracks().forEach((t) => t.stop()); gtrBlocked(); return; }
+    GTR.mc = c;
     if (c.state !== 'running') { try { await c.resume(); } catch (e) {} }
     const src = c.createMediaStreamSource(stream);
     const node = c.createScriptProcessor ? c.createScriptProcessor(2048, 1, 1) : null;
@@ -4525,6 +4543,7 @@ if (typeof module !== 'undefined') {
     clearInterval(GTR.ui);
     try { GTR.node.onaudioprocess = null; GTR.src.disconnect(); GTR.node.disconnect(); GTR.sink.disconnect(); } catch (e) {}
     try { GTR.stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    closeMic(GTR.mc); GTR.mc = null;
     const total = GTR.chunks.reduce((a, b) => a + b.length, 0);
     const x = new Float32Array(total);
     let o = 0;
@@ -5151,14 +5170,16 @@ if (typeof module !== 'undefined') {
   }
   // live listening (only where the page is allowed to use the microphone)
   async function lsStart() {
-    const c = audio();
-    if (!c) { lsSay('This browser cannot listen to sound.'); return; }
+    if (!(window.AudioContext || window.webkitAudioContext)) { lsSay('This browser cannot listen to sound.'); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { lsBlocked(); return; }
     if (GTR.on) gtrStop(false);
     if (SL.live) slStop();
     lsSay('Asking to use the microphone…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      const c = micContext();
+      if (!c) { stream.getTracks().forEach((t) => t.stop()); lsBlocked(); return; }
+      LS.mc = c;
       if (c.state !== 'running') { try { await c.resume(); } catch (e) {} }
       LS.stream = stream;
       LS.src = c.createMediaStreamSource(stream);
@@ -5166,7 +5187,7 @@ if (typeof module !== 'undefined') {
       LS.an.fftSize = 16384;
       LS.src.connect(LS.an);              // not to the speakers: no feedback
       LS.live = true;
-      LS.ema = null; LS.cand = null; LS.candN = 0; LS.quietN = 0; LS.tS = 0; LS.tC = 0; LS.tune = 0; LS.conf = 0; LS.alts = [];
+      LS.ema = null; LS.cand = null; LS.candN = 0; LS.quietN = 0; LS.lastSoundAt = Date.now(); LS.tS = 0; LS.tC = 0; LS.tune = 0; LS.conf = 0; LS.alts = [];
       lsSay('Listening. Strum a chord and let it ring for a moment.');
       const buf = new Float32Array(LS.an.fftSize);
       LS.timer = setInterval(() => lsTick(buf, c.sampleRate), 90);
@@ -5184,6 +5205,7 @@ if (typeof module !== 'undefined') {
     clearInterval(LS.timer);
     try { if (LS.src) LS.src.disconnect(); } catch (e) {}
     try { if (LS.stream) LS.stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    closeMic(LS.mc); LS.mc = null;
     LS.stream = LS.src = LS.an = null;
     LS.live = false;
     lsSay(LS.cap.length ? 'Stopped. Your captured chords are below.' : '');
@@ -5205,7 +5227,8 @@ if (typeof module !== 'undefined') {
     return (root, sym) => (priorSet.has(root + ':' + sym) ? 0.02 : 0);
   }
   function lsHear(buf, sr) {
-    if (LS.pauseUntil && Date.now() < LS.pauseUntil) return;   // the site is playing a chord to compare: do not listen to itself
+    if (LS.live) { LS.lastSoundAt = LS.lastSoundAt || Date.now(); if (Date.now() - LS.lastSoundAt > 90000) { lsStop(); lsSay('Stopped listening after a while without chords. Press Listen live to start again.'); return; } }
+    if ((LS.pauseUntil && Date.now() < LS.pauseUntil) || Date.now() < selfSoundUntil) return;   // the site is playing: do not listen to itself
     const d = downTo11k(buf, sr);
     const f = chromaFrame(d.x, d.sr, Math.max(0, d.x.length - CHROMA_N), LS.tune || 0);
     // keep a running estimate of how the guitar is tuned, and read notes relative to it
@@ -5229,6 +5252,7 @@ if (typeof module !== 'undefined') {
     const curId = refId(LS.cur);
     if (LS.candN >= 3 && id !== curId) {
       const ch = lsChord(h);
+      LS.lastSoundAt = Date.now();
       if (ch) {
         LS.cur = chordRef(h.custom ? h : { root: h.root, sym: h.sym });
         LS.heardId = h.heard || h.root + ':' + h.sym;
@@ -5359,25 +5383,28 @@ if (typeof module !== 'undefined') {
     SL.res = scaleMatches(SL.w, { first: SL.first, last: SL.last, lowest: SL.low < 999 ? SL.low % 12 : undefined });
   }
   async function slStart() {
-    const c = audio();
-    if (!c) return;
+    if (!(window.AudioContext || window.webkitAudioContext)) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { slBlocked(); return; }
     if (LS.live) lsStop();
     if (GTR.on) gtrStop(false);
     slSay('Asking to use the microphone…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      const c = micContext();
+      if (!c) { stream.getTracks().forEach((t) => t.stop()); slBlocked(); return; }
+      SL.mc = c;
       if (c.state !== 'running') { try { await c.resume(); } catch (e) {} }
       SL.stream = stream;
       SL.src = c.createMediaStreamSource(stream);
       SL.an = c.createAnalyser();
-      SL.an.fftSize = 2048;
+      SL.an.fftSize = 4096;
       SL.src.connect(SL.an);
       SL.live = true;
       SL.floor = undefined; SL.peak = 0; SL.ticks = 0;
       const buf = new Float32Array(SL.an.fftSize);
       slSay('Listening. Play the notes one at a time and let each one ring a moment.');
-      SL.timer = setInterval(() => slTick(buf, c.sampleRate), 70);
+      SL.timer = setInterval(() => slTick(buf, c.sampleRate), 80);
+      SL.lastNoteAt = Date.now();
       renderScaleListen();
     } catch (e) { slBlocked(); }
   }
@@ -5390,6 +5417,7 @@ if (typeof module !== 'undefined') {
     clearInterval(SL.timer);
     try { if (SL.src) SL.src.disconnect(); } catch (e) {}
     try { if (SL.stream) SL.stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    closeMic(SL.mc); SL.mc = null;
     SL.stream = SL.src = SL.an = null;
     SL.live = false;
     slSay(SL.seq.length ? 'Stopped. The scales that fit what you played are below.' : '');
@@ -5401,12 +5429,16 @@ if (typeof module !== 'undefined') {
     for (let i = from; i < from + len && i < x.length; i++) e += x[i] * x[i];
     const rms = Math.sqrt(e / len);
     if (rms < (gate || 0.006)) return { rms, midi: null };
-    const f = detectPitch(x, sr, from / sr, len / sr);
+    // a quarter-rate copy is plenty for guitar notes and about 16 times less work, so the page (and its sound) stays smooth
+    const d = downTo11k(x.subarray ? x.subarray(from, Math.min(x.length, from + len)) : x.slice(from, from + len), sr);
+    const f = detectPitch(d.x, d.sr, 0, d.x.length / d.sr);
     if (!(f > 70 && f < 1200)) return { rms, midi: null };
     return { rms, midi: Math.round(69 + 12 * Math.log2(f / 440)), f };
   }
   function slTick(buf, sr) {
     if (!SL.an) return;
+    if (Date.now() - (SL.lastNoteAt || Date.now()) > 60000) { slStop(); slSay('Stopped listening after a minute without notes. Press Listen live to start again.'); return; }
+    if (Date.now() < selfSoundUntil) return;
     SL.an.getFloatTimeDomainData(buf);
     // quiet microphones: learn the room's noise level and listen to anything clearly above it
     let e = 0;
@@ -5424,7 +5456,8 @@ if (typeof module !== 'undefined') {
     // octave slips are common in pitch reading: a steady note is the same note name, in any octave
     if (SL.cand >= 0 && (p.midi - SL.cand) % 12 === 0) { if (p.midi !== SL.cand && Math.abs(p.midi - SL.cand) === 12) p.midi = Math.min(p.midi, SL.cand); SL.candN++; SL.cand = p.midi; } else { SL.cand = p.midi; SL.candN = 1; }
     if (SL.candN >= 2) {
-      slNote(p.midi, 0.07);
+      SL.lastNoteAt = Date.now();
+      slNote(p.midi, 0.08);
       if (SL.cur !== p.midi) { SL.cur = p.midi; SL.curF = p.f; }
     }
     const now = Date.now();
@@ -5505,7 +5538,8 @@ if (typeof module !== 'undefined') {
   }
 
   /* ---------- Chord editor / creator: fix a heard chord, or build one note by note ---------- */
-  const LE = { open: false, target: null, root: 0, pcs: [], host: 'lsEdit', bass: -1 };
+  const LE = { open: false, target: null, root: 0, pcs: [], host: 'lsEdit', bass: -1, frets: null, pos: 1, stale: true, ghost: false };
+  try { LE.ghost = localStorage.getItem('fretboard-le-ghost') === '1'; } catch (e) {}
   function leOpen(target, host) {
     let src = null;
     let bass = -1;
@@ -5516,7 +5550,8 @@ if (typeof module !== 'undefined') {
     if (!src) src = LS.cur || { root: S.hk, sym: S.hm === 'minor' ? 'm' : '' };
     if (LE.open && LE.host !== (host || 'lsEdit')) { const old = $(LE.host); if (old) { old.hidden = true; old.innerHTML = ''; } }
     if (bass < 0 && src && Number.isInteger(src.bass)) bass = src.bass;
-    Object.assign(LE, { open: true, target: target || null, root: src.root, pcs: chordPcs(src), host: host || 'lsEdit', bass });
+    Object.assign(LE, { open: true, target: target || null, root: src.root, pcs: chordPcs(src), host: host || 'lsEdit', bass, frets: null, stale: true });
+    if (target && target.kind === 'slot' && P.slots[target.i] && P.slots[target.i].frets) { LE.frets = P.slots[target.i].frets.slice(); LE.stale = false; lePlace(); }
     renderLsEdit();
     focusIn('#' + LE.host);
   }
@@ -5528,6 +5563,7 @@ if (typeof module !== 'undefined') {
     box.hidden = !LE.open;
     if (!LE.open) { box.innerHTML = ''; return; }
     const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    if (LE.stale) leSyncShape();
     const r = LE.pcs.length ? leResult() : null;
     const ch = r ? lsFresh(r) : null;
     const tgt = LE.target ? (LE.target.kind === 'cap' ? 'captured chord ' + (LE.target.i + 1) : LE.target.kind === 'seg' ? 'chord ' + (LE.target.i + 1) + ' of the clip' : LE.target.kind === 'slot' ? 'chord ' + (LE.target.i + 1) + ' of your progression' : 'the heard chord') : '';
@@ -5537,6 +5573,7 @@ if (typeof module !== 'undefined') {
       + `<label class="field"><span>Bass note</span><select id="leBass"><option value="-1"${LE.bass < 0 ? ' selected' : ''}>Root (normal)</option>${names.map((n, i) => `<option value="${i}"${i === LE.bass ? ' selected' : ''}>/${esc(n)}</option>`).join('')}</select></label>`
       + `</div><div class="field"><span>Type${r && r.custom ? ' (now: custom notes)' : ''}</span><div class="leqbtns" role="group" aria-label="Chord type">${ARP_ENTRIES.map((e, i) => `<button type="button" class="qbtn" data-leq="${i}" aria-pressed="${i === qi}" title="${esc(e.name)}">${esc(QUAL[e.sym].short)}</button>`).join('')}</div></div>`
       + `<div class="lenotes" role="group" aria-label="Notes in the chord">${names.map((n, pc) => { const on = LE.pcs.indexOf(pc) >= 0; const root = on && pc === (r ? r.root : LE.root); return `<button type="button" class="lenote${on ? ' on' : ''}${root ? ' root' : ''}" data-le="note:${pc}" aria-pressed="${on}"><b>${esc(n)}</b><small>${on ? (root ? 'root' : INT_LABELS[(pc - (r ? r.root : LE.root) + 12) % 12]) : ''}</small></button>`; }).join('')}</div>`
+      + leBoard(ch)
       + `<p class="leout">${ch ? `<b>${esc(ch.name)}</b> <span>${esc(ch.tones.map((t) => t.name).join(' '))} · ${ch.inKey ? '<b>' + esc(ch.roman) + '</b> in ' + esc(homeName()) : 'not in ' + esc(homeName())}</span>` : '<span>Tap at least one note.</span>'}</p>`
       + `<div class="lsbtns"><button type="button" class="tapbtn" data-le="hear"${ch ? '' : ' disabled'}>Hear it</button>`
       + (LE.target ? `<button type="button" class="tapbtn strong" data-le="apply"${ch ? '' : ' disabled'}>Use this chord</button>` : '')
@@ -5544,7 +5581,82 @@ if (typeof module !== 'undefined') {
       + (LE.target || LE.host !== 'lsEdit' ? '' : `<button type="button" class="tapbtn" data-le="cap"${ch ? '' : ' disabled'}>Add to captured</button>`)
       + `<button type="button" class="tapbtn" data-le="close">Close</button></div>`;
   }
+  /* the editor's live chord diagram: tap the board to place notes, slide it up and down the neck */
+  const LE_ROWS = 5;
+  function lePlace() {
+    const fr = (LE.frets || []).filter((f) => f > 0);
+    if (!fr.length) { LE.pos = 1; return; }
+    const lo = Math.min.apply(null, fr), hi = Math.max.apply(null, fr);
+    if (hi <= LE_ROWS) LE.pos = 1; else LE.pos = Math.max(1, Math.min(MAX_FRET - LE_ROWS + 1, lo));
+  }
+  // notes (or root/type) changed: show the most playable shape for them
+  function leSyncShape() {
+    LE.stale = false;
+    const r = LE.pcs.length ? leResult() : null;
+    const ch = r && lsFresh(r);
+    let sh = null;
+    if (ch) { try { sh = chordShapes(ch.tones, 4, ch.bass).best; } catch (e) { sh = null; } }
+    LE.frets = sh ? sh.frets.slice() : [-1, -1, -1, -1, -1, -1];
+    lePlace();
+  }
+  // the board changed: the notes follow it (one note per string, like a real guitar)
+  function leFromFrets() {
+    const sounding = [];
+    LE.frets.forEach((f, s) => { if (f >= 0) sounding.push((OPEN[s] + f) % 12); });
+    const pcs = Array.from(new Set(sounding));
+    LE.pcs = pcs;
+    if (!pcs.length) return;
+    const lowest = sounding[0];
+    if (pcs.indexOf(LE.root) < 0) LE.root = lowest;
+    LE.bass = -1;
+    const r = nameNotes(pcs, LE.root);
+    LE.root = r.root;
+    if (lowest !== r.root) { LE.bass = lowest; LE.bassAuto = true; }   // a different lowest note makes a slash chord (C/E)
+  }
+  function leBoard(ch) {
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    const fr = LE.frets || [-1, -1, -1, -1, -1, -1];
+    const X = (s) => 34 + s * 32, top = 46, rowH = 40, W = 34 + 5 * 32 + 26;
+    const chordPcs = ch ? ch.tones.map((t) => t.pc) : [];
+    const rootPc = ch ? ch.tones[0].pc : -1;
+    let g = `<svg viewBox="0 0 ${W} ${top + LE_ROWS * rowH + 12}" class="lesvg" role="group" aria-label="Chord diagram: tap a fret to place a note">`;
+    // open / muted markers above the nut
+    for (let s = 0; s < 6; s++) {
+      const f = fr[s];
+      g += `<g class="leopen" data-leopen="${s}"><rect x="${X(s) - 15}" y="2" width="30" height="${top - 8}" fill="transparent"/>`
+        + (f === 0 ? `<circle cx="${X(s)}" cy="${top - 18}" r="8" class="lo-open${(OPEN[s] % 12) === rootPc ? ' root' : ''}"/>` : f < 0 ? `<text x="${X(s)}" y="${top - 13}" text-anchor="middle" class="lo-mute">×</text>` : '')
+        + (LE.ghost && f !== 0 ? `<text x="${X(s)}" y="${top - 30}" text-anchor="middle" class="lghost">${esc(names[OPEN[s] % 12])}</text>` : '')
+        + `</g>`;
+    }
+    // frets and strings
+    for (let k = 0; k <= LE_ROWS; k++) g += `<line x1="${X(0)}" x2="${X(5)}" y1="${top + k * rowH}" y2="${top + k * rowH}" class="${k === 0 && LE.pos === 1 ? 'lnut' : 'lfret'}"/>`;
+    for (let s = 0; s < 6; s++) g += `<line x1="${X(s)}" x2="${X(s)}" y1="${top}" y2="${top + LE_ROWS * rowH}" class="lstr"/>`;
+    if (LE.pos > 1) g += `<text x="6" y="${top + rowH / 2 + 4}" class="lpos">${LE.pos}fr</text>`;
+    // tap targets, faint note names, and the placed notes
+    for (let k = 0; k < LE_ROWS; k++) {
+      const f = LE.pos + k, y = top + k * rowH + rowH / 2;
+      for (let s = 0; s < 6; s++) {
+        const pc = (OPEN[s] + f) % 12;
+        const on = fr[s] === f;
+        g += `<g class="lcell" data-lefret="${s}:${f}"><rect x="${X(s) - 16}" y="${top + k * rowH}" width="32" height="${rowH}" fill="transparent"/>`;
+        if (on) g += `<circle cx="${X(s)}" cy="${y}" r="13" class="ldot${pc === rootPc ? ' root' : ''}"/><text x="${X(s)}" y="${y + 4}" text-anchor="middle" class="ldotl">${esc(names[pc])}</text>`;
+        else if (LE.ghost) g += `<text x="${X(s)}" y="${y + 4}" text-anchor="middle" class="lghost${chordPcs.indexOf(pc) >= 0 ? ' intone' : ''}">${esc(names[pc])}</text>`;
+        g += `</g>`;
+      }
+    }
+    g += `</svg>`;
+    const tab = fr.map((f) => (f < 0 ? 'x' : f)).join(' ');
+    return `<div class="leboard"><div class="lefretwrap"><div class="lesvgbox">${g}</div>`
+      + `<div class="leslide" title="Slide the diagram up or down the neck"><button type="button" class="ib" data-le="pos:-1" aria-label="Move up the neck toward the nut"${LE.pos <= 1 ? ' disabled' : ''}>▲</button>`
+      + `<input type="range" id="lePos" min="1" max="${MAX_FRET - LE_ROWS + 1}" value="${LE.pos}" aria-label="Which frets the diagram shows">`
+      + `<button type="button" class="ib" data-le="pos:1" aria-label="Move down the neck"${LE.pos >= MAX_FRET - LE_ROWS + 1 ? ' disabled' : ''}>▼</button></div></div>`
+      + `<div class="leside"><p class="letab">Tab: <b>${esc(tab)}</b></p>`
+      + `<label class="check"><input type="checkbox" id="leGhost"${LE.ghost ? ' checked' : ''}> Show note names</label>`
+      + `<div class="lsbtns"><button type="button" class="tapbtn lssmall" data-le="shp:-1">◀ Other shape</button><button type="button" class="tapbtn lssmall" data-le="shp:1">Other shape ▶</button><button type="button" class="tapbtn lssmall" data-le="clearb">Clear board</button></div>`
+      + `<p class="hint">Tap a fret to put a finger there (one note per string), tap it again to lift it. Tap above the nut for an open string ○ or a muted one ×.</p></div></div>`;
+  }
   function leHear(ch) {
+    if (LE.open && LE.frets && LE.frets.some((f) => f >= 0)) { strumShape({ frets: LE.frets.slice() }, ch.tones); return; }
     let sh = null;
     try { sh = chordShapes(ch.tones, 4, ch.bass).best; } catch (e) { sh = null; }
     if (sh) { strumShape(sh, ch.tones); return; }
@@ -5553,9 +5665,31 @@ if (typeof module !== 'undefined') {
     ch.tones.forEach((t, k) => { let m = prev + 1; while (m % 12 !== t.pc) m++; prev = m; pluck(m, k * STRUM_GAP, 2.0); });
   }
   function leClick(t) {
+    const cell = t.closest('[data-lefret]');
+    if (cell && LE.open) {
+      const [s, f] = cell.dataset.lefret.split(':').map(Number);
+      if (!LE.frets) LE.frets = [-1, -1, -1, -1, -1, -1];
+      LE.frets[s] = LE.frets[s] === f ? -1 : f;
+      if (LE.frets[s] >= 0) pluck(OPEN[s] + f, 0, 1.4);
+      leFromFrets();
+      renderLsEdit();
+      return true;
+    }
+    const op = t.closest('[data-leopen]');
+    if (op && LE.open) {
+      const s = +op.dataset.leopen;
+      if (!LE.frets) LE.frets = [-1, -1, -1, -1, -1, -1];
+      LE.frets[s] = LE.frets[s] === 0 ? -1 : 0;
+      if (LE.frets[s] === 0) pluck(OPEN[s], 0, 1.4);
+      leFromFrets();
+      renderLsEdit();
+      return true;
+    }
     const qb = t.closest('[data-leq]');
     if (qb) {
       LE.pcs = pickerChord(+qb.dataset.leq, LE.root, S.flats).tones.map((x) => x.pc);
+      if (LE.bassAuto) { LE.bass = -1; LE.bassAuto = false; }   // a bass that only came from the old shape goes with it
+      LE.stale = true;
       renderLsEdit();
       const r = leResult(), ch = r && lsFresh(r);
       if (ch) leHear(ch);
@@ -5570,21 +5704,41 @@ if (typeof module !== 'undefined') {
       if (at >= 0) LE.pcs.splice(at, 1); else LE.pcs.push(pc);
       if (LE.pcs.indexOf(LE.root) < 0 && LE.pcs.length) LE.root = LE.pcs[0];
       if (at < 0) pluck(60 + ((pc - 0 + 12) % 12), 0, 0.9);
+      LE.stale = true;
       renderLsEdit();
       return true;
     }
     if (a === 'close') { LE.open = false; renderLsEdit(); return true; }
+    if (a.indexOf('pos:') === 0) { LE.pos = Math.max(1, Math.min(MAX_FRET - LE_ROWS + 1, LE.pos + +a.slice(4))); renderLsEdit(); return true; }
+    if (a === 'clearb') { LE.frets = [-1, -1, -1, -1, -1, -1]; LE.pcs = []; LE.bass = -1; renderLsEdit(); return true; }
+    if (a.indexOf('shp:') === 0) {
+      const r0 = LE.pcs.length ? leResult() : null, c0 = r0 && lsFresh(r0);
+      if (c0) {
+        let list = [];
+        try { list = chordShapes(c0.tones, 4, c0.bass).list; } catch (e) { list = []; }
+        if (list.length) {
+          const cur = LE.frets ? list.findIndex((x) => x.frets.join() === LE.frets.join()) : -1;
+          const nx = cur < 0 ? 0 : (cur + +a.slice(4) + list.length) % list.length;
+          LE.frets = list[nx].frets.slice();
+          lePlace();
+          renderLsEdit();
+          strumShape({ frets: LE.frets.slice() }, c0.tones);
+        }
+      }
+      return true;
+    }
     const r = LE.pcs.length ? leResult() : null;
     const ch = r && lsFresh(r);
     if (!ch) return true;
     if (a === 'hear') leHear(ch);
-    else if (a === 'add') addToProg(ch);
+    else if (a === 'add') addToProg(ch, LE.frets && LE.frets.some((f) => f >= 0) ? { frets: LE.frets.slice() } : null);
     else if (a === 'cap') { if (LS.cap.length < PROG_MAX) { LS.cap.push(chordRef(r)); renderListen(); say('Added ' + ch.name + ' to the captured chords.'); } }
     else if (a === 'apply' && LE.target && LE.target.kind === 'slot') {
       const i = LE.target.i, old = P.slots[i];
       if (old) {
         let sh = null;
-        try { sh = chordShapes(ch.tones, 4, ch.bass).best; } catch (e) { sh = null; }
+        if (LE.frets && LE.frets.some((f) => f >= 0)) sh = { frets: LE.frets.slice() };
+        else { try { sh = chordShapes(ch.tones, 4, ch.bass).best; } catch (e) { sh = null; } }
         P.slots[i] = Object.assign({}, old, { name: ch.name, roman: ch.inKey ? ch.roman : '', tones: ch.tones.map((t) => ({ name: t.name, pc: t.pc, label: t.label, semis: t.semis || 0 })), frets: sh ? sh.frets.slice() : null });
         if (Number.isInteger(ch.bass) && ch.bass !== ch.tones[0].pc) P.slots[i].bass = ch.bass; else delete P.slots[i].bass;
         saveProg();
@@ -5608,18 +5762,32 @@ if (typeof module !== 'undefined') {
     }
     return true;
   }
+  // sliding the diagram: redraw just the board so the slider keeps working while you drag it
+  function leSlide(v) {
+    LE.pos = +v;
+    const wrap = document.querySelector && document.querySelector('#' + LE.host + ' .lesvgbox');
+    if (!wrap) return;
+    const r = LE.pcs.length ? leResult() : null;
+    const html = leBoard(r ? lsFresh(r) : null);
+    const a = html.indexOf('<svg'), b = html.indexOf('</svg>') + 6;
+    wrap.innerHTML = html.slice(a, b);
+  }
   function leChange(id, v) {
+    if (id === 'lePos') { LE.pos = +v; renderLsEdit(); return true; }
     if (id === 'leRoot') {
       const root = +v;
+      if (LE.bassAuto) { LE.bass = -1; LE.bassAuto = false; }
       const r = LE.pcs.length ? leResult() : null;
       if (r && !r.custom) { const qi = ARP_ENTRIES.findIndex((e) => e.sym === r.sym); LE.pcs = pickerChord(qi, root, S.flats).tones.map((t) => t.pc); }
       else { const shift = root - LE.root; LE.pcs = LE.pcs.map((p) => (((p + shift) % 12) + 12) % 12); }
       LE.root = root;
     } else if (id === 'leBass') {
       LE.bass = +v;
+      LE.bassAuto = false;
     } else if (id === 'leQual' && +v >= 0) {
       LE.pcs = pickerChord(+v, LE.root, S.flats).tones.map((t) => t.pc);
     } else return false;
+    LE.stale = true;
     renderLsEdit();
     return true;
   }
@@ -6870,6 +7038,7 @@ if (typeof module !== 'undefined') {
     }
   } catch (e) {}
 
+  document.addEventListener('input', (e) => { if (e.target && e.target.id === 'lePos') leSlide(e.target.value); });
   document.addEventListener('change', (e) => {
     const v = e.target && e.target.getAttribute ? e.target.getAttribute('data-view') : null;
     if (v) { VIEW[v] = !!e.target.checked; saveView(); renderPatterns(); if (!PL.on) renderRhythm(P.style, -1); return; }
@@ -6900,7 +7069,8 @@ if (typeof module !== 'undefined') {
     if (id === 'txAuto') { ED.txAuto = !!e.target.checked; if (ED.tx) applyTx(); }
     if (id === 'txFile' && e.target.files && e.target.files[0]) transcribeFile(e.target.files[0]);
     if (id === 'lsFile' && e.target.files && e.target.files[0]) { lsFile(e.target.files[0]); e.target.value = ''; }
-    if (id === 'leRoot' || id === 'leQual' || id === 'leBass') leChange(id, e.target.value);
+    if (id === 'leRoot' || id === 'leQual' || id === 'leBass' || id === 'lePos') leChange(id, e.target.value);
+    if (id === 'leGhost') { LE.ghost = !!e.target.checked; try { localStorage.setItem('fretboard-le-ghost', LE.ghost ? '1' : '0'); } catch (err) {} renderLsEdit(); }
     if (id === 'slFile' && e.target.files && e.target.files[0]) { slFile(e.target.files[0]); e.target.value = ''; }
   });
   if (window.addEventListener) window.addEventListener('resize', () => { if (ED.tx) drawTx(); });
