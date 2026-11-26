@@ -265,7 +265,7 @@
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -1521,7 +1521,7 @@
     const formula = AN.chords.map((c) => c.label + (Number.isInteger(c.bass) && c.name.indexOf('/') > 0 ? '/' + c.name.split('/')[1] : '')).join(' – ');
     const norm = (s) => s.replace(/[°ø+]/g, '');
     const types = AN.matches.length
-      ? AN.matches.map((m) => `<div class="anmatch"><b>${esc(m.name)}</b> <span class="anf">${esc(m.alt)}</span><p>${esc(m.hint)}</p></div>`).join('')
+      ? AN.matches.map((m) => `<div class="anmatch"><b>${esc(m.name)}</b> <span class="anf">${esc(m.alt)}</span>${m.sameKey === false ? ` <span class="anf">counted in ${esc((S.flats ? FLAT_NAMES : SHARP_NAMES)[m.tonic])} ${m.mode}</span>` : ''}<p>${esc(m.hint)}</p></div>`).join('')
       : `<div class="anmatch"><b>Your own progression</b><p>It is not one of the well-known loops, so it is all yours. The notes below show how it moves.</p></div>`;
     const has251 = AN.notes.some((x) => x.kind === '251') || AN.matches.some((m) => m.id === '251' || m.id === 'm251');
     const cards = AN.chords.map((c, i) => `<div class="anchord ${c.kind}"><small>${i + 1}</small><b>${esc(c.name)}</b><span class="antype">${esc(typeName(c.sym, c))}</span><span class="anroman">${esc(c.label + (Number.isInteger(c.bass) && c.name.indexOf('/') > 0 ? '/' + c.name.split('/')[1] : ''))}</span>`
@@ -3740,7 +3740,7 @@
     listen: { t: 'Chord listener', b: '<p>Strum a chord on your guitar and the listener names it. The bars show how loudly each of the 12 notes is sounding; the lit ones are the notes of the chord it hears.</p><p>It also tells you the chord\u2019s number in your key (like <b>V</b> in C major), or that it is outside the key. <b>Show on the circle</b> opens it in the Key explorer with its next moves.</p><p><b>Upload a clip</b> reads a whole recording, like the chord track in a DAW or the Moises app, and guesses its key. Tap a chord to hear it, play the clip to follow along, then add the chords to your progression.</p><p>Tips: let each chord ring, keep the phone close, and keep background music and talking down. It knows major, minor, 7, maj7, m7, sus2, sus4 and dim chords.</p><p><b>Live listening</b> needs the microphone, which pages inside the Claude app cannot use. It works once the site is hosted on its own.</p>' },
     analysis: { t: 'Progression analysis', b: '<p>The site works out which <b>key</b> your chords belong to, then gives each chord its number (I, ii, V…) and its job: <b>Home</b> (I, vi, iii) rests, <b>Away</b> (IV, ii) moves off, <b>Tension</b> (V, vii°) wants to resolve.</p><p>It names the <b>kind of progression</b> (a 2–5–1, the pop loop I–V–vi–IV, the Andalusian cadence…), points out <b>cadences</b> (how phrases end) and chords from outside the key, and suggests what could come next and which scales to solo with.</p>' },
     scalelisten: { t: 'Scale listener', b: '<p>Play a scale, a riff or a melody one note at a time. The listener hears each note, keeps count of which of the 12 notes you used, and lists the scales that contain them, best first.</p><p>The same notes can make different scales (C major and A minor share every note). What decides it is the <b>home note</b>, so start and end on the note that sounds like home.</p><p>Tap <b>Show on fretboard</b> to see the scale on the neck. Live listening needs the microphone, which pages inside the Claude app cannot use; upload a clip there instead.</p>' },
-    common: { t: 'Common progressions', tour: 'progression', b: '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' },
+    common: { t: 'Common progressions', tour: 'progression', b: '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p><p>Use the style chips to narrow the list. <b>J-pop and anime</b> lean on the <b>Royal road (王道進行, IV–V–iii–vi)</b>, which starts away from home and leans toward the sad vi, and on <b>丸サ (IVmaj7–III7–vi7)</b>, where the borrowed III7 pulls hard into vi. <b>C-pop</b> ballads love <b>4536251</b> and the Canon’s bass walking down. <b>K-pop</b> often lifts into a chorus with ii–iii–IV–V. <b>Gospel</b> turns IV minor (iv) for a sigh before home, and <b>rock</b> borrows ♭VII from Mixolydian.</p>' },
     playback: { t: 'Tempo and playback', b: '<p><b>Tempo</b> is speed in beats per minute (BPM). 60 BPM is one beat a second; most pop songs sit between 80 and 130. <b>Tap</b> the button in time to set it.</p><p><b>Speed</b> plays everything slower or faster while keeping your tempo setting: great for practising at half speed.</p><p><b>Click track</b> adds a metronome tick on each beat; the first beat of each bar is higher.</p>' },
     patterns: { t: 'Strumming and picking patterns', tour: 'patterns', b: '<p>The rhythm your strumming hand plays. Each box is a step in time: <b>1 & 2 &</b> are eighth notes, <b>1 e & a</b> are sixteenths.</p><p><b>↓</b> is a down-strum, <b>↑</b> an up-strum. <b>Faint arrows</b> are ghost (soft) strums. <b>×</b> is a muted strum: rest your fretting hand on the strings so they click instead of ringing. B and b are bass notes; • and 1–3 are single picked strings.</p><p>Make your own with <b>New pattern</b>, the strum pad, or your real guitar: press <b>Listen to my guitar</b> and strum, and the site writes down your pattern and takes your tempo.</p>' },
     find: { t: 'Chord names', b: '<p>How chord names work: the letter is the root. Nothing after it means <b>major</b> (happy). <b>m</b> is minor (sad). <b>7</b> adds a bluesy 7th. <b>maj7</b> is soft and jazzy. <b>m7</b> is mellow minor. <b>dim</b> (°) is tense, <b>aug</b> (+) is dreamy and unstable. <b>sus2</b> and <b>sus4</b> swap the 3rd for a more open sound. <b>m7♭5</b> (ø) is half-diminished, the ii chord of a minor key.</p>' },
@@ -4002,6 +4002,9 @@
 
   /* ---------- Common progressions ---------- */
   let cpArmed = null, cpPlay = 0;
+  let cpGenre = 'all';
+  try { cpGenre = localStorage.getItem('fretboard-cp-genre') || 'all'; } catch (e) { /* ignore */ }
+  const CP_GENRES = (() => { const seen = []; COMMON_PROGS.forEach((d) => (d.genres || []).forEach((g) => { if (seen.indexOf(g) < 0) seen.push(g); })); const ORDER = ['Pop', 'J-pop', 'Anime', 'C-pop', 'K-pop', 'City pop', 'Ballad', 'R&B / soul', 'Neo-soul', 'Gospel', 'Jazz', 'Bossa nova', 'Rock', 'Folk', 'Country', 'Blues', 'Oldies', 'Classical', 'Film', 'Flamenco']; const at = (g) => (ORDER.indexOf(g) < 0 ? 99 : ORDER.indexOf(g)); return seen.sort((a, b) => at(a) - at(b)); })();
   function renderCommon() {
     const grid = $('cpGrid');
     if (!grid) return;
@@ -4013,10 +4016,21 @@
     seg('cpMode', 'hm', [['major', 'Major'], ['minor', 'Minor']], mode);
     seg('cpType', 'ctype', [['triad', 'Triads'], ['seventh', '7th chords']], seventh ? 'seventh' : 'triad');
     $('secCommonSum').textContent = 'in ' + tonic + ' ' + mode;
-    grid.innerHTML = COMMON_PROGS.filter((d) => d.mode === mode).map((d) => {
+    if (cpGenre !== 'all' && CP_GENRES.indexOf(cpGenre) < 0) cpGenre = 'all';
+    const inMode = COMMON_PROGS.filter((d) => d.mode === mode);
+    const count = (g) => inMode.filter((d) => (d.genres || []).indexOf(g) >= 0).length;
+    $('cpGenres').innerHTML = [['all', 'All', inMode.length]].concat(CP_GENRES.map((g) => [g, g, count(g)]))
+      .map(([v, label, c]) => `<button type="button" class="cpg${c ? '' : ' empty'}" data-cpg="${esc(v)}" aria-pressed="${v === cpGenre}">${esc(label)}<small>${c}</small></button>`).join('');
+    const shown = cpGenre === 'all' ? inMode : inMode.filter((d) => (d.genres || []).indexOf(cpGenre) >= 0);
+    const other = mode === 'major' ? 'minor' : 'major';
+    const otherN = cpGenre === 'all' ? 0 : COMMON_PROGS.filter((d) => d.mode === other && (d.genres || []).indexOf(cpGenre) >= 0).length;
+    $('cpNote').innerHTML = cpGenre === 'all' ? '' : (shown.length ? shown.length + ' ' + esc(cpGenre) + ' progression' + (shown.length === 1 ? '' : 's') + ' in ' + mode + '.' : 'No ' + esc(cpGenre) + ' progressions in ' + mode + '.')
+      + (otherN ? ` <button type="button" class="linkbtn" data-seg="hm" data-v="${other}">${otherN} more in ${other} →</button>` : '');
+    grid.innerHTML = shown.map((d) => {
       const chords = progChords(d, tonic, seventh);
       const armed = cpArmed === d.id;
-      return `<div class="cpcard" data-cpcard="${d.id}"><div class="cp-top"><b>${esc(d.name)}</b><span class="cp-tag">${esc(d.tag)}</span></div>`
+      return `<div class="cpcard" data-cpcard="${d.id}"><div class="cp-top"><b>${esc(d.name)}</b></div>`
+        + `<div class="cp-gen">${(d.genres || []).map((g) => `<span>${esc(g)}</span>`).join('')}</div>`
         + `<div class="cp-roman">${esc(chords.map((c) => c.roman).join(' – '))}</div>`
         + `<div class="cp-chords">${chords.map((c, k) => `<span class="cp-ch" data-cpk="${k}">${esc(c.name)}</span>`).join('')}</div>`
         + `<p class="cp-hint">${esc(d.hint)}</p>`
@@ -4098,6 +4112,8 @@
     const dh = t.closest('[data-dhear]');
     if (dh) { const sl = P.slots[+dh.getAttribute('data-dhear')]; if (sl) auditionSlot(sl); return; }
     if (guideClick(t)) { if (t.closest('summary')) e.preventDefault(); return; }
+    const cpg = t.closest('[data-cpg]');
+    if (cpg) { cpGenre = cpg.getAttribute('data-cpg'); try { localStorage.setItem('fretboard-cp-genre', cpGenre); } catch (e) { /* ignore */ } renderCommon(); return; }
     const cpb = t.closest('[data-cpact]');
     if (cpb) { cpAction(cpb.getAttribute('data-cp'), cpb.getAttribute('data-cpact')); return; }
     const go = t.closest('[data-go]');
