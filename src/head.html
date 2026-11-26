@@ -614,7 +614,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 @keyframes hdotin { from { opacity: 0; transform: scale(0.3); } }
 .circnote { margin: 4px 0 0; color: var(--muted); font-size: 0.8rem; text-align: center; }
 /* Chord listener */
-:root:not(.alltabs) .app[data-tab="fretboard"] #listenPanel { display: none !important; }
+:root:not(.alltabs) .app[data-tab="fretboard"] #listenPanel, :root:not(.alltabs) .app[data-tab="keys"] #listenPanel { display: none !important; }
 :root.alltabs main > #listenPanel { order: 5; }
 .lshead { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; justify-content: space-between; }
 .lshead p { margin: 4px 0 0; color: var(--muted); }
@@ -748,7 +748,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .leout span { color: var(--muted); }
 .leout span b { font-family: inherit; font-size: inherit; color: var(--fg); }
 /* scale listener (sits right under the chord listener) */
-:root:not(.alltabs) .app[data-tab="fretboard"] #scalePanel { display: none !important; }
+:root:not(.alltabs) .app[data-tab="fretboard"] #scalePanel, :root:not(.alltabs) .app[data-tab="keys"] #scalePanel { display: none !important; }
 :root.alltabs main > #scalePanel { order: 5; }
 .slbody { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 20px; margin-top: 12px; padding: 12px; border: 1.5px solid var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
 @media (max-width: 760px) { .slbody { grid-template-columns: minmax(0, 1fr); } }
@@ -853,6 +853,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .gateform input { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
 .gateerr { min-height: 20px; color: #b91c1c; }
 </style>
+
 
 
 
