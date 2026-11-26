@@ -3906,8 +3906,8 @@
     keyopts: { t: 'Key and display', tour: 'fretboard', b: '<p>The <b>key</b> is the home note. Pick C and the scale starts on C.</p><p><b>Labels</b>: Notes shows letter names. Intervals shows each note’s job: 1 is the root (home), 3 gives major or minor colour, 5 is the strong partner, and so on.</p><p><b>Flats or sharps</b>: the same notes can be named two ways (D♯ = E♭). Keys usually use one or the other.</p><p><b>Pattern</b> shows one hand position at a time, the way guitarists learn scales.</p>' },
     board: { t: 'Reading the fretboard', tour: 'fretboard', b: '<p>The six lines are the strings: low E at the bottom, high e at the top, like looking at your guitar from the front. Each box is a fret, and every fret is one semitone, the smallest step in music.</p><p><b>Amber dots</b> are the root (home note). <b>Blue dots</b> are the other notes. Tap any dot to hear it; press <b>Play</b> to hear the whole pattern while the notes light up.</p><p>At the 12th fret everything repeats an octave higher.</p><p><b>Pick notes</b> turns the neck into a note picker: tap any notes (as many as you like), hear them together, then send them to the <b>chord creator</b> with the exact frets you tapped, or add them straight to your progression. The lowest note you pick becomes the bass, so picking E under C–E–G gives C/E.</p>' },
     shapes: { t: 'Reading chord diagrams', b: '<p>A chord diagram is the neck standing up: strings run top to bottom, low E on the left. Dots show where your fingers go. <b>○</b> means play the string open, <b>×</b> means don’t play it. A bar across several strings is a <b>barre</b>: one finger presses them all. "5fr" means the diagram starts at the 5th fret.</p><p>The numbers under it are <b>tab</b>: the fret on each string, low E to high e.</p>' },
-    chordsScale: { t: 'Chords from a scale', b: '<p>Every scale contains chords. Start on any note of the scale, skip one, take the next, skip one, take the next: that stack of notes is a chord.</p><p>The <b>Roman numerals</b> show where each chord sits in the key. Capital (I, IV, V) means major, small (ii, iii, vi) means minor, ° means diminished. Songs talk in numbers so they work in any key: "I–IV–V" is C–F–G in C and G–C–D in G.</p>' },
-    circle: { t: 'The circle of fifths', tour: 'keys', b: '<p>The 12 keys arranged like a clock. Each step clockwise goes up five notes (a fifth) and adds one sharp; anticlockwise adds a flat.</p><p>Keys next to each other share six of their seven notes, so they sound related. The inner ring holds the <b>relative minor</b>: A minor uses the same notes as C major.</p><p>The shaded slice around your key holds its most-used chords: I, IV and V on the outside, ii, iii and vi inside. Tap any key to move there and hear its chord.</p>' },
+    chordsScale: { t: 'Chords from a scale', b: '<p>Every scale contains chords. Start on any note of the scale, skip one, take the next, skip one, take the next: that stack of notes is a chord.</p><p>The <b>Roman numerals</b> show where each chord sits in the key. Capital (I, IV, V) means major, small (ii, iii, vi) means minor, ° means diminished. Songs talk in numbers so they work in any key: "I–IV–V" is C–F–G in C and G–C–D in G.</p>' + romanLink() },
+    circle: { t: 'The circle of fifths', tour: 'keys', b: '<p>The 12 keys arranged like a clock. Each step clockwise goes up five notes (a fifth) and adds one sharp; anticlockwise adds a flat.</p><p>Keys next to each other share six of their seven notes, so they sound related. The inner ring holds the <b>relative minor</b>: A minor uses the same notes as C major.</p><p>The shaded slice around your key holds its most-used chords: I, IV and V on the outside, ii, iii and vi inside. Tap any key to move there and hear its chord.</p>' + romanLink() },
     keychords: { t: 'Chords in a key', tour: 'keys', b: '<p>These seven chords use only the notes of the key, so they always fit together. Most songs use mainly these.</p><p><b>I</b> feels like home. <b>V</b> feels like it wants to go home. <b>IV</b> moves away. <b>vi</b> is the sad cousin of I. <b>ii</b> often leads to V.</p><p>Tap a chord to hear it and see its shapes; press <b>+</b> to add it to your progression.</p>' },
     secondary: { t: 'Secondary dominants', b: '<p>A dominant (V) chord pulls strongly to the chord a fifth below. A <b>secondary dominant</b> borrows that pull to point at another chord in the key: "V/vi" is the V chord of vi. In C, that is E or E7, which leads to Am.</p><p>Use one just before the chord it points to for a strong, surprising pull.</p>' },
     borrowed: { t: 'Borrowed chords', b: '<p>Chords taken from the key with the same tonic but the other mood (C minor inside C major). They add a darker or more dramatic colour. iv (Fm in C) and ♭VII (B♭ in C) are rock and pop favourites.</p>' },
@@ -3916,16 +3916,120 @@
     related: { t: 'Related keys', b: '<p>Keys that are close to this one, so songs often move between them: the <b>dominant</b> (one step clockwise on the circle), the <b>subdominant</b> (one step anticlockwise), and the <b>relative</b> major or minor (same notes, different home).</p>' },
     workspace: { t: 'The progression workspace', tour: 'progression', b: '<p>A <b>chord progression</b> is the order of chords in a song. Build one here: add chords with <b>+</b> anywhere, drag cards to reorder, set how many beats each chord lasts, choose a strumming pattern and press <b>Play</b> to hear it loop.</p><p>Not sure where to start? Pick one of the <b>Common progressions</b>.</p>' },
     next: { t: 'What comes next', tour: 'keys', b: '<p>Chords have jobs. <b>I</b> is home and feels at rest. <b>IV</b> and <b>ii</b> move away. <b>V</b> builds tension that wants to resolve back to I.</p><p>Many strong moves <b>fall a fifth</b>: one step anticlockwise on the circle (vi → ii → V → I). That is why the highlights so often sit right next to the chord you chose.</p><ul><li><b>Strong pull</b>: the move the ear expects, like V → I.</li><li><b>Common</b>: used all the time, like IV → I (the "amen" ending).</li><li><b>Colour</b>: a surprise or a borrowed flavour, like V → vi (the "deceptive" ending) or IV → iv.</li></ul><p>These are guides, not rules. If it sounds good, it is good.</p>' },
-    listen: { t: 'Chord listener', b: '<p>Strum a chord on your guitar and the listener names it. The bars show how loudly each of the 12 notes is sounding; the lit ones are the notes of the chord it hears.</p><p>It also tells you the chord\u2019s number in your key (like <b>V</b> in C major), or that it is outside the key. <b>Show on the circle</b> opens it in the Key explorer with its next moves.</p><p><b>Upload a clip</b> reads a whole recording, like the chord track in a DAW or the Moises app, and guesses its key. Tap a chord to hear it, play the clip to follow along, then add the chords to your progression.</p><p>Tips: let each chord ring, keep the phone close, and keep background music and talking down. It knows major, minor, 7, maj7, m7, sus2, sus4 and dim chords.</p><p><b>Live listening</b> needs the microphone, which pages inside the Claude app cannot use. It works once the site is hosted on its own.</p>' },
-    analysis: { t: 'Progression analysis', b: '<p>The site works out which <b>key</b> your chords belong to, then gives each chord its number (I, ii, V…) and its job: <b>Home</b> (I, vi, iii) rests, <b>Away</b> (IV, ii) moves off, <b>Tension</b> (V, vii°) wants to resolve.</p><p>It names the <b>kind of progression</b> (a 2–5–1, the pop loop I–V–vi–IV, the Andalusian cadence…), points out <b>cadences</b> (how phrases end) and chords from outside the key, and suggests what could come next and which scales to solo with.</p>' },
+    listen: { t: 'Chord listener', b: '<p>Strum a chord on your guitar and the listener names it. The bars show how loudly each of the 12 notes is sounding; the lit ones are the notes of the chord it hears.</p><p>It also tells you the chord\u2019s number in your key (like <b>V</b> in C major), or that it is outside the key. <b>Show on the circle</b> opens it in the Key explorer with its next moves.</p><p><b>Upload a clip</b> reads a whole recording, like the chord track in a DAW or the Moises app, and guesses its key. Tap a chord to hear it, play the clip to follow along, then add the chords to your progression.</p><p>Tips: let each chord ring, keep the phone close, and keep background music and talking down. It knows major, minor, 7, maj7, m7, sus2, sus4 and dim chords.</p><p><b>Live listening</b> needs the microphone, which pages inside the Claude app cannot use. It works once the site is hosted on its own.</p>' + romanLink() },
+    analysis: { t: 'Progression analysis', wide: true, b: () => '<p>The site works out which <b>key</b> your chords belong to, then gives each chord its number (I, ii, V…) and its job: <b>Home</b> (I, vi, iii) rests, <b>Away</b> (IV, ii) moves off, <b>Tension</b> (V, vii°) wants to resolve.</p>' + svgJobs() + '<p>It names the <b>kind of progression</b> (a 2–5–1, the pop loop I–V–vi–IV, the Andalusian cadence…), points out <b>cadences</b> (how phrases end) and chords from outside the key, and suggests what could come next and which scales to solo with.</p>' + romanLink() },
     scalelisten: { t: 'Scale listener', b: '<p>Play a scale, a riff or a melody one note at a time. The listener hears each note, keeps count of which of the 12 notes you used, and lists the scales that contain them, best first.</p><p>The same notes can make different scales (C major and A minor share every note). What decides it is the <b>home note</b>, so start and end on the note that sounds like home.</p><p>Tap <b>Show on fretboard</b> to see the scale on the neck. Live listening needs the microphone, which pages inside the Claude app cannot use; upload a clip there instead.</p>' },
-    common: { t: 'Common progressions', tour: 'progression', b: '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p><p>Use the style chips to narrow the list. <b>J-pop and anime</b> lean on the <b>Royal road (王道進行, IV–V–iii–vi)</b>, which starts away from home and leans toward the sad vi, and on <b>丸サ (IVmaj7–III7–vi7)</b>, where the borrowed III7 pulls hard into vi. <b>C-pop</b> ballads love <b>4536251</b> and the Canon’s bass walking down. <b>K-pop</b> often lifts into a chorus with ii–iii–IV–V. <b>Gospel</b> turns IV minor (iv) for a sigh before home, and <b>rock</b> borrows ♭VII from Mixolydian.</p>' },
+    common: { t: 'Common progressions', tour: 'progression', wide: true, b: () => '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' + svg251() + '<p>Use the style chips to narrow the list. <b>J-pop and anime</b> lean on the <b>Royal road (王道進行, IV–V–iii–vi)</b>, which starts away from home and leans toward the sad vi, and on <b>丸サ (IVmaj7–III7–vi7)</b>, where the borrowed III7 pulls hard into vi. <b>C-pop</b> ballads love <b>4536251</b> and the Canon’s bass walking down. <b>K-pop</b> often lifts into a chorus with ii–iii–IV–V. <b>Gospel</b> turns IV minor (iv) for a sigh before home, and <b>rock</b> borrows ♭VII from Mixolydian.</p>' + romanLink() },
     playback: { t: 'Tempo and playback', b: '<p><b>Tempo</b> is speed in beats per minute (BPM). 60 BPM is one beat a second; most pop songs sit between 80 and 130. <b>Tap</b> the button in time to set it.</p><p><b>Speed</b> plays everything slower or faster while keeping your tempo setting: great for practising at half speed.</p><p><b>Click track</b> adds a metronome tick on each beat; the first beat of each bar is higher.</p>' },
     patterns: { t: 'Strumming and picking patterns', tour: 'patterns', b: '<p>The rhythm your strumming hand plays. Each box is a step in time: <b>1 & 2 &</b> are eighth notes, <b>1 e & a</b> are sixteenths.</p><p><b>↓</b> is a down-strum, <b>↑</b> an up-strum. <b>Faint arrows</b> are ghost (soft) strums. <b>×</b> is a muted strum: rest your fretting hand on the strings so they click instead of ringing. B and b are bass notes; • and 1–3 are single picked strings.</p><p>Make your own with <b>New pattern</b>, the strum pad, or your real guitar: press <b>Listen to my guitar</b> and strum, and the site writes down your pattern and takes your tempo.</p>' },
     find: { t: 'Chord names', b: '<p>How chord names work: the letter is the root. Nothing after it means <b>major</b> (happy). <b>m</b> is minor (sad). <b>7</b> adds a bluesy 7th. <b>maj7</b> is soft and jazzy. <b>m7</b> is mellow minor. <b>dim</b> (°) is tense, <b>aug</b> (+) is dreamy and unstable. <b>sus2</b> and <b>sus4</b> swap the 3rd for a more open sound. <b>m7♭5</b> (ø) is half-diminished, the ii chord of a minor key.</p>' },
     saved: { t: 'Saving progressions', b: '<p>Give your progression a name and press <b>Save</b>. When you are signed in, it goes to your account: only you can see it, and it is there on any device you sign in on. Otherwise it stays in this browser, and you can copy it to your account after signing in.</p><p>Signing in needs no password: type your email and open the link we send you.</p>' },
     details: { t: 'Pattern details', b: '<p>The notes of what is on the neck, with their intervals. The <b>step pattern</b> shows the gaps between scale notes in semitones: the major scale is 2 2 1 2 2 2 1 (whole, whole, half, whole, whole, whole, half).</p>' },
     drop: { t: 'Drop 2 and Drop 3 voicings', b: '<p>Four-note chords spread across the strings the way jazz players use them. Take the chord’s notes stacked closely, then drop the 2nd (or 3rd) highest note down an octave: the shape becomes easy to finger. Choose a string set and an inversion (which note is in the bass).</p>' },
+  };
+  /* ---------- pictures for the theory notes: they follow the key you have chosen ---------- */
+  const homeKeyNames = () => {
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    const T = ((S.hk % 12) + 12) % 12, minor = S.hm === 'minor';
+    const pcs = keyScale(T, minor ? 'minor' : 'major');
+    const q = minor ? ['m', '°', '', 'm', 'm', '', ''] : ['', 'm', 'm', '', '', 'm', '°'];
+    const num = minor ? ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'] : ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
+    return { key: names[T] + (minor ? ' minor' : ' major'), minor, chords: pcs.map((pc, k) => ({ name: names[pc] + q[k], q: q[k], num: num[k], step: k + 1, note: names[pc] })) };
+  };
+  const QFILL = { '': 'var(--root-dot)', m: 'var(--dot)', '°': 'var(--muted)' };
+  const QTEXT = { '': 'var(--root-fg)', m: 'var(--dot-fg)', '°': 'var(--panel)' };
+  // the scale as a staircase: each step is a note of the key and the chord built on it
+  function svgStair() {
+    const k = homeKeyNames();
+    let g = '';
+    k.chords.forEach((c, i) => {
+      const x = 4 + i * 47, h = 34 + i * 7, y = 120 - h;
+      g += `<text x="${x + 21.5}" y="${y - 8}" text-anchor="middle" style="fill:var(--fg);font:700 15px var(--font-head, sans-serif)">${esc(c.num)}</text>`
+        + `<rect x="${x}" y="${y}" width="43" height="${h}" rx="6" style="fill:${QFILL[c.q]}"/>`
+        + `<text x="${x + 21.5}" y="${y + 20}" text-anchor="middle" style="fill:${QTEXT[c.q]};font:700 12.5px sans-serif">${esc(c.name)}</text>`
+        + `<text x="${x + 21.5}" y="136" text-anchor="middle" style="fill:var(--muted);font:600 11px sans-serif">${c.step}</text>`;
+    });
+    const lg = [['', 'major: I IV V'], ['m', 'minor: ii iii vi'], ['°', 'diminished: vii°']];
+    lg.forEach(([q, l], i) => { g += `<rect x="${4 + i * 112}" y="148" width="11" height="11" rx="2" style="fill:${QFILL[q]}"/><text x="${19 + i * 112}" y="158" style="fill:var(--muted);font:11px sans-serif">${l}</text>`; });
+    return `<figure class="ipfig"><svg viewBox="0 0 334 166" role="img" aria-label="The seven chords of ${esc(k.key)} as a staircase">${g}</svg><figcaption>The 7 chords of ${esc(k.key)}. The step number below, the Roman numeral above.</figcaption></figure>`;
+  }
+  // 2 -> 5 -> 1: away, tension, home, with the tension drawn as a line
+  function svg251() {
+    const k = homeKeyNames();
+    const c = [k.chords[1], k.chords[4], k.chords[0]];
+    const five = k.minor ? Object.assign({}, c[1], { name: c[1].note, q: '', num: 'V' }) : c[1];   // minor keys use a major V for a stronger pull
+    const nodes = [c[0], five, c[2]];
+    const xs = [52, 167, 282], lbl = ['away', 'tension', 'home'], ty = [62, 30, 92];
+    let g = `<polyline points="${xs.map((x, i) => x + ',' + ty[i]).join(' ')}" style="fill:none;stroke:var(--accent);stroke-width:2.5;stroke-dasharray:5 4"/>`;
+    g += `<text x="6" y="16" style="fill:var(--accent);font:600 10.5px sans-serif">tension</text>`;
+    nodes.forEach((n, i) => {
+      g += `<circle cx="${xs[i]}" cy="${ty[i]}" r="4.5" style="fill:var(--accent)"/>`
+        + `<rect x="${xs[i] - 38}" y="108" width="76" height="40" rx="9" style="fill:${QFILL[n.q]}"/>`
+        + `<text x="${xs[i]}" y="127" text-anchor="middle" style="fill:${QTEXT[n.q]};font:700 15px sans-serif">${esc(n.name)}</text>`
+        + `<text x="${xs[i]}" y="142" text-anchor="middle" style="fill:${QTEXT[n.q]};font:600 11px sans-serif">${esc(n.num)}</text>`
+        + `<text x="${xs[i]}" y="166" text-anchor="middle" style="fill:var(--muted);font:600 11px sans-serif">${['2', '5', '1'][i]} · ${lbl[i]}</text>`;
+      if (i < 2) g += `<path d="M${xs[i] + 40} 128 L${xs[i + 1] - 46} 128" style="stroke:var(--fg);stroke-width:2;fill:none" marker-end="url(#ipArr)"/>`;
+    });
+    return `<figure class="ipfig"><svg viewBox="0 0 334 172" role="img" aria-label="2–5–1 in ${esc(k.key)}: ${nodes.map((n) => n.name).join(', ')}"><defs><marker id="ipArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--fg)"/></marker></defs>${g}</svg><figcaption>2–5–1 in ${esc(k.key)}: tension builds on the 5 and is released on the 1.</figcaption></figure>`;
+  }
+  // the three jobs a chord can have, and the loop most songs travel
+  function svgJobs() {
+    const k = homeKeyNames();
+    const by = (ix) => ix.map((i) => k.chords[i]);
+    const zones = [
+      { t: 'HOME', s: 'rest, feels finished', x: 167, y: 40, ch: by(k.minor ? [0, 2, 5] : [0, 5, 2]), f: 'var(--root-dot)', fg: 'var(--root-fg)' },
+      { t: 'AWAY', s: 'moves off', x: 270, y: 150, ch: by(k.minor ? [3, 1] : [3, 1]), f: 'var(--dot)', fg: 'var(--dot-fg)' },
+      { t: 'TENSION', s: 'wants to go home', x: 64, y: 150, ch: by(k.minor ? [4, 6] : [4, 6]), f: 'var(--panel)', fg: 'var(--fg)', line: true },
+    ];
+    let g = '';
+    const arr = (x1, y1, x2, y2, bend) => `<path d="M${x1} ${y1} Q${(x1 + x2) / 2 + bend[0]} ${(y1 + y2) / 2 + bend[1]} ${x2} ${y2}" style="stroke:var(--fg);stroke-width:2;fill:none;opacity:0.75" marker-end="url(#ipArr2)"/>`;
+    g += arr(222, 52, 268, 112, [22, -14]) + arr(212, 160, 120, 160, [0, 22]) + arr(60, 112, 110, 52, [-24, -12]);
+    zones.forEach((z) => {
+      g += `<rect x="${z.x - 60}" y="${z.y - 30}" width="120" height="62" rx="12" style="fill:${z.f}${z.line ? ';stroke:var(--fg);stroke-width:2.5;stroke-dasharray:6 4' : ''}"/>`
+        + `<text x="${z.x}" y="${z.y - 12}" text-anchor="middle" style="fill:${z.fg};font:800 12px sans-serif;letter-spacing:0.08em">${z.t}</text>`
+        + `<text x="${z.x}" y="${z.y + 7}" text-anchor="middle" style="fill:${z.fg};font:700 13.5px sans-serif">${z.ch.map((c) => esc(c.num)).join('  ')}</text>`
+        + `<text x="${z.x}" y="${z.y + 24}" text-anchor="middle" style="fill:${z.fg};font:600 10.5px sans-serif;opacity:0.9">${esc(z.ch.map((c) => c.name).join(' '))}</text>`
+        + `<text x="${z.x}" y="${z.y + 46}" text-anchor="middle" style="fill:var(--muted);font:600 10.5px sans-serif">${z.s}</text>`;
+    });
+    return `<figure class="ipfig"><svg viewBox="0 0 334 206" role="img" aria-label="Home, away and tension chords in ${esc(k.key)}"><defs><marker id="ipArr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--fg)"/></marker></defs>${g}</svg><figcaption>Most songs go round this loop: home → away → tension → home.</figcaption></figure>`;
+  }
+  // the same numbers in two keys: why musicians count instead of naming chords
+  function svgTwoKeys() {
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    const rows = [0, 7].map((T) => { const p = keyScale(T, 'major'); return { key: names[T], ch: [[0, ''], [4, ''], [5, 'm'], [3, '']].map(([i, q]) => names[p[i]] + q) }; });
+    const nums = ['I', 'V', 'vi', 'IV'];
+    let g = '';
+    nums.forEach((n, i) => { g += `<text x="${96 + i * 62}" y="14" text-anchor="middle" style="fill:var(--fg);font:700 14px sans-serif">${n}</text>`; });
+    rows.forEach((r, j) => {
+      const y = 26 + j * 40;
+      g += `<text x="4" y="${y + 21}" style="fill:var(--muted);font:600 11px sans-serif">in ${esc(r.key)}</text>`;
+      r.ch.forEach((c, i) => { const q = i === 2 ? 'm' : ''; g += `<rect x="${70 + i * 62}" y="${y}" width="52" height="30" rx="7" style="fill:${QFILL[q]}"/><text x="${96 + i * 62}" y="${y + 20}" text-anchor="middle" style="fill:${QTEXT[q]};font:700 13px sans-serif">${esc(c)}</text>`; });
+    });
+    return `<figure class="ipfig"><svg viewBox="0 0 334 110" role="img" aria-label="I–V–vi–IV in C and in G"><text x="4" y="14" style="fill:var(--muted);font:600 11px sans-serif">numbers</text>${g}</svg><figcaption>Same numbers, different key: the progression sounds the same, just higher or lower.</figcaption></figure>`;
+  }
+  function romanLink(label) { return `<button type="button" class="ip-link" data-info="roman">${label || 'What do I, IV, V and 2–5–1 mean?'}</button>`; }
+  INFO.roman = {
+    t: 'Chord numbers: I, IV, V and 2–5–1',
+    wide: true,
+    b: () => {
+      const k = homeKeyNames();
+      return `<p>Musicians name chords by <b>number</b> instead of by letter. Number the notes of the key 1 to 7; the chord built on each note gets that number, written as a <b>Roman numeral</b>.</p>`
+        + svgStair()
+        + `<ul><li><b>UPPERCASE</b> (I, IV, V) = a <b>major</b> chord: bright.</li><li><b>lowercase</b> (ii, iii, vi) = a <b>minor</b> chord: darker.</li><li><b>°</b> (vii°) = <b>diminished</b>: tense and unstable.</li></ul>`
+        + `<p><b>Why numbers?</b> They work in every key. Learn a progression once and play it anywhere.</p>`
+        + svgTwoKeys()
+        + `<p><b>Saying it out loud:</b> "2–5–1" means ii → V → I. "1–4–5" is I → IV → V (three-chord rock). "4536251" and "6451" are just the steps in order.</p>`
+        + svg251()
+        + `<p><b>Every chord has a job.</b> Home chords feel like rest, away chords move off, tension chords want to go home. That pull is what makes a progression feel like it is going somewhere.</p>`
+        + svgJobs()
+        + `<p><b>Other signs you will see</b></p><ul>`
+        + `<li><b>7</b> adds a fourth note: V7 (${esc(k.chords[4].note)}7) pulls home even harder; <b>maj7</b> sounds soft and dreamy.</li>`
+        + `<li><b>♭VII, ♭VI, ♭III</b>: a chord <b>borrowed</b> from the minor key, one fret lower than normal (in C: B♭, A♭, E♭). Rock and film music love them.</li>`
+        + `<li><b>III7</b> or <b>VI7</b>: a major chord where a minor one would be; it acts as a "V of" the next chord and pulls into it (the 丸サ / Just the Two of Us move).</li>`
+        + `<li><b>ø</b> (half-diminished, m7♭5) is the ii in a minor 2–5–1.</li>`
+        + `<li><b>/</b> a slash shows the bass note: I/3 or C/E is C with E in the bass.</li></ul>`
+        + `<p>The pictures use your current key, ${esc(k.key)}. Change the key and they change with it.</p>`;
+    },
   };
   const TOURS = {
     welcome: [
@@ -3971,7 +4075,10 @@
       { sel: '#rNew', tab: 'progression', t: 'Make your own', b: 'Build a pattern box by box, play it on the strum pad, or load a recording of your own guitar.' },
     ],
   };
-  const GUIDE = { learn: false, seen: {} };
+  const GUIDE = { learn: false, seen: {}, intro: false, firstVisit: false };
+  // first visit: the Guide opens by itself once. Closing it (or starting a tour) means it never opens by itself again.
+  try { GUIDE.firstVisit = !localStorage.getItem('fretboard-guide-seen') && !localStorage.getItem('fretboard-tab') && !localStorage.getItem('fretboard-tours'); } catch (e) {}
+  const markGuideSeen = () => { GUIDE.intro = false; try { localStorage.setItem('fretboard-guide-seen', '1'); } catch (e) {} };
   try {
     GUIDE.learn = localStorage.getItem('fretboard-learn') === '1';
     GUIDE.seen = JSON.parse(localStorage.getItem('fretboard-tours') || '{}') || {};
@@ -3985,7 +4092,8 @@
     if (!p) return;
     const fxb = (v, l) => `<button type="button" data-fx="${v}" aria-pressed="${FX === v}">${l}</button>`;
     p.innerHTML = `<div class="gp-head"><b>Guide</b><button type="button" class="ib" id="guideClose" aria-label="Close the guide">${ICON.x}</button></div>`
-      + `<p class="gp-text">New to the site or to music theory? Take a short tour. Already know your way around? Just close this.</p>`
+      + (GUIDE.intro ? `<p class="gp-text gp-welcome"><b>Welcome!</b> This guide opens by itself only on your first visit. Close it and it stays closed; the <b>Guide</b> button brings it back whenever you want.</p>` : '')
+      + `<p class="gp-text">New to the site or to music theory? Take a short tour, or read <button type="button" class="ip-link inl" data-info="roman">what chord numbers (I, IV, V, 2–5–1) mean</button>. Already know your way around? Just close this.</p>`
       + `<button type="button" class="tapbtn strong gp-main" data-tour="welcome">Take the tour of the site</button>`
       + `<div class="gp-label">Tours of each part</div><div class="gp-tours">`
       + [['fretboard', 'Fretboard and scales'], ['keys', 'Keys and the circle of fifths'], ['progression', 'Building a progression'], ['patterns', 'Strumming patterns']].map(([k, l]) => `<button type="button" class="tapbtn" data-tour="${k}">${l}${GUIDE.seen[k] ? ' <span class="gp-done">✓</span>' : ''}</button>`).join('')
@@ -3996,13 +4104,14 @@
   function openGuide(open) {
     const p = $('guidePanel');
     if (!p) return;
+    if (!open && !p.hidden) markGuideSeen();
     p.hidden = !open;
     $('guideBtn').setAttribute('aria-expanded', String(!!open));
     if (open) { closeInfo(); renderGuide(); }
   }
 
   // (i) notes
-  let infoOpen = null;
+  let infoOpen = null, infoAnchor = null;
   function closeInfo() {
     const pop = $('infoPop');
     if (pop) pop.hidden = true;
@@ -4059,11 +4168,14 @@
     if (!it || !pop) return;
     if (infoOpen === key) { closeInfo(); return; }
     infoOpen = key;
-    pop.innerHTML = `<div class="ip-head"><span class="ip-i">i</span><b>${it.t}</b><button type="button" class="ib" id="infoClose" aria-label="Close">${ICON.x}</button></div><div class="ip-body">${it.b}</div>`
+    const fromNote = !!(btn && pop.contains && pop.contains(btn));
+    const body = typeof it.b === 'function' ? it.b() : it.b;
+    pop.innerHTML = `<div class="ip-head"><span class="ip-i">i</span><b>${it.t}</b><button type="button" class="ib" id="infoClose" aria-label="Close">${ICON.x}</button></div><div class="ip-body">${body}</div>`
       + (it.tour ? `<button type="button" class="tapbtn ip-tour" data-tour="${it.tour}">Show me around this part</button>` : '');
     pop.hidden = false;
+    if (fromNote) btn = infoAnchor || btn; else infoAnchor = btn;
     const r = btn.getBoundingClientRect();
-    const w = Math.min(360, window.innerWidth - 24);
+    const w = Math.min(it.wide ? 440 : 360, window.innerWidth - 24);
     pop.style.width = w + 'px';
     if (window.innerWidth < 600) { pop.classList.add('sheet'); pop.style.left = ''; pop.style.top = ''; return; }
     pop.classList.remove('sheet');
@@ -4723,4 +4835,5 @@
   setLayout(LAYOUT);
   if (LAYOUT === 'tabs') setTab(startTab);
   else { TAB = startTab; qsa(document, '[data-go]').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-go') === TAB))); }
+  if (GUIDE.firstVisit) setTimeout(() => { const gp = $('guidePanel'); if (gp && gp.hidden && !TOUR.name) { GUIDE.intro = true; openGuide(true); } }, 700);
 })();
