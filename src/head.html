@@ -757,6 +757,26 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .leout b { font-family: var(--font-head); font-size: 1.5rem; }
 .leout span { color: var(--muted); }
 .leout span b { font-family: inherit; font-size: inherit; color: var(--fg); }
+/* the scale listener's live neck */
+:root.alltabs main > #tracePanel { order: 7; }
+#traceNeck { display: block; width: 100%; height: auto; }
+#traceNeck text { font-family: var(--font-body); }
+#traceNeck .dot { cursor: pointer; transform-box: fill-box; transform-origin: center; }
+#traceNeck .dot:not(.played) { cursor: default; pointer-events: none; }
+#traceNeck .dot.played:hover circle { stroke: var(--lit); stroke-width: 3; }
+#traceNeck .dot.lit, #traceNeck .dot.echo { transform: scale(1.35); filter: drop-shadow(0 0 7px var(--lit-glow)); }
+#traceNeck .dot.lit circle, #traceNeck .dot.echo circle { fill: var(--lit); stroke: var(--root-dot); stroke-width: 3.5; }
+#traceNeck .dot.lit text, #traceNeck .dot.echo text { fill: var(--root-fg); }
+#traceNeck .dot.lastp circle { stroke: var(--lit); stroke-width: 4; }
+#traceNeck .dot.out circle { stroke: #e5484d; stroke-width: 3.5; stroke-dasharray: 4 3; }
+@media (prefers-reduced-motion: no-preference) { #traceNeck .dot { transition: transform 0.14s ease-out, filter 0.14s; } }
+.tracectl { gap: 8px 16px; margin: 12px 0 8px; align-items: flex-end; }
+.tracesum { margin: 8px 0 4px; font-size: 0.9rem; }
+.tracesum .trout { color: #e5484d; font-weight: 600; }
+.tracekey { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 0; color: var(--muted); font-size: 0.78rem; }
+.tracekey .k { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.tracekey .k.kroot { background: var(--root-dot); } .tracekey .k.kplay { background: var(--dot); } .tracekey .k.lastk { background: var(--dot); box-shadow: 0 0 0 2.5px var(--lit); }
+.tracekey .k.ghostk { background: var(--dot); opacity: 0.3; } .tracekey .k.outk { background: var(--dot); box-shadow: 0 0 0 2px #e5484d; }
 /* scale listener (sits right under the chord listener) */
 :root.alltabs main > #scalePanel { order: 7; }
 .slbody { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 20px; margin-top: 12px; padding: 12px; border: 1.5px solid var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
@@ -1039,6 +1059,27 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
           </div>
           <div class="slresults" id="slResults"></div>
         </div>
+      </section>
+
+      <section class="panel listen" id="tracePanel" data-tab-of="listen" aria-label="What you played on the neck">
+        <div class="lshead">
+          <div style="flex:1 1 300px;min-width:0">
+            <div class="h2row"><h2 style="font-size:1.15rem">What you played, on the neck</h2><button type="button" class="info" data-info="trace" aria-label="About the live neck">i</button></div>
+            <p>Every note the Scale listener hears lands on the fretboard where you most likely played it, and stays there. It is saved on this device, so you can come back to it.</p>
+          </div>
+          <div class="lsacts">
+            <button type="button" class="tapbtn" id="traceHear">Hear it back</button>
+            <button type="button" class="tapbtn" id="traceClear">Clear</button>
+          </div>
+        </div>
+        <div class="row tracectl">
+          <label class="field"><span>Compare with</span><select id="traceCmp"></select></label>
+          <div class="field"><span>Labels</span><div class="seg" id="traceLbl" role="group" aria-label="Labels"></div></div>
+          <label class="check"><input type="checkbox" id="traceFill" checked> Show the scale notes you have not played (faint)</label>
+        </div>
+        <div class="neck-scroll"><svg id="traceNeck" role="img" aria-label="Fretboard showing the notes you played"></svg></div>
+        <p class="tracesum" id="traceSum" role="status"></p>
+        <p class="tracekey"><span><i class="k kroot"></i>home note of the scale</span><span><i class="k kplay"></i>you played it (bigger = more often)</span><span><i class="k lastk"></i>last note</span><span><i class="k ghostk"></i>in the scale, not played yet</span><span><i class="k outk"></i>not in the scale</span><span>Wrong string? Tap a dot to move it.</span></p>
       </section>
 
       <section class="panel" id="progPanel" data-tab-of="progression" aria-label="Progression workspace">

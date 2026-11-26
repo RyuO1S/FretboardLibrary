@@ -265,7 +265,7 @@
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-pk', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-trace', 'data-pk', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -2776,14 +2776,14 @@
   /* ---------- Scale listener: play notes one at a time, it names them and finds the scales that fit ---------- */
   const SL = { live: false, stream: null, src: null, an: null, timer: 0, w: new Array(12).fill(0), seq: [], first: -1, last: -1, low: 999, cand: -1, candN: 0, cur: -1, curF: 0, res: [], dirty: false, lastRender: 0 };
   const slSay = (m) => { const el = $('slMsg'); if (el) el.textContent = m || ''; };
-  function slReset() { Object.assign(SL, { w: new Array(12).fill(0), seq: [], first: -1, last: -1, low: 999, cand: -1, candN: 0, cur: -1, res: [] }); renderScaleListen(); }
+  function slReset() { Object.assign(SL, { w: new Array(12).fill(0), seq: [], first: -1, last: -1, low: 999, cand: -1, candN: 0, cur: -1, res: [] }); traceClear(); renderScaleListen(); }
   function slNote(midi, dt) {
     const pc = ((midi % 12) + 12) % 12;
     SL.w[pc] += dt;
     if (SL.first < 0) SL.first = pc;
     SL.last = pc;
     if (midi < SL.low) SL.low = midi;
-    if (SL.seq[SL.seq.length - 1] !== midi) { SL.seq.push(midi); if (SL.seq.length > 40) SL.seq.shift(); SL.dirty = true; }
+    if (SL.seq[SL.seq.length - 1] !== midi) { SL.seq.push(midi); if (SL.seq.length > 40) SL.seq.shift(); SL.dirty = true; traceAdd(midi); }
   }
   function slMatch() {
     SL.res = scaleMatches(SL.w, { first: SL.first, last: SL.last, lowest: SL.low < 999 ? SL.low % 12 : undefined });
@@ -2916,8 +2916,161 @@
         return `<div class="slres${i === 0 ? ' best' : ''}"><div><b>${esc(names[r.root] + ' ' + r.name)} <button type="button" class="info" data-info="scale:${r.id}" aria-label="About the ${esc(r.name)} scale">i</button></b><small>${esc(fits)}</small></div><button type="button" class="tapbtn" data-sl-show="${r.id}:${r.root}">Show on fretboard</button><button type="button" class="tapbtn" data-sl-hear="${r.id}:${r.root}">Hear it</button></div>`;
       }).join('') + `<p class="hint">The first one is the best guess. The home note matters: the same notes make C major and A minor, so play the note you hear as "home" first and last.</p>`
       : `<p class="hint">Play a scale or a melody, one note at a time. The notes light up here and the scales that fit appear.</p>`;
+    renderTrace();
+  }
+  /* ---------- the scale listener on the neck: every note you play appears where you (most likely) played it ---------- */
+  const TR = { notes: [], hand: 5, labels: 'note', cmp: '', fill: true, saveT: 0, lastKey: '' };
+  const TR_MAX = 400;
+  // where on the neck a note was played: the place closest to where your hand has been, on or next to the last string
+  function tracePlace(midi) {
+    const prev = TR.notes[TR.notes.length - 1];
+    let best = null, bs = Infinity;
+    for (let s = 0; s < 6; s++) {
+      const f = midi - OPEN[s];
+      if (f < 0 || f > MAX_FRET) continue;
+      // an open string is easy from low positions, a long reach from high ones
+      const dist = f === 0 ? Math.max(0, TR.hand - 3) * 0.8 + 0.4 : Math.abs(f - TR.hand);
+      const sc = dist + (prev ? Math.abs(s - prev.s) * 0.35 : 0);
+      if (sc < bs) { bs = sc; best = { s, f }; }
+    }
+    return best;
+  }
+  function traceAdd(midi) {
+    const at = tracePlace(midi);
+    if (!at) return;
+    TR.notes.push({ midi, s: at.s, f: at.f });
+    if (TR.notes.length > TR_MAX) TR.notes.shift();
+    if (at.f > 0) TR.hand = TR.hand * 0.7 + at.f * 0.3;
+    traceSave();
+  }
+  function traceSave() {
+    clearTimeout(TR.saveT);
+    TR.saveT = setTimeout(() => {
+      try { localStorage.setItem('fretboard-sl-trace', JSON.stringify({ notes: TR.notes, hand: TR.hand, w: SL.w, first: SL.first, last: SL.last, low: SL.low, seq: SL.seq })); } catch (e) {}
+    }, 600);
+  }
+  function traceLoad() {
+    try {
+      const d = JSON.parse(localStorage.getItem('fretboard-sl-trace') || 'null');
+      if (!d || !Array.isArray(d.notes)) return;
+      TR.notes = d.notes.filter((n) => n && Number.isInteger(n.midi) && Number.isInteger(n.s) && n.s >= 0 && n.s < 6 && Number.isInteger(n.f) && n.f >= 0 && n.f <= MAX_FRET && OPEN[n.s] + n.f === n.midi).slice(-TR_MAX);
+      TR.hand = Number.isFinite(d.hand) ? d.hand : 5;
+      if (Array.isArray(d.w) && d.w.length === 12 && d.w.every(Number.isFinite)) SL.w = d.w.slice();
+      if (Array.isArray(d.seq)) SL.seq = d.seq.filter(Number.isInteger).slice(-40);
+      if (Number.isInteger(d.first)) SL.first = d.first;
+      if (Number.isInteger(d.last)) SL.last = d.last;
+      if (Number.isFinite(d.low)) SL.low = d.low;
+      if (SL.seq.length) slMatch();
+    } catch (e) {}
+  }
+  function traceClear() { TR.notes = []; TR.hand = 5; TR.cmp = ''; try { localStorage.removeItem('fretboard-sl-trace'); } catch (e) {} }
+  function renderTrace() {
+    const svg = $('traceNeck');
+    if (!svg) return;
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    // which scale to compare with: the one picked, else the best guess
+    const res = SL.res.slice(0, 5);
+    let cmp = res.find((r) => r.id + ':' + r.root === TR.cmp) || res[0] || null;
+    if (TR.cmp === 'none') cmp = null;
+    const e = cmp ? ENTRIES.find((x) => x.id === cmp.id) : null;
+    const scalePcs = e ? buildPattern(e, cmp.root, S.flats).notes : [];
+    const inScale = (pc) => scalePcs.some((n) => n.pc === pc);
+    const labelOf = (pc) => {
+      if (TR.labels === 'interval' && cmp) { const n = scalePcs.find((x) => x.pc === pc); return n ? fmtLabel(n.label) : names[pc]; }
+      return TR.labels === 'none' ? '' : names[pc];
+    };
+    // one dot per place on the neck; how often you played it
+    const at = new Map();
+    TR.notes.forEach((n, i) => { const k = n.s + ':' + n.f; const o = at.get(k) || { s: n.s, f: n.f, midi: n.midi, n: 0, last: -1 }; o.n++; o.last = i; at.set(k, o); });
+    const places = Array.from(at.values());
+    const frets = places.map((p) => p.f);
+    let rf = frets.length ? Math.max(0, Math.min.apply(null, frets) - 1) : 0;
+    let rt = frets.length ? Math.min(MAX_FRET, Math.max.apply(null, frets) + 1) : 12;
+    if (rt - rf < 6) { rt = Math.min(MAX_FRET, rf + 6); rf = Math.max(0, rt - 6); }
+    const dots = places.map((p) => {
+      const pc = p.midi % 12;
+      return { s: p.s, f: p.f, note: { pc, name: names[pc], label: labelOf(pc) }, chordRoot: cmp ? pc === cmp.root : false };
+    });
+    // the rest of the scale, faint, inside the stretch of neck you used
+    if (TR.fill && cmp && places.length) {
+      for (let s = 0; s < 6; s++) for (let f = rf; f <= rt; f++) {
+        const pc = (OPEN[s] + f) % 12;
+        if (!inScale(pc) || at.has(s + ':' + f)) continue;
+        dots.push({ s, f, dim: true, note: { pc, name: names[pc], label: labelOf(pc) }, chordRoot: pc === cmp.root });
+      }
+    }
+    const x0 = rf <= 0 ? 0 : Math.max(0, fx(rf - 1) - 6);
+    const x1 = rt >= MAX_FRET ? VBW : fx(rt) + 8;
+    svg.setAttribute('viewBox', x0.toFixed(1) + ' 0 ' + (x1 - x0).toFixed(1) + ' ' + VBH);
+    svg.style.minWidth = Math.round((x1 - x0) * 0.62) + 'px';
+    const saveLabels = S.labels;
+    S.labels = TR.labels === 'none' ? 'none' : 'note';   // boardSvg prints note.name; we pass our own label as the name
+    svg.innerHTML = boardSvg(dots.map((d) => Object.assign({}, d, { note: Object.assign({}, d.note, { name: d.note.label }) })), []);
+    S.labels = saveLabels;
+    // mark: the note sounding now, the last one played, and notes outside the scale
+    const last = TR.notes[TR.notes.length - 1];
+    qsa(svg, '.dot').forEach((el) => {
+      const s = +el.getAttribute('data-s'), f = +el.getAttribute('data-f');
+      const p = at.get(s + ':' + f);
+      if (!p) return;
+      el.classList.add('played');
+      if (last && last.s === s && last.f === f) el.classList.add(SL.cur >= 0 && SL.live ? 'lit' : 'lastp');
+      if (cmp && !inScale(p.midi % 12)) el.classList.add('out');
+      el.setAttribute('data-trace', s + ':' + f);
+      const c = el.querySelector('circle');
+      if (c && p.n > 1) c.setAttribute('r', String(Math.min(R + 4, R + Math.log2(p.n) * 1.4)));
+    });
+    // summary and controls
+    const outs = cmp ? Array.from(new Set(TR.notes.map((n) => n.midi % 12).filter((pc) => !inScale(pc)))) : [];
+    const missing = cmp ? scalePcs.filter((n) => !TR.notes.some((x) => x.midi % 12 === n.pc)).map((n) => n.name) : [];
+    $('traceSum').innerHTML = TR.notes.length
+      ? `<b>${TR.notes.length}</b> notes · <b>${places.length}</b> places on the neck · frets ${Math.min.apply(null, frets)}–${Math.max.apply(null, frets)}`
+        + (cmp ? ` · compared with <b>${esc(names[cmp.root] + ' ' + cmp.name)}</b>: ` + (outs.length ? `<span class="trout">${outs.map((pc) => names[pc]).join(', ')} ${outs.length > 1 ? 'are' : 'is'} not in it</span>` : 'every note you played is in it') + (missing.length ? ` · not played yet: ${esc(missing.join(' '))}` : ' · you played every note of it') : '')
+      : 'Nothing yet. Press <b>Listen live</b> above and play a scale or a melody, one note at a time. Each note lands on the neck where you most likely played it.';
+    const sel = $('traceCmp');
+    if (sel) {
+      const opts = [['', 'Best guess' + (res[0] ? ' (' + names[res[0].root] + ' ' + res[0].name + ')' : '')]].concat(res.map((r) => [r.id + ':' + r.root, names[r.root] + ' ' + r.name])).concat([['none', 'No scale (just my notes)']]);
+      sel.innerHTML = options(opts, TR.cmp);
+    }
+    seg('traceLbl', 'trlbl', [['note', 'Notes'], ['interval', 'Intervals'], ['none', 'None']], TR.labels);
+    const fl = $('traceFill');
+    if (fl) fl.checked = TR.fill;
+    const hb = $('traceHear');
+    if (hb) hb.disabled = !TR.notes.length;
+  }
+  function traceClick(t) {
+    const d = t.closest('[data-trace]');
+    if (d && t.closest('#traceNeck')) {
+      // you played it somewhere else? tap it to move it to the next place that has the same note
+      const [s, f] = d.getAttribute('data-trace').split(':').map(Number);
+      const midi = OPEN[s] + f;
+      const opts = [];
+      for (let k = 0; k < 6; k++) { const ff = midi - OPEN[k]; if (ff >= 0 && ff <= MAX_FRET) opts.push({ s: k, f: ff }); }
+      const i = opts.findIndex((o) => o.s === s && o.f === f);
+      const nx = opts[(i + 1) % opts.length];
+      TR.notes.forEach((n) => { if (n.s === s && n.f === f) { n.s = nx.s; n.f = nx.f; } });
+      pluck(midi, 0, 1.0);
+      traceSave();
+      renderTrace();
+      return true;
+    }
+    const sg = t.closest('[data-seg="trlbl"]');
+    if (sg) { TR.labels = sg.getAttribute('data-v'); renderTrace(); return true; }
+    if (t.closest('#traceHear')) {
+      const seq = TR.notes.slice(-48);
+      seq.forEach((n, k) => setTimeout(() => {
+        pluck(n.midi, 0, 0.7);
+        const svg = $('traceNeck');
+        if (svg) qsa(svg, '.dot').forEach((el) => el.classList.toggle('echo', el.getAttribute('data-trace') === n.s + ':' + n.f));
+      }, k * 260));
+      setTimeout(() => { const svg = $('traceNeck'); if (svg) qsa(svg, '.dot.echo').forEach((el) => el.classList.remove('echo')); }, seq.length * 260 + 300);
+      return true;
+    }
+    if (t.closest('#traceClear')) { traceClear(); slReset(); slSay(''); return true; }
+    return false;
   }
   function slClick(t) {
+    if (traceClick(t)) return true;
     if (t.closest('#slLive')) { if (SL.live) slStop(); else slStart(); return true; }
     if (t.closest('[data-sl="clear"]')) { slReset(); slSay(''); return true; }
     const sh = t.closest('[data-sl-show]');
@@ -3918,6 +4071,7 @@
     next: { t: 'What comes next', tour: 'keys', b: '<p>Chords have jobs. <b>I</b> is home and feels at rest. <b>IV</b> and <b>ii</b> move away. <b>V</b> builds tension that wants to resolve back to I.</p><p>Many strong moves <b>fall a fifth</b>: one step anticlockwise on the circle (vi → ii → V → I). That is why the highlights so often sit right next to the chord you chose.</p><ul><li><b>Strong pull</b>: the move the ear expects, like V → I.</li><li><b>Common</b>: used all the time, like IV → I (the "amen" ending).</li><li><b>Colour</b>: a surprise or a borrowed flavour, like V → vi (the "deceptive" ending) or IV → iv.</li></ul><p>These are guides, not rules. If it sounds good, it is good.</p>' },
     listen: { t: 'Chord listener', b: '<p>Strum a chord on your guitar and the listener names it. The bars show how loudly each of the 12 notes is sounding; the lit ones are the notes of the chord it hears.</p><p>It also tells you the chord\u2019s number in your key (like <b>V</b> in C major), or that it is outside the key. <b>Show on the circle</b> opens it in the Key explorer with its next moves.</p><p><b>Upload a clip</b> reads a whole recording, like the chord track in a DAW or the Moises app, and guesses its key. Tap a chord to hear it, play the clip to follow along, then add the chords to your progression.</p><p>Tips: let each chord ring, keep the phone close, and keep background music and talking down. It knows major, minor, 7, maj7, m7, sus2, sus4 and dim chords.</p><p><b>Live listening</b> needs the microphone, which pages inside the Claude app cannot use. It works once the site is hosted on its own.</p>' + romanLink() },
     analysis: { t: 'Progression analysis', wide: true, b: () => '<p>The site works out which <b>key</b> your chords belong to, then gives each chord its number (I, ii, V…) and its job: <b>Home</b> (I, vi, iii) rests, <b>Away</b> (IV, ii) moves off, <b>Tension</b> (V, vii°) wants to resolve.</p>' + svgJobs() + '<p>It names the <b>kind of progression</b> (a 2–5–1, the pop loop I–V–vi–IV, the Andalusian cadence…), points out <b>cadences</b> (how phrases end) and chords from outside the key, and suggests what could come next and which scales to solo with.</p>' + romanLink() },
+    trace: { t: 'What you played, on the neck', b: '<p>While the <b>Scale listener</b> is on, every note it hears is put on this fretboard. A guitar has the same note in several places, so the site picks the place closest to where your hand has been. If it picked the wrong string, <b>tap the dot</b> to move it.</p><p>Bigger dots are notes you played more often. The amber dot is the <b>home note</b> of the scale you compare with, faint dots are the notes of that scale you have not played yet, and a red dashed ring marks a note that is <b>not in that scale</b>.</p><p>Choose another scale under <b>Compare with</b> to check it against what you played. When every dot fits and nothing is ringed red, that is your scale. It is all saved on this device until you press Clear.</p>' },
     scalelisten: { t: 'Scale listener', b: '<p>Play a scale, a riff or a melody one note at a time. The listener hears each note, keeps count of which of the 12 notes you used, and lists the scales that contain them, best first.</p><p>The same notes can make different scales (C major and A minor share every note). What decides it is the <b>home note</b>, so start and end on the note that sounds like home.</p><p>Tap <b>Show on fretboard</b> to see the scale on the neck. Live listening needs the microphone, which pages inside the Claude app cannot use; upload a clip there instead.</p>' },
     common: { t: 'Common progressions', tour: 'progression', wide: true, b: () => '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' + svg251() + '<p>Use the style chips to narrow the list. <b>J-pop and anime</b> lean on the <b>Royal road (王道進行, IV–V–iii–vi)</b>, which starts away from home and leans toward the sad vi, and on <b>丸サ (IVmaj7–III7–vi7)</b>, where the borrowed III7 pulls hard into vi. <b>C-pop</b> ballads love <b>4536251</b> and the Canon’s bass walking down. <b>K-pop</b> often lifts into a chorus with ii–iii–IV–V. <b>Gospel</b> turns IV minor (iv) for a sigh before home, and <b>rock</b> borrows ♭VII from Mixolydian.</p>' + romanLink() },
     playback: { t: 'Tempo and playback', b: '<p><b>Tempo</b> is speed in beats per minute (BPM). 60 BPM is one beat a second; most pop songs sit between 80 and 130. <b>Tap</b> the button in time to set it.</p><p><b>Speed</b> plays everything slower or faster while keeping your tempo setting: great for practising at half speed.</p><p><b>Click track</b> adds a metronome tick on each beat; the first beat of each bar is higher.</p>' },
@@ -4716,6 +4870,8 @@
   document.addEventListener('change', (e) => {
     const id = e.target && e.target.id;
     if (id === 'recMetro') ED.metro = !!e.target.checked;
+    if (id === 'traceCmp') { TR.cmp = e.target.value; renderTrace(); }
+    if (id === 'traceFill') { TR.fill = !!e.target.checked; renderTrace(); }
     if (id === 'padSlot') { ED.padSlot = +e.target.value || 0; renderEditor(); }
     if (id === 'instSel') {
       INST = INSTS.indexOf(e.target.value) >= 0 ? e.target.value : 'steel';
@@ -4820,6 +4976,7 @@
     } catch (err) {}
   }, true);
 
+  traceLoad();
   renderLibrary();
   render();
   renderProg();
