@@ -423,7 +423,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .tabcount { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--root-dot); color: var(--root-fg); font-size: 0.78rem; font-family: var(--font-body); }
 :root:not(.alltabs) .app[data-tab="fretboard"] [data-tab-of]:not([data-tab-of="fretboard"]),
 :root:not(.alltabs) .app[data-tab="keys"] [data-tab-of]:not([data-tab-of="keys"]),
-:root:not(.alltabs) .app[data-tab="progression"] [data-tab-of]:not([data-tab-of="progression"]) { display: none !important; }
+:root:not(.alltabs) .app[data-tab="progression"] [data-tab-of]:not([data-tab-of="progression"]),
+:root:not(.alltabs) .app[data-tab="listen"] [data-tab-of]:not([data-tab-of="listen"]) { display: none !important; }
 :root:not(.alltabs) .app:not([data-tab="fretboard"]) .layout { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 700px) { .tabs { flex-wrap: wrap; } .layoutsw { margin-left: 0; width: 100%; justify-content: flex-end; order: -1; } }
 @media (max-width: 520px) { .tabs button[role="tab"] { flex: 1 1 0; min-width: 0; justify-content: center; gap: 5px; padding: 9px 6px; font-size: 0.86rem; line-height: 1.15; text-align: center; } .tabcount { min-width: 18px; padding: 1px 5px; } }
@@ -448,8 +449,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 :root.alltabs main > #shapePanel { order: 4; }
 :root.alltabs main > #keyPanel { order: 5; }
 :root.alltabs main > #progPanel { order: 6; }
-:root.alltabs main > #chordPanel { order: 7; }
-:root.alltabs main > .info-grid { order: 8; }
+:root.alltabs main > #chordPanel { order: 8; }
+:root.alltabs main > .info-grid { order: 9; }
 @media (min-width: 1180px) {
   :root.alltabs .keygrid { grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(230px, 300px); gap: 18px; }
   :root.alltabs #keyScales { grid-column: auto; }
@@ -614,8 +615,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 @keyframes hdotin { from { opacity: 0; transform: scale(0.3); } }
 .circnote { margin: 4px 0 0; color: var(--muted); font-size: 0.8rem; text-align: center; }
 /* Chord listener */
-:root:not(.alltabs) .app[data-tab="fretboard"] #listenPanel, :root:not(.alltabs) .app[data-tab="keys"] #listenPanel { display: none !important; }
-:root.alltabs main > #listenPanel { order: 5; }
+:root.alltabs main > #listenPanel { order: 7; }
 .lshead { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; justify-content: space-between; }
 .lshead p { margin: 4px 0 0; color: var(--muted); }
 .lsacts { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -748,8 +748,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .leout span { color: var(--muted); }
 .leout span b { font-family: inherit; font-size: inherit; color: var(--fg); }
 /* scale listener (sits right under the chord listener) */
-:root:not(.alltabs) .app[data-tab="fretboard"] #scalePanel, :root:not(.alltabs) .app[data-tab="keys"] #scalePanel { display: none !important; }
-:root.alltabs main > #scalePanel { order: 5; }
+:root.alltabs main > #scalePanel { order: 7; }
 .slbody { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 20px; margin-top: 12px; padding: 12px; border: 1.5px solid var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
 @media (max-width: 760px) { .slbody { grid-template-columns: minmax(0, 1fr); } }
 .slleft { display: grid; gap: 10px; min-width: 0; align-content: start; }
@@ -853,10 +852,6 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .gateform input { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
 .gateerr { min-height: 20px; color: #b91c1c; }
 </style>
-
-
-
-
 <div class="sitegate" id="siteGate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gatebox">
     <h2 id="gateTitle">Fretboard Library</h2>
@@ -889,6 +884,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
     <button type="button" role="tab" id="tabFret" data-go="fretboard" aria-selected="true">Fretboard</button>
     <button type="button" role="tab" id="tabKeys" data-go="keys" aria-selected="false">Keys and chords</button>
     <button type="button" role="tab" id="tabProg" data-go="progression" aria-selected="false">Progression <span class="tabcount" id="tabProgCount"></span></button>
+    <button type="button" role="tab" id="tabListen" data-go="listen" aria-selected="false">Listen</button>
     <div class="layoutsw" role="group" aria-label="Page layout">
       <span>Layout</span>
       <div class="seg"><button type="button" id="layTabs" data-layout="tabs" aria-pressed="true">Tabs</button><button type="button" id="layOne" data-layout="one" aria-pressed="false">One page</button></div>
@@ -962,7 +958,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
         <div class="shapes-grid" id="shapeGrid"></div>
       </section>
 
-      <section class="panel listen" id="listenPanel" aria-label="Chord listener">
+      <section class="panel listen" id="listenPanel" data-tab-of="listen" aria-label="Chord listener">
         <div class="lshead">
           <div style="flex:1 1 260px;min-width:0">
             <div class="h2row"><h2 style="font-size:1.15rem">Chord listener</h2><button type="button" class="info" data-info="listen" aria-label="About the chord listener">i</button></div>
@@ -1011,7 +1007,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
         </div>
       </section>
 
-      <section class="panel listen" id="scalePanel" aria-label="Scale listener">
+      <section class="panel listen" id="scalePanel" data-tab-of="listen" aria-label="Scale listener">
         <div class="lshead">
           <div style="flex:1 1 260px;min-width:0">
             <div class="h2row"><h2 style="font-size:1.15rem">Scale listener</h2><button type="button" class="info" data-info="scalelisten" aria-label="About the scale listener">i</button></div>
