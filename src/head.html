@@ -777,6 +777,9 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .tracekey .k { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
 .tracekey .k.kroot { background: var(--root-dot); } .tracekey .k.kplay { background: var(--dot); } .tracekey .k.lastk { background: var(--dot); box-shadow: 0 0 0 2.5px var(--lit); }
 .tracekey .k.ghostk { background: var(--dot); opacity: 0.3; } .tracekey .k.outk { background: var(--dot); box-shadow: 0 0 0 2px #e5484d; }
+.lstypes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 10px 0 0; }
+.lstypes > span { color: var(--muted); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.lstypes .seg button { padding: 6px 12px; font-size: 0.86rem; }
 /* scale listener (sits right under the chord listener) */
 :root.alltabs main > #scalePanel { order: 7; }
 .slbody { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 20px; margin-top: 12px; padding: 12px; border: 1.5px solid var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
@@ -893,6 +896,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
     <div class="gateerr" id="gateError" role="alert"></div>
   </div>
 </div>
+
 <canvas id="fx" aria-hidden="true"></canvas>
 <div class="info-pop" id="infoPop" role="dialog" aria-label="Explanation" hidden></div>
 <div class="tour-layer" id="tourLayer" hidden><div class="tour-spot" id="tourSpot"></div><div class="tour-card" id="tourCard" role="dialog" aria-modal="true" aria-labelledby="tourTitle"></div></div>
@@ -1001,6 +1005,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <label class="tapbtn strong filebtn lsup"><span class="lsupi"></span>Upload a clip<input type="file" id="lsFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.caf,.mov,.mp4"></label>
           </div>
         </div>
+        <div class="lstypes"><span>Listen for</span><div class="seg" id="lsTypes" role="group" aria-label="Chord types to listen for"></div><button type="button" class="theorylink" data-info="lsacc">Tips for better results</button></div>
         <p class="lsmsg" id="lsMsg" role="status" aria-live="polite"></p>
         <div class="lsnow" id="lsNow" hidden>
           <div class="lsleft">

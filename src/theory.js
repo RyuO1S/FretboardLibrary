@@ -1409,7 +1409,26 @@ function chromaFrame(x, sr, start, tune) {
     chroma[pc] += w;
     if (p.f < 260) { bass[pc] += w; if (lowest < 0 && p.m > mx * 0.12) lowest = pc; }
   });
-  return { chroma, bass, lowest, rms: Math.sqrt(e / CHROMA_N), ts, tc };
+  // the bass note: the lowest note whose fundamental is really there and whose overtones back it up
+  // (more reliable than "the lowest peak": a low string's fundamental is often weaker than its overtones)
+  const at = (f) => { const i = Math.round(f / binHz); let m = 0; for (let j = i - 1; j <= i + 1; j++) if (j > 0 && j < half) m = Math.max(m, mag[j]); return m; };
+  const cands = [];
+  let sMax = 0;
+  for (let m = 38; m <= 66; m++) {
+    const f0 = 440 * Math.pow(2, (m - tn - 69) / 12);
+    const a1 = at(f0), sc = a1 + 0.8 * at(2 * f0) + 0.6 * at(3 * f0) + 0.4 * at(4 * f0);
+    cands.push({ m, a1, sc });
+    if (sc > sMax) sMax = sc;
+  }
+  let low = -1;
+  for (let k = 0; k < cands.length; k++) {
+    const c = cands[k];
+    if (c.a1 < mx * 0.04 || c.sc < sMax * 0.45) continue;
+    if ((k && cands[k - 1].a1 > c.a1) || (k + 1 < cands.length && cands[k + 1].a1 > c.a1)) continue;
+    low = c.m % 12;
+    break;
+  }
+  return { chroma, bass, lowest: low >= 0 ? low : lowest, rms: Math.sqrt(e / CHROMA_N), ts, tc };
 }
 // the tuning from the leaning of many notes: their average offset from the nearest semitone (a circular average)
 function tuneFrom(ts, tc) {
@@ -1428,6 +1447,17 @@ const HEAR_TYPES = [
   { sym: 'sus4', iv: [0, 5, 7], w: [1, 0.9, 0.8], bias: 0.95 },
   { sym: 'sus2', iv: [0, 2, 7], w: [1, 0.9, 0.8], bias: 0.95 },
   { sym: '°', iv: [0, 3, 6], w: [1, 0.9, 0.9], bias: 0.93 },
+  // the darker and stranger ones: dim7 and aug repeat every few frets, so their root comes from the bass note
+  { sym: '°7', iv: [0, 3, 6, 9], w: [1, 0.9, 0.9, 0.9], bias: 0.94 , refine: true },
+  { sym: 'm7♭5', iv: [0, 3, 6, 10], w: [1, 0.85, 0.85, 0.8], bias: 0.94 , refine: true },
+  { sym: '+', iv: [0, 4, 8], w: [1, 0.9, 0.9], bias: 0.92 , refine: true },
+  { sym: '6', iv: [0, 4, 7, 9], w: [1, 0.85, 0.75, 0.8], bias: 0.91 , refine: true },
+  { sym: 'm6', iv: [0, 3, 7, 9], w: [1, 0.85, 0.75, 0.8], bias: 0.91 , refine: true },
+  { sym: '7sus4', iv: [0, 5, 7, 10], w: [1, 0.85, 0.75, 0.8], bias: 0.93 , refine: true },
+  // ninth chords: five notes, often played without the 5th; mostly found by extendOf below
+  { sym: '9', iv: [0, 4, 7, 10, 2], w: [1, 0.85, 0.6, 0.8, 0.75], bias: 0.88 },
+  { sym: 'maj9', iv: [0, 4, 7, 11, 2], w: [1, 0.85, 0.6, 0.8, 0.75], bias: 0.88 },
+  { sym: 'm9', iv: [0, 3, 7, 10, 2], w: [1, 0.85, 0.6, 0.8, 0.75], bias: 0.88 },
 ];
 const HEAR_TEMPLATES = (() => {
   const out = [];
@@ -1438,36 +1468,131 @@ const HEAR_TEMPLATES = (() => {
     for (let i = 0; i < 12; i++) n += v[i] * v[i];
     n = Math.sqrt(n);
     for (let i = 0; i < 12; i++) v[i] /= n;
-    out.push({ root: r, type: ti, sym: t.sym, v, bias: t.bias });
+    out.push({ root: r, type: ti, sym: t.sym, v, bias: t.bias, refine: !!t.refine });
   });
   return out;
 })();
 // Scores every chord against one chroma; the best come first
-function scoreChroma(chroma, bass) {
+const HEAR_LOW = { w: 0.06 };
+const HEAR_7 = { b7: 0.45, maj7: 0.45, m7: 0.5 };
+function scoreChroma(chroma, bass, low) {
   let n = 0, bm = 0;
   for (let i = 0; i < 12; i++) { n += chroma[i] * chroma[i]; if (bass && bass[i] > bm) bm = bass[i]; }
   n = Math.sqrt(n);
   if (!n) return [];
-  return HEAR_TEMPLATES.map((t) => {
+  // types marked refine are never guessed from the template alone: the note check (extendOf) finds them
+  return HEAR_TEMPLATES.filter((t) => !t.refine).map((t) => {
     let s = 0;
     for (let i = 0; i < 12; i++) s += t.v[i] * chroma[i];
     s = (s / n) * t.bias;
     if (bass && bm > 0) s += 0.07 * (bass[t.root] / bm);   // guitar chords usually have their root lowest
+    if (low >= 0 && t.root === low) s += HEAR_LOW.w;       // and the lowest note heard is the strongest hint at the root
     return { root: t.root, type: t.type, sym: t.sym, score: s };
   }).sort((a, b) => b.score - a.score);
 }
 // What chord is this one moment of sound? (used for live listening)
 // prior(root, sym) may add a small bonus (for example to chords that belong to the key in use)
-function hearChord(chroma, bass, rms, prior) {
+// sevenths: templates alone mix up C and Cmaj7 (the 3rd's overtone lands on the 7th), so the 7th is decided by how strong it is
+// next to the three notes of the triad (measured on recorded guitars)
+function seventhOf(chroma, r, sym, allow) {
+  const fam = { '': 'M', '7': 'M', maj7: 'M', m: 'm', m7: 'm' }[sym];
+  if (!fam) return sym;
+  const tri = (chroma[r] + chroma[(r + (fam === 'M' ? 4 : 3)) % 12] + chroma[(r + 7) % 12]) / 3;
+  if (!(tri > 0)) return sym;
+  const b7 = chroma[(r + 10) % 12] / tri, M7 = chroma[(r + 11) % 12] / tri;
+  const ok = (s) => !allow || allow.has(s);
+  if (fam === 'M') return b7 >= HEAR_7.b7 && b7 > M7 && ok('7') ? '7' : M7 >= HEAR_7.maj7 && ok('maj7') ? 'maj7' : '';
+  return b7 >= HEAR_7.m7 && ok('m7') ? 'm7' : 'm';
+}
+// After the templates pick the root: which notes are really there, measured against the root, 3rd and 5th
+// (thresholds measured on recorded guitars). This is what tells C from C6, Cmaj7, C9, Cdim from Cm, Csus4 from C7sus4.
+const HEAR_9 = { n9: 0.45 };
+const HEAR_X = { third: 0.25, sus4: 0.67, sus2: 0.5, dim5: 0.27, aug5: 0.4, six: 0.3, dim7: 0.3, s7: 0.45, susRatio: 2 };
+const HEAR_FALLBACK = { '°7': '°', 'm7♭5': 'm7', '+': '', '6': '', 'm6': 'm', '7sus4': 'sus4', '9': '7', maj9: 'maj7', m9: 'm7' };
+function extendOf(chroma, r, sym, allow) {
+  const X = HEAR_X;
+  const ok = (s) => !allow || allow.has(s);
+  const c = chroma, M3 = c[(r + 4) % 12], m3 = c[(r + 3) % 12], p5 = c[(r + 7) % 12];
+  const base = (c[r] + p5 + Math.max(M3, m3)) / 3;
+  if (!(base > 0)) return sym;
+  const g = (i) => c[(r + i) % 12] / base;
+  // a sus chord's 2nd or 4th rings far louder than any 3rd (a faint 3rd is usually the last chord still ringing)
+  const th = Math.max(g(3), g(4));
+  const sus = g(5) >= X.sus4 && g(5) > X.susRatio * th && g(5) > g(2) ? 4 : g(2) >= X.sus2 && g(2) > X.susRatio * 1.25 * th && g(10) < X.s7 && g(11) < X.s7 ? 2 : 0;
+  const hasM = !sus && g(4) >= X.third && g(4) >= g(3), hasm = !sus && g(3) >= X.third && g(3) > g(4);
+  let out;
+  if (sus === 4) out = g(10) >= X.s7 ? '7sus4' : 'sus4';
+  else if (sus === 2) out = 'sus2';
+  else if (hasm && g(6) >= X.dim5 && g(6) > g(7)) out = g(9) >= X.dim7 && g(9) > g(10) ? '°7' : g(10) >= X.s7 ? 'm7♭5' : '°';
+  else if (hasM && g(8) >= X.aug5 && g(8) > g(7)) out = '+';
+  else if (hasM || hasm) {
+    out = seventhOf(chroma, r, hasM ? '' : 'm');
+    if ((out === '' || out === 'm') && g(9) >= X.six && g(10) < X.s7) out = hasM ? '6' : 'm6';
+    const up = { 7: '9', maj7: 'maj9', m7: 'm9' }[out];
+    // the 5th's own overtone lands on the 9th (G × 3 = D), so part of what sounds there is not a played 9th
+    if (up && g(2) - 0.5 * g(7) >= HEAR_9.n9) out = up;
+  } else if (g(5) >= X.sus4 && g(5) > g(2)) out = g(10) >= X.s7 ? '7sus4' : 'sus4';
+  else if (g(2) >= X.sus2) out = 'sus2';
+  else out = sym;
+  // only some chord types allowed (Simple mode): fall back to the plainer chord of the same family
+  let f = out;
+  while (f !== undefined && !ok(f)) f = HEAR_FALLBACK[f];
+  return f === undefined ? sym : f;
+}
+// allow: only these chord types (for example just major, minor and 7 for beginners)
+const HEAR_SLASH = { bassShare: 0.45, swap: 0.08 };
+// how well one chord's notes match the sound (0..1)
+function chordFit(chroma, root, sym) {
+  const t = HEAR_TEMPLATES.find((x) => x.root === root && x.sym === sym);
+  if (!t) return 0;
+  let n = 0, s = 0;
+  for (let i = 0; i < 12; i++) { n += chroma[i] * chroma[i]; s += t.v[i] * chroma[i]; }
+  return n ? (s / Math.sqrt(n)) * t.bias : 0;
+}
+// lowSure: the bass note has held steady for a while (only then is it trusted to make a slash chord or move the root)
+function hearChord(chroma, bass, rms, prior, low, allow, lowSure) {
   if (!(rms > 0.004)) return null;
-  let list = scoreChroma(chroma, bass);
+  const hasLow = Number.isInteger(low) && low >= 0;
+  const pick = (lw) => {
+    let list = scoreChroma(chroma, bass, lw);
+    if (allow) list = list.filter((c) => allow.has(c.sym));
+    if (prior) { list.forEach((c) => { c.score += prior(c.root, c.sym) || 0; }); list.sort((a, b) => b.score - a.score); }
+    return list;
+  };
+  let list = pick(hasLow ? low : -1);
   if (!list.length) return null;
-  if (prior) { list.forEach((c) => { c.score += prior(c.root, c.sym) || 0; }); list.sort((a, b) => b.score - a.score); }
-  const best = list[0], next = list.find((c) => c.root !== best.root || c.type !== best.type);
+  const typeOf = (sym) => HEAR_TYPES.findIndex((h) => h.sym === sym);
+  const settle = (c) => { const sym = extendOf(chroma, c.root, c.sym, allow); return sym === c.sym ? c : { root: c.root, type: typeOf(sym), sym, score: c.score }; };
+  let best = settle(list[0]);
+  let slash;
+  if (hasLow && lowSure !== false && best.root !== low) {
+    // most guitar chords are played with the root lowest: if the bass note makes a chord that fits nearly as well, that is the one
+    // (C6 rather than Am7, C7sus4 rather than Fsus4, and the root of a dim7 or aug, which repeat every few frets)
+    const s2 = extendOf(chroma, low, '', allow);
+    let bm = 0;
+    for (let i = 0; i < 12; i++) if (bass[i] > bm) bm = bass[i];
+    if (s2 && typeOf(s2) >= 0 && (!allow || allow.has(s2)) && chordFit(chroma, low, s2) >= chordFit(chroma, best.root, best.sym) - HEAR_SLASH.swap) {
+      best = { root: low, type: typeOf(s2), sym: s2, score: best.score };
+    } else if (bm > 0 && bass[low] >= HEAR_SLASH.bassShare * bm) {
+      // otherwise a clear bass note that is not in the root's place: a slash chord (C/E, A/B, Am/G), named by what fits the upper notes best
+      const free = pick(-1)[0];
+      if (free && free.root !== low) best = settle(free);
+      if (best.root !== low) slash = low;
+    }
+  }
+  if (best !== list[0]) list = [best].concat(list.filter((c) => !(c.root === best.root && c.sym === best.sym)));
+  // when it is not sure, offer the slash reading as the first other guess (tap it to correct)
+  if (hasLow && slash === undefined && best.root === low) {
+    const free = settle(pick(-1).find((c) => c.root !== low) || list[0]);
+    // (not when it is the same notes under another name: Am7 and C6/A sound the same)
+    const notes = (c) => { const h = HEAR_TYPES.find((x) => x.sym === c.sym); return h ? h.iv.map((i) => (c.root + i) % 12).sort((a, b) => a - b).join() : ''; };
+    if (free.root !== low && notes(free) !== notes(best)) list.splice(1, 0, Object.assign({}, free, { bass: low }));
+  }
+  const next = list.find((c) => c.root !== best.root || c.type !== best.type);
   const margin = best.score - (next ? next.score : 0);
   // how sure: a strong match that clearly beats the runner-up
   const conf = Math.max(0, Math.min(1, (best.score - 0.62) / 0.3)) * Math.max(0.25, Math.min(1, margin / 0.05));
-  return { root: best.root, sym: best.sym, type: best.type, score: best.score, margin, conf, others: list.slice(1, 4) };
+  return { root: best.root, sym: best.sym, type: best.type, score: best.score, margin, conf, bass: slash, others: list.slice(1, 4) };
 }
 // A whole recording: chords over time, like a chord track in a DAW
 function chordTrack(x, sr, opts) {
@@ -1491,16 +1616,25 @@ function chordTrack(x, sr, opts) {
   const K = 2;
   const sm = frames.map((f, i) => {
     const c = new Float64Array(12), b = new Float64Array(12);
-    for (let k = -K; k <= K; k++) { const g = frames[i + k]; if (!g) continue; const w = 1 - Math.abs(k) / (K + 1); for (let p = 0; p < 12; p++) { c[p] += w * g.chroma[p]; b[p] += w * g.bass[p]; } }
-    return { c, b };
+    const lv = new Float64Array(12);
+    for (let k = -K; k <= K; k++) { const g = frames[i + k]; if (!g) continue; const w = 1 - Math.abs(k) / (K + 1); for (let p = 0; p < 12; p++) { c[p] += w * g.chroma[p]; b[p] += w * g.bass[p]; } if (g.lowest >= 0) lv[g.lowest] += w; }
+    let low = -1, lb = 0;
+    for (let p = 0; p < 12; p++) if (lv[p] > lb) { lb = lv[p]; low = p; }
+    return { c, b, low: lb >= 1.2 ? low : -1 };
   });
   const S = HEAR_TEMPLATES.length;           // the last state (S) means "no chord"
   const quiet = (f) => f.rms < Math.max(0.004, peakRms * 0.06);
   const emit = frames.map((f, i) => {
     const e = new Float64Array(S + 1);
     if (quiet(f)) { for (let k = 0; k < S; k++) e[k] = 0; e[S] = 10; return e; }
-    const sc = scoreChroma(sm[i].c, sm[i].b);
-    sc.forEach((c) => { e[c.root * HEAR_TYPES.length + c.type] = 12 * c.score; });
+    const sc = scoreChroma(sm[i].c, sm[i].b, sm[i].low);
+    sc.forEach((c) => { e[c.root * HEAR_TYPES.length + c.type] = o.allow && !o.allow.has(c.sym) ? 0 : 12 * c.score; });
+    const top = o.allow ? sc.find((c) => o.allow.has(c.sym)) : sc[0];
+    if (top) {
+      const s7 = extendOf(sm[i].c, top.root, top.sym, o.allow);
+      const ti = HEAR_TYPES.findIndex((h) => h.sym === s7);
+      if (s7 !== top.sym && ti >= 0) e[top.root * HEAR_TYPES.length + ti] = 12 * top.score + 0.05;
+    }
     e[S] = 12 * 0.45;
     return e;
   });
@@ -1549,6 +1683,18 @@ function chordTrack(x, sr, opts) {
     const l = joined[joined.length - 1];
     if (l && !!l.none === !!g.none && (g.none || (l.root === g.root && l.sym === g.sym))) l.end = g.end;
     else joined.push(g);
+  });
+  // name each chord once more from all of its frames together: the note check, the bass note and slash chords
+  joined.forEach((g) => {
+    if (g.none) return;
+    const c = new Float64Array(12), b = new Float64Array(12), lv = new Float64Array(12);
+    let n = 0;
+    frames.forEach((f, i) => { if (f.t < g.start || f.t > g.end || quiet(f)) return; n++; for (let p = 0; p < 12; p++) { c[p] += sm[i].c[p]; b[p] += sm[i].b[p]; } if (f.lowest >= 0) lv[f.lowest]++; });
+    if (!n) return;
+    let low = -1, lb = 0;
+    for (let p = 0; p < 12; p++) if (lv[p] > lb) { lb = lv[p]; low = p; }
+    const h = hearChord(c, b, 1, null, lb >= n * 0.5 ? low : -1, o.allow);
+    if (h) { g.root = h.root; g.sym = h.sym; g.type = h.type; if (h.bass !== undefined) g.bass = h.bass; else delete g.bass; }
   });
   const chords = joined.filter((g) => !g.none);
   // overall key from everything that sounded
@@ -1781,5 +1927,5 @@ function scaleMatches(weights, opts) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches, grooveFromHits, GROOVE_MAX_BEATS };
+  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches, grooveFromHits, GROOVE_MAX_BEATS, HEAR_LOW, HEAR_7, HEAR_9, HEAR_X, HEAR_SLASH };
 }

@@ -785,6 +785,9 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .tracekey .k { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
 .tracekey .k.kroot { background: var(--root-dot); } .tracekey .k.kplay { background: var(--dot); } .tracekey .k.lastk { background: var(--dot); box-shadow: 0 0 0 2.5px var(--lit); }
 .tracekey .k.ghostk { background: var(--dot); opacity: 0.3; } .tracekey .k.outk { background: var(--dot); box-shadow: 0 0 0 2px #e5484d; }
+.lstypes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 10px 0 0; }
+.lstypes > span { color: var(--muted); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.lstypes .seg button { padding: 6px 12px; font-size: 0.86rem; }
 /* scale listener (sits right under the chord listener) */
 :root.alltabs main > #scalePanel { order: 7; }
 .slbody { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 20px; margin-top: 12px; padding: 12px; border: 1.5px solid var(--accent); border-radius: 12px; background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
@@ -901,6 +904,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
     <div class="gateerr" id="gateError" role="alert"></div>
   </div>
 </div>
+
 <canvas id="fx" aria-hidden="true"></canvas>
 <div class="info-pop" id="infoPop" role="dialog" aria-label="Explanation" hidden></div>
 <div class="tour-layer" id="tourLayer" hidden><div class="tour-spot" id="tourSpot"></div><div class="tour-card" id="tourCard" role="dialog" aria-modal="true" aria-labelledby="tourTitle"></div></div>
@@ -1009,6 +1013,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <label class="tapbtn strong filebtn lsup"><span class="lsupi"></span>Upload a clip<input type="file" id="lsFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.caf,.mov,.mp4"></label>
           </div>
         </div>
+        <div class="lstypes"><span>Listen for</span><div class="seg" id="lsTypes" role="group" aria-label="Chord types to listen for"></div><button type="button" class="theorylink" data-info="lsacc">Tips for better results</button></div>
         <p class="lsmsg" id="lsMsg" role="status" aria-live="polite"></p>
         <div class="lsnow" id="lsNow" hidden>
           <div class="lsleft">
@@ -2666,7 +2671,26 @@ function chromaFrame(x, sr, start, tune) {
     chroma[pc] += w;
     if (p.f < 260) { bass[pc] += w; if (lowest < 0 && p.m > mx * 0.12) lowest = pc; }
   });
-  return { chroma, bass, lowest, rms: Math.sqrt(e / CHROMA_N), ts, tc };
+  // the bass note: the lowest note whose fundamental is really there and whose overtones back it up
+  // (more reliable than "the lowest peak": a low string's fundamental is often weaker than its overtones)
+  const at = (f) => { const i = Math.round(f / binHz); let m = 0; for (let j = i - 1; j <= i + 1; j++) if (j > 0 && j < half) m = Math.max(m, mag[j]); return m; };
+  const cands = [];
+  let sMax = 0;
+  for (let m = 38; m <= 66; m++) {
+    const f0 = 440 * Math.pow(2, (m - tn - 69) / 12);
+    const a1 = at(f0), sc = a1 + 0.8 * at(2 * f0) + 0.6 * at(3 * f0) + 0.4 * at(4 * f0);
+    cands.push({ m, a1, sc });
+    if (sc > sMax) sMax = sc;
+  }
+  let low = -1;
+  for (let k = 0; k < cands.length; k++) {
+    const c = cands[k];
+    if (c.a1 < mx * 0.04 || c.sc < sMax * 0.45) continue;
+    if ((k && cands[k - 1].a1 > c.a1) || (k + 1 < cands.length && cands[k + 1].a1 > c.a1)) continue;
+    low = c.m % 12;
+    break;
+  }
+  return { chroma, bass, lowest: low >= 0 ? low : lowest, rms: Math.sqrt(e / CHROMA_N), ts, tc };
 }
 // the tuning from the leaning of many notes: their average offset from the nearest semitone (a circular average)
 function tuneFrom(ts, tc) {
@@ -2685,6 +2709,17 @@ const HEAR_TYPES = [
   { sym: 'sus4', iv: [0, 5, 7], w: [1, 0.9, 0.8], bias: 0.95 },
   { sym: 'sus2', iv: [0, 2, 7], w: [1, 0.9, 0.8], bias: 0.95 },
   { sym: '°', iv: [0, 3, 6], w: [1, 0.9, 0.9], bias: 0.93 },
+  // the darker and stranger ones: dim7 and aug repeat every few frets, so their root comes from the bass note
+  { sym: '°7', iv: [0, 3, 6, 9], w: [1, 0.9, 0.9, 0.9], bias: 0.94 , refine: true },
+  { sym: 'm7♭5', iv: [0, 3, 6, 10], w: [1, 0.85, 0.85, 0.8], bias: 0.94 , refine: true },
+  { sym: '+', iv: [0, 4, 8], w: [1, 0.9, 0.9], bias: 0.92 , refine: true },
+  { sym: '6', iv: [0, 4, 7, 9], w: [1, 0.85, 0.75, 0.8], bias: 0.91 , refine: true },
+  { sym: 'm6', iv: [0, 3, 7, 9], w: [1, 0.85, 0.75, 0.8], bias: 0.91 , refine: true },
+  { sym: '7sus4', iv: [0, 5, 7, 10], w: [1, 0.85, 0.75, 0.8], bias: 0.93 , refine: true },
+  // ninth chords: five notes, often played without the 5th; mostly found by extendOf below
+  { sym: '9', iv: [0, 4, 7, 10, 2], w: [1, 0.85, 0.6, 0.8, 0.75], bias: 0.88 },
+  { sym: 'maj9', iv: [0, 4, 7, 11, 2], w: [1, 0.85, 0.6, 0.8, 0.75], bias: 0.88 },
+  { sym: 'm9', iv: [0, 3, 7, 10, 2], w: [1, 0.85, 0.6, 0.8, 0.75], bias: 0.88 },
 ];
 const HEAR_TEMPLATES = (() => {
   const out = [];
@@ -2695,36 +2730,131 @@ const HEAR_TEMPLATES = (() => {
     for (let i = 0; i < 12; i++) n += v[i] * v[i];
     n = Math.sqrt(n);
     for (let i = 0; i < 12; i++) v[i] /= n;
-    out.push({ root: r, type: ti, sym: t.sym, v, bias: t.bias });
+    out.push({ root: r, type: ti, sym: t.sym, v, bias: t.bias, refine: !!t.refine });
   });
   return out;
 })();
 // Scores every chord against one chroma; the best come first
-function scoreChroma(chroma, bass) {
+const HEAR_LOW = { w: 0.06 };
+const HEAR_7 = { b7: 0.45, maj7: 0.45, m7: 0.5 };
+function scoreChroma(chroma, bass, low) {
   let n = 0, bm = 0;
   for (let i = 0; i < 12; i++) { n += chroma[i] * chroma[i]; if (bass && bass[i] > bm) bm = bass[i]; }
   n = Math.sqrt(n);
   if (!n) return [];
-  return HEAR_TEMPLATES.map((t) => {
+  // types marked refine are never guessed from the template alone: the note check (extendOf) finds them
+  return HEAR_TEMPLATES.filter((t) => !t.refine).map((t) => {
     let s = 0;
     for (let i = 0; i < 12; i++) s += t.v[i] * chroma[i];
     s = (s / n) * t.bias;
     if (bass && bm > 0) s += 0.07 * (bass[t.root] / bm);   // guitar chords usually have their root lowest
+    if (low >= 0 && t.root === low) s += HEAR_LOW.w;       // and the lowest note heard is the strongest hint at the root
     return { root: t.root, type: t.type, sym: t.sym, score: s };
   }).sort((a, b) => b.score - a.score);
 }
 // What chord is this one moment of sound? (used for live listening)
 // prior(root, sym) may add a small bonus (for example to chords that belong to the key in use)
-function hearChord(chroma, bass, rms, prior) {
+// sevenths: templates alone mix up C and Cmaj7 (the 3rd's overtone lands on the 7th), so the 7th is decided by how strong it is
+// next to the three notes of the triad (measured on recorded guitars)
+function seventhOf(chroma, r, sym, allow) {
+  const fam = { '': 'M', '7': 'M', maj7: 'M', m: 'm', m7: 'm' }[sym];
+  if (!fam) return sym;
+  const tri = (chroma[r] + chroma[(r + (fam === 'M' ? 4 : 3)) % 12] + chroma[(r + 7) % 12]) / 3;
+  if (!(tri > 0)) return sym;
+  const b7 = chroma[(r + 10) % 12] / tri, M7 = chroma[(r + 11) % 12] / tri;
+  const ok = (s) => !allow || allow.has(s);
+  if (fam === 'M') return b7 >= HEAR_7.b7 && b7 > M7 && ok('7') ? '7' : M7 >= HEAR_7.maj7 && ok('maj7') ? 'maj7' : '';
+  return b7 >= HEAR_7.m7 && ok('m7') ? 'm7' : 'm';
+}
+// After the templates pick the root: which notes are really there, measured against the root, 3rd and 5th
+// (thresholds measured on recorded guitars). This is what tells C from C6, Cmaj7, C9, Cdim from Cm, Csus4 from C7sus4.
+const HEAR_9 = { n9: 0.45 };
+const HEAR_X = { third: 0.25, sus4: 0.67, sus2: 0.5, dim5: 0.27, aug5: 0.4, six: 0.3, dim7: 0.3, s7: 0.45, susRatio: 2 };
+const HEAR_FALLBACK = { '°7': '°', 'm7♭5': 'm7', '+': '', '6': '', 'm6': 'm', '7sus4': 'sus4', '9': '7', maj9: 'maj7', m9: 'm7' };
+function extendOf(chroma, r, sym, allow) {
+  const X = HEAR_X;
+  const ok = (s) => !allow || allow.has(s);
+  const c = chroma, M3 = c[(r + 4) % 12], m3 = c[(r + 3) % 12], p5 = c[(r + 7) % 12];
+  const base = (c[r] + p5 + Math.max(M3, m3)) / 3;
+  if (!(base > 0)) return sym;
+  const g = (i) => c[(r + i) % 12] / base;
+  // a sus chord's 2nd or 4th rings far louder than any 3rd (a faint 3rd is usually the last chord still ringing)
+  const th = Math.max(g(3), g(4));
+  const sus = g(5) >= X.sus4 && g(5) > X.susRatio * th && g(5) > g(2) ? 4 : g(2) >= X.sus2 && g(2) > X.susRatio * 1.25 * th && g(10) < X.s7 && g(11) < X.s7 ? 2 : 0;
+  const hasM = !sus && g(4) >= X.third && g(4) >= g(3), hasm = !sus && g(3) >= X.third && g(3) > g(4);
+  let out;
+  if (sus === 4) out = g(10) >= X.s7 ? '7sus4' : 'sus4';
+  else if (sus === 2) out = 'sus2';
+  else if (hasm && g(6) >= X.dim5 && g(6) > g(7)) out = g(9) >= X.dim7 && g(9) > g(10) ? '°7' : g(10) >= X.s7 ? 'm7♭5' : '°';
+  else if (hasM && g(8) >= X.aug5 && g(8) > g(7)) out = '+';
+  else if (hasM || hasm) {
+    out = seventhOf(chroma, r, hasM ? '' : 'm');
+    if ((out === '' || out === 'm') && g(9) >= X.six && g(10) < X.s7) out = hasM ? '6' : 'm6';
+    const up = { 7: '9', maj7: 'maj9', m7: 'm9' }[out];
+    // the 5th's own overtone lands on the 9th (G × 3 = D), so part of what sounds there is not a played 9th
+    if (up && g(2) - 0.5 * g(7) >= HEAR_9.n9) out = up;
+  } else if (g(5) >= X.sus4 && g(5) > g(2)) out = g(10) >= X.s7 ? '7sus4' : 'sus4';
+  else if (g(2) >= X.sus2) out = 'sus2';
+  else out = sym;
+  // only some chord types allowed (Simple mode): fall back to the plainer chord of the same family
+  let f = out;
+  while (f !== undefined && !ok(f)) f = HEAR_FALLBACK[f];
+  return f === undefined ? sym : f;
+}
+// allow: only these chord types (for example just major, minor and 7 for beginners)
+const HEAR_SLASH = { bassShare: 0.45, swap: 0.08 };
+// how well one chord's notes match the sound (0..1)
+function chordFit(chroma, root, sym) {
+  const t = HEAR_TEMPLATES.find((x) => x.root === root && x.sym === sym);
+  if (!t) return 0;
+  let n = 0, s = 0;
+  for (let i = 0; i < 12; i++) { n += chroma[i] * chroma[i]; s += t.v[i] * chroma[i]; }
+  return n ? (s / Math.sqrt(n)) * t.bias : 0;
+}
+// lowSure: the bass note has held steady for a while (only then is it trusted to make a slash chord or move the root)
+function hearChord(chroma, bass, rms, prior, low, allow, lowSure) {
   if (!(rms > 0.004)) return null;
-  let list = scoreChroma(chroma, bass);
+  const hasLow = Number.isInteger(low) && low >= 0;
+  const pick = (lw) => {
+    let list = scoreChroma(chroma, bass, lw);
+    if (allow) list = list.filter((c) => allow.has(c.sym));
+    if (prior) { list.forEach((c) => { c.score += prior(c.root, c.sym) || 0; }); list.sort((a, b) => b.score - a.score); }
+    return list;
+  };
+  let list = pick(hasLow ? low : -1);
   if (!list.length) return null;
-  if (prior) { list.forEach((c) => { c.score += prior(c.root, c.sym) || 0; }); list.sort((a, b) => b.score - a.score); }
-  const best = list[0], next = list.find((c) => c.root !== best.root || c.type !== best.type);
+  const typeOf = (sym) => HEAR_TYPES.findIndex((h) => h.sym === sym);
+  const settle = (c) => { const sym = extendOf(chroma, c.root, c.sym, allow); return sym === c.sym ? c : { root: c.root, type: typeOf(sym), sym, score: c.score }; };
+  let best = settle(list[0]);
+  let slash;
+  if (hasLow && lowSure !== false && best.root !== low) {
+    // most guitar chords are played with the root lowest: if the bass note makes a chord that fits nearly as well, that is the one
+    // (C6 rather than Am7, C7sus4 rather than Fsus4, and the root of a dim7 or aug, which repeat every few frets)
+    const s2 = extendOf(chroma, low, '', allow);
+    let bm = 0;
+    for (let i = 0; i < 12; i++) if (bass[i] > bm) bm = bass[i];
+    if (s2 && typeOf(s2) >= 0 && (!allow || allow.has(s2)) && chordFit(chroma, low, s2) >= chordFit(chroma, best.root, best.sym) - HEAR_SLASH.swap) {
+      best = { root: low, type: typeOf(s2), sym: s2, score: best.score };
+    } else if (bm > 0 && bass[low] >= HEAR_SLASH.bassShare * bm) {
+      // otherwise a clear bass note that is not in the root's place: a slash chord (C/E, A/B, Am/G), named by what fits the upper notes best
+      const free = pick(-1)[0];
+      if (free && free.root !== low) best = settle(free);
+      if (best.root !== low) slash = low;
+    }
+  }
+  if (best !== list[0]) list = [best].concat(list.filter((c) => !(c.root === best.root && c.sym === best.sym)));
+  // when it is not sure, offer the slash reading as the first other guess (tap it to correct)
+  if (hasLow && slash === undefined && best.root === low) {
+    const free = settle(pick(-1).find((c) => c.root !== low) || list[0]);
+    // (not when it is the same notes under another name: Am7 and C6/A sound the same)
+    const notes = (c) => { const h = HEAR_TYPES.find((x) => x.sym === c.sym); return h ? h.iv.map((i) => (c.root + i) % 12).sort((a, b) => a - b).join() : ''; };
+    if (free.root !== low && notes(free) !== notes(best)) list.splice(1, 0, Object.assign({}, free, { bass: low }));
+  }
+  const next = list.find((c) => c.root !== best.root || c.type !== best.type);
   const margin = best.score - (next ? next.score : 0);
   // how sure: a strong match that clearly beats the runner-up
   const conf = Math.max(0, Math.min(1, (best.score - 0.62) / 0.3)) * Math.max(0.25, Math.min(1, margin / 0.05));
-  return { root: best.root, sym: best.sym, type: best.type, score: best.score, margin, conf, others: list.slice(1, 4) };
+  return { root: best.root, sym: best.sym, type: best.type, score: best.score, margin, conf, bass: slash, others: list.slice(1, 4) };
 }
 // A whole recording: chords over time, like a chord track in a DAW
 function chordTrack(x, sr, opts) {
@@ -2748,16 +2878,25 @@ function chordTrack(x, sr, opts) {
   const K = 2;
   const sm = frames.map((f, i) => {
     const c = new Float64Array(12), b = new Float64Array(12);
-    for (let k = -K; k <= K; k++) { const g = frames[i + k]; if (!g) continue; const w = 1 - Math.abs(k) / (K + 1); for (let p = 0; p < 12; p++) { c[p] += w * g.chroma[p]; b[p] += w * g.bass[p]; } }
-    return { c, b };
+    const lv = new Float64Array(12);
+    for (let k = -K; k <= K; k++) { const g = frames[i + k]; if (!g) continue; const w = 1 - Math.abs(k) / (K + 1); for (let p = 0; p < 12; p++) { c[p] += w * g.chroma[p]; b[p] += w * g.bass[p]; } if (g.lowest >= 0) lv[g.lowest] += w; }
+    let low = -1, lb = 0;
+    for (let p = 0; p < 12; p++) if (lv[p] > lb) { lb = lv[p]; low = p; }
+    return { c, b, low: lb >= 1.2 ? low : -1 };
   });
   const S = HEAR_TEMPLATES.length;           // the last state (S) means "no chord"
   const quiet = (f) => f.rms < Math.max(0.004, peakRms * 0.06);
   const emit = frames.map((f, i) => {
     const e = new Float64Array(S + 1);
     if (quiet(f)) { for (let k = 0; k < S; k++) e[k] = 0; e[S] = 10; return e; }
-    const sc = scoreChroma(sm[i].c, sm[i].b);
-    sc.forEach((c) => { e[c.root * HEAR_TYPES.length + c.type] = 12 * c.score; });
+    const sc = scoreChroma(sm[i].c, sm[i].b, sm[i].low);
+    sc.forEach((c) => { e[c.root * HEAR_TYPES.length + c.type] = o.allow && !o.allow.has(c.sym) ? 0 : 12 * c.score; });
+    const top = o.allow ? sc.find((c) => o.allow.has(c.sym)) : sc[0];
+    if (top) {
+      const s7 = extendOf(sm[i].c, top.root, top.sym, o.allow);
+      const ti = HEAR_TYPES.findIndex((h) => h.sym === s7);
+      if (s7 !== top.sym && ti >= 0) e[top.root * HEAR_TYPES.length + ti] = 12 * top.score + 0.05;
+    }
     e[S] = 12 * 0.45;
     return e;
   });
@@ -2806,6 +2945,18 @@ function chordTrack(x, sr, opts) {
     const l = joined[joined.length - 1];
     if (l && !!l.none === !!g.none && (g.none || (l.root === g.root && l.sym === g.sym))) l.end = g.end;
     else joined.push(g);
+  });
+  // name each chord once more from all of its frames together: the note check, the bass note and slash chords
+  joined.forEach((g) => {
+    if (g.none) return;
+    const c = new Float64Array(12), b = new Float64Array(12), lv = new Float64Array(12);
+    let n = 0;
+    frames.forEach((f, i) => { if (f.t < g.start || f.t > g.end || quiet(f)) return; n++; for (let p = 0; p < 12; p++) { c[p] += sm[i].c[p]; b[p] += sm[i].b[p]; } if (f.lowest >= 0) lv[f.lowest]++; });
+    if (!n) return;
+    let low = -1, lb = 0;
+    for (let p = 0; p < 12; p++) if (lv[p] > lb) { lb = lv[p]; low = p; }
+    const h = hearChord(c, b, 1, null, lb >= n * 0.5 ? low : -1, o.allow);
+    if (h) { g.root = h.root; g.sym = h.sym; g.type = h.type; if (h.bass !== undefined) g.bass = h.bass; else delete g.bass; }
   });
   const chords = joined.filter((g) => !g.none);
   // overall key from everything that sounded
@@ -3038,7 +3189,7 @@ function scaleMatches(weights, opts) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches, grooveFromHits, GROOVE_MAX_BEATS };
+  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches, grooveFromHits, GROOVE_MAX_BEATS, HEAR_LOW, HEAR_7, HEAR_9, HEAR_X, HEAR_SLASH };
 }
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -5405,6 +5556,11 @@ if (typeof module !== 'undefined') {
     return true;
   }
   /* ---------- Chord listener: play a chord on a real guitar, see its name and where it sits in the key, add it ---------- */
+  // which chord types to listen for: all, or just the simple ones (fewer look-alikes to confuse)
+  let LS_TYPES = 'all';
+  try { LS_TYPES = localStorage.getItem('fretboard-ls-types') === 'simple' ? 'simple' : 'all'; } catch (e) {}
+  const LS_SIMPLE = new Set(['', 'm', '7', 'm7']);
+  const lsAllow = () => (LS_TYPES === 'simple' ? LS_SIMPLE : null);
   const LS = { follow: true, live: false, stream: null, src: null, an: null, timer: 0, ema: null, emaB: null, cand: null, candN: 0, quietN: 0, cur: null, auto: false, cap: [], held: 0, track: null, buf: null, sel: -1, player: null, raf: 0, name: '' };
   const LS_MAX_SEC = 360;
   const lsSay = (m) => { const el = $('lsMsg'); if (el) el.textContent = m || ''; };
@@ -5480,6 +5636,7 @@ if (typeof module !== 'undefined') {
     if (!now) return;
     $('lsLive').innerHTML = (LS.live ? ICON.stopf : ICON.mic) + (LS.live ? ' Stop listening' : ' Listen live');
     $('lsLive').setAttribute('aria-pressed', String(LS.live));
+    if ($('lsTypes')) seg('lsTypes', 'lstypes', [['all', 'All chord types'], ['simple', 'Simple: major, minor, 7']], LS_TYPES);
     const upi = document.querySelector && document.querySelector('.lsupi');
     if (upi && !upi.firstChild) upi.innerHTML = ICON.upload;
     const show = true;
@@ -5684,7 +5841,13 @@ if (typeof module !== 'undefined') {
     if (!LS.ema) { LS.ema = new Float64Array(12); LS.emaB = new Float64Array(12); }
     for (let i = 0; i < 12; i++) { LS.ema[i] = 0.55 * LS.ema[i] + 0.45 * f.chroma[i]; LS.emaB[i] = 0.55 * LS.emaB[i] + 0.45 * f.bass[i]; }
     lsBars(LS.ema, f.rms);
-    let h = hearChord(LS.ema, LS.emaB, f.rms, keyPrior());
+    // the lowest note, voted over the last few moments: the best hint at the root (C or Am? Gsus4 or Csus2?)
+    if (!LS.lowV) LS.lowV = new Float64Array(12);
+    for (let i = 0; i < 12; i++) LS.lowV[i] *= 0.6;
+    if (f.lowest >= 0 && f.rms > 0.004) LS.lowV[f.lowest] += 0.4;
+    let low = -1, lowB = 0;
+    for (let i = 0; i < 12; i++) if (LS.lowV[i] > lowB) { lowB = LS.lowV[i]; low = i; }
+    let h = hearChord(LS.ema, LS.emaB, f.rms, keyPrior(), lowB > 0.45 ? low : -1, lsAllow(), lowB > 0.9);
     if (h) LS.conf = 0.7 * (LS.conf || 0) + 0.3 * h.conf;
     if (!h || h.score < 0.72) {
       if (++LS.quietN > 8 && LS.cur) { LS.cur = null; LS.held = 0; renderListen(); }
@@ -5695,16 +5858,16 @@ if (typeof module !== 'undefined') {
     // you corrected this sound before: show your chord instead
     const fix = LS.fixes && LS.fixes[h.root + ':' + h.sym];
     if (fix) { h = Object.assign({}, h, fix, { conf: 1, others: [] }); LS.conf = 1; }
-    const id = refId(h.custom ? h : { root: h.root, sym: h.sym });
+    const id = refId(h.custom ? h : { root: h.root, sym: h.sym, bass: h.bass });
     if (LS.cand === id) LS.candN++; else { LS.cand = id; LS.candN = 1; }
     const curId = refId(LS.cur);
     if (LS.candN >= 3 && id !== curId) {
       const ch = lsChord(h);
       LS.lastSoundAt = Date.now();
       if (ch) {
-        LS.cur = chordRef(h.custom ? h : { root: h.root, sym: h.sym });
+        LS.cur = chordRef(h.custom ? h : { root: h.root, sym: h.sym, bass: h.bass });
         LS.heardId = h.heard || h.root + ':' + h.sym;
-        LS.alts = h.others.filter((o) => !(o.root === h.root && o.sym === h.sym)).slice(0, 3).map((o) => ({ root: o.root, sym: o.sym }));
+        LS.alts = h.others.filter((o) => !(o.root === h.root && o.sym === h.sym && o.bass === h.bass)).slice(0, 3).map((o) => (o.bass !== undefined ? { root: o.root, sym: o.sym, bass: o.bass } : { root: o.root, sym: o.sym }));
         LS.focus = { kind: 'cur' }; LS.held = 0; renderListen(); lsFollow();
       }
     } else if (id === curId) {
@@ -5752,10 +5915,10 @@ if (typeof module !== 'undefined') {
       let mx = 0;
       for (let i = 0; i < len; i++) mx = Math.max(mx, Math.abs(x[i]));
       if (mx > 0) for (let i = 0; i < len; i++) x[i] /= mx;
-      const tr = chordTrack(x, sr);
+      const tr = chordTrack(x, sr, { allow: lsAllow() });
       LS.buf = ab;
       LS.name = file.name || 'your clip';
-      const segs = tr.segments.map((g) => Object.assign({}, g, { ch: Object.assign(lsChord(g) || {}, { root: g.root, sym: g.sym }) })).filter((g) => g.ch.name);
+      const segs = tr.segments.map((g) => Object.assign({}, g, { ch: Object.assign(lsFresh(g) || {}, { root: g.root, sym: g.sym }) })).filter((g) => g.ch.name);
       LS.track = { segs, dur: len / sr, key: tr.key, tune: tr.tune || 0 };
       LS.sel = -1;
       lsSay(segs.length ? 'Tap a chord in the strip to hear it and see where it sits; add them one by one or all at once.' + (ab.length > len ? ' Only the first ' + Math.round(LS_MAX_SEC / 60) + ' minutes were read.' : '') : 'No clear chords were found. Strum each chord a few times and let it ring, close to the phone, with little background noise.');
@@ -6514,6 +6677,8 @@ if (typeof module !== 'undefined') {
     if (!closed && !ED.open) openEditor(P.style, true);
   }
   function lsClick(t) {
+    const lt = t.closest('[data-seg="lstypes"]');
+    if (lt) { LS_TYPES = lt.getAttribute('data-v') === 'simple' ? 'simple' : 'all'; try { localStorage.setItem('fretboard-ls-types', LS_TYPES); } catch (e) {} LS.cand = null; LS.candN = 0; renderListen(); return true; }
     if (leClick(t)) return true;
     if (t.closest('#pwCreate')) { leOpen(null, 'pwEdit'); return true; }
     // remove a wrongly heard chord (from the captured row, or from a clip's chord strip)
@@ -7113,6 +7278,16 @@ if (typeof module !== 'undefined') {
     next: { t: 'What comes next', tour: 'keys', b: '<p>Chords have jobs. <b>I</b> is home and feels at rest. <b>IV</b> and <b>ii</b> move away. <b>V</b> builds tension that wants to resolve back to I.</p><p>Many strong moves <b>fall a fifth</b>: one step anticlockwise on the circle (vi → ii → V → I). That is why the highlights so often sit right next to the chord you chose.</p><ul><li><b>Strong pull</b>: the move the ear expects, like V → I.</li><li><b>Common</b>: used all the time, like IV → I (the "amen" ending).</li><li><b>Colour</b>: a surprise or a borrowed flavour, like V → vi (the "deceptive" ending) or IV → iv.</li></ul><p>These are guides, not rules. If it sounds good, it is good.</p>' },
     listen: { t: 'Chord listener', b: '<p>Strum a chord on your guitar and the listener names it. The bars show how loudly each of the 12 notes is sounding; the lit ones are the notes of the chord it hears.</p><p>It also tells you the chord\u2019s number in your key (like <b>V</b> in C major), or that it is outside the key. <b>Show on the circle</b> opens it in the Key explorer with its next moves.</p><p><b>Upload a clip</b> reads a whole recording, like the chord track in a DAW or the Moises app, and guesses its key. Tap a chord to hear it, play the clip to follow along, then add the chords to your progression.</p><p>Tips: let each chord ring, keep the phone close, and keep background music and talking down. It knows major, minor, 7, maj7, m7, sus2, sus4 and dim chords.</p><p><b>Live listening</b> needs the microphone, which pages inside the Claude app cannot use. It works once the site is hosted on its own.</p>' + romanLink() },
     analysis: { t: 'Progression analysis', wide: true, b: () => '<p>The site works out which <b>key</b> your chords belong to, then gives each chord its number (I, ii, V…) and its job: <b>Home</b> (I, vi, iii) rests, <b>Away</b> (IV, ii) moves off, <b>Tension</b> (V, vii°) wants to resolve.</p>' + svgJobs() + '<p>It names the <b>kind of progression</b> (a 2–5–1, the pop loop I–V–vi–IV, the Andalusian cadence…), points out <b>cadences</b> (how phrases end) and chords from outside the key, and suggests what could come next and which scales to solo with.</p>' + romanLink() },
+    lsacc: { t: 'Getting the chord right', b: '<p>The listener hears notes, not your fingers, so a few habits make it much more accurate:</p><ul>'
+      + '<li><b>Let the chord ring</b> for a second. The first moment of a strum is mostly the pick; the name settles once the strings ring.</li>'
+      + '<li><b>Strum all the strings of the shape</b>, and mute the ones that are not in it. The <b>lowest note</b> tells the listener the root: C and Am share notes, and so do Gsus4 and Csus2; the bass decides.</li>'
+      + '<li><b>Tune your guitar.</b> It follows a guitar that is a little sharp or flat, but a string that is out on its own reads as a different note.</li>'
+      + '<li><b>Quiet room, close to the microphone</b>, and no backing track playing.</li>'
+      + '<li><b>9th chords</b> (C9, Cmaj9, Cm9) are named when the 3rd, the 7th and the 9th all ring clearly. A 9th chord without its 3rd sounds (and reads) like a sus2, and one without its 7th like an add9, which shows as the plain chord.</li>'
+      + '<li><b>Diminished, augmented, 6th and 7sus4 chords</b> are named from which notes ring. Dim7 and augmented chords repeat every few frets (C°7 has the same notes as E♭°7), so the listener names them after your <b>lowest note</b>.</li>'
+      + '<li><b>Slash chords</b> (C/E, D/F♯, A/B): when the bass note is not the chord\'s root and holds steady, the name shows it after a slash. Inversions are the hardest thing to hear, so if it shows plain C when you played C/E, the slash version is often among the other guesses to tap.</li>'
+      + '<li>Just learning? Choose <b>Simple: major, minor, 7</b>. Fewer chord types means fewer look-alikes (a C will not turn into Cmaj7 or Csus2).</li>'
+      + '<li>If it still names a chord wrong, tap one of the <b>other guesses</b> under the name. The listener remembers that correction for the rest of the session.</li></ul>' },
     trace: { t: 'What you played, on the neck', b: '<p>While the <b>Scale listener</b> is on, every note it hears is put on this fretboard. A guitar has the same note in several places, so the site picks the place closest to where your hand has been. If it picked the wrong string, <b>tap the dot</b> to move it.</p><p>Bigger dots are notes you played more often. The amber dot is the <b>home note</b> of the scale you compare with, faint dots are the notes of that scale you have not played yet, and a red dashed ring marks a note that is <b>not in that scale</b>.</p><p>Choose another scale under <b>Compare with</b> to check it against what you played. When every dot fits and nothing is ringed red, that is your scale. It is all saved on this device until you press Clear.</p>' },
     scalelisten: { t: 'Scale listener', b: '<p>Play a scale, a riff or a melody one note at a time. The listener hears each note, keeps count of which of the 12 notes you used, and lists the scales that contain them, best first.</p><p>The same notes can make different scales (C major and A minor share every note). What decides it is the <b>home note</b>, so start and end on the note that sounds like home.</p><p>Tap <b>Show on fretboard</b> to see the scale on the neck. Live listening needs the microphone, which pages inside the Claude app cannot use; upload a clip there instead.</p>' },
     common: { t: 'Common progressions', tour: 'progression', wide: true, b: () => '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' + svg251() + '<p>Use the style chips to narrow the list. <b>J-pop and anime</b> lean on the <b>Royal road (王道進行, IV–V–iii–vi)</b>, which starts away from home and leans toward the sad vi, and on <b>丸サ (IVmaj7–III7–vi7)</b>, where the borrowed III7 pulls hard into vi. <b>C-pop</b> ballads love <b>4536251</b> and the Canon’s bass walking down. <b>K-pop</b> often lifts into a chorus with ii–iii–IV–V. <b>Gospel</b> turns IV minor (iv) for a sigh before home, and <b>rock</b> borrows ♭VII from Mixolydian.</p>' + romanLink() },
