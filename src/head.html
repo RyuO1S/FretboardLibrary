@@ -510,6 +510,17 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 @keyframes cardin { from { opacity: 0; transform: translateY(10px) scale(0.96); } }
 /* Common progressions */
 .cp-bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; margin-bottom: 10px; }
+.cp-genres { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.cpg { font: inherit; font-size: 0.78rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; display: inline-flex; gap: 5px; align-items: baseline; }
+.cpg small { font-size: 0.68rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cpg[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.cpg[aria-pressed="true"] small { color: inherit; opacity: 0.8; }
+.cpg.empty:not([aria-pressed="true"]) { opacity: 0.55; }
+.cp-note { margin: 0 0 8px; font-size: 0.82rem; color: var(--muted); min-height: 0; }
+.cp-note:empty { display: none; }
+.cp-note .linkbtn { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; }
+.cp-gen { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+.cp-gen span { font-size: 0.66rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
 .cp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
 .cpcard { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); align-content: start; }
 .cp-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -820,6 +831,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .gateerr { min-height: 20px; color: #b91c1c; }
 </style>
 
+
 <div class="sitegate" id="siteGate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gatebox">
     <h2 id="gateTitle">Fretboard Library</h2>
@@ -1012,6 +1024,8 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <div class="field"><span>Mode</span><div class="seg" id="cpMode"></div></div>
             <div class="field"><span>Chords</span><div class="seg" id="cpType"></div></div>
           </div>
+          <div class="cp-genres" id="cpGenres" role="group" aria-label="Filter by style"></div>
+          <p class="cp-note" id="cpNote"></p>
           <div class="cp-grid" id="cpGrid"></div>
         </details>
 

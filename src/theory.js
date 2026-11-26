@@ -967,35 +967,73 @@ function stringForPitch(slot, hz) {
    Each step: [roman as triads, roman as 7th chords, root as an interval above the tonic, triad symbol, 7th symbol] */
 const CHORD_FORMULA = { '': '1 3 5', m: '1 b3 5', '°': '1 b3 b5', '+': '1 3 #5', '7': '1 3 5 b7', maj7: '1 3 5 7', m7: '1 b3 5 b7', 'm7♭5': '1 b3 b5 b7', '°7': '1 b3 b5 bb7', sus4: '1 4 5' };
 const COMMON_PROGS = [
-  { id: '251', mode: 'major', name: '2–5–1', alt: 'ii – V – I', tag: 'Jazz', hint: 'The most important move in jazz: the ii chord leads to V, and V pulls home to I. Learn it in every key.',
+  { id: '251', genres: ['Jazz', 'Bossa nova', 'K-pop'], mode: 'major', name: '2–5–1', alt: 'ii – V – I', tag: 'Jazz', hint: 'The most important move in jazz: the ii chord leads to V, and V pulls home to I. Learn it in every key.',
     steps: [['ii', 'ii7', '2', 'm', 'm7'], ['V', 'V7', '5', '', '7'], ['I', 'Imaj7', '1', '', 'maj7']] },
-  { id: 'axis', mode: 'major', name: 'Pop anthem', alt: 'I – V – vi – IV', tag: 'Pop', hint: 'Heard in hundreds of hit songs. Bright, then a little sad on vi, then hopeful on IV.',
+  { id: 'axis', genres: ['Pop', 'K-pop', 'C-pop', 'Rock'], mode: 'major', name: 'Pop anthem', alt: 'I – V – vi – IV', tag: 'Pop', hint: 'Heard in hundreds of hit songs. Bright, then a little sad on vi, then hopeful on IV.',
     steps: [['I', 'Imaj7', '1', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['vi', 'vi7', '6', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7']] },
-  { id: '50s', mode: 'major', name: "'50s doo-wop", alt: 'I – vi – IV – V', tag: 'Pop', hint: 'The classic ballad loop of the 1950s and 60s.',
+  { id: '50s', genres: ['Pop', 'C-pop', 'Oldies'], mode: 'major', name: "'50s doo-wop", alt: 'I – vi – IV – V', tag: 'Pop', hint: 'The classic ballad loop of the 1950s and 60s.',
     steps: [['I', 'Imaj7', '1', '', 'maj7'], ['vi', 'vi7', '6', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7']] },
-  { id: 'sad', mode: 'major', name: 'Emotional pop', alt: 'vi – IV – I – V', tag: 'Pop', hint: 'The pop anthem started on vi, so it sounds more minor and moody.',
+  { id: 'sad', genres: ['Pop', 'K-pop', 'J-pop'], mode: 'major', name: 'Emotional pop', alt: 'vi – IV – I – V', tag: 'Pop', hint: 'The pop anthem started on vi, so it sounds more minor and moody.',
     steps: [['vi', 'vi7', '6', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['I', 'Imaj7', '1', '', 'maj7'], ['V', 'V7', '5', '', '7']] },
-  { id: '145', mode: 'major', name: 'Three-chord rock', alt: 'I – IV – V – I', tag: 'Rock / folk', hint: 'The three main chords of a key. Countless folk, country and rock songs use only these.',
+  { id: '145', genres: ['Rock', 'Folk', 'Country'], mode: 'major', name: 'Three-chord rock', alt: 'I – IV – V – I', tag: 'Rock / folk', hint: 'The three main chords of a key. Countless folk, country and rock songs use only these.',
     steps: [['I', 'I7', '1', '', '7'], ['IV', 'IV7', '4', '', '7'], ['V', 'V7', '5', '', '7'], ['I', 'I7', '1', '', '7']] },
-  { id: 'blues', mode: 'major', name: '12-bar blues', alt: 'I I I I · IV IV I I · V IV I V', tag: 'Blues', hint: 'Twelve bars, one chord per bar. The foundation of blues and rock and roll. Sounds best with 7th chords.',
+  { id: 'blues', genres: ['Blues', 'Rock'], mode: 'major', name: '12-bar blues', alt: 'I I I I · IV IV I I · V IV I V', tag: 'Blues', hint: 'Twelve bars, one chord per bar. The foundation of blues and rock and roll. Sounds best with 7th chords.',
     steps: [['I', 'I7', '1', '', '7'], ['I', 'I7', '1', '', '7'], ['I', 'I7', '1', '', '7'], ['I', 'I7', '1', '', '7'], ['IV', 'IV7', '4', '', '7'], ['IV', 'IV7', '4', '', '7'],
       ['I', 'I7', '1', '', '7'], ['I', 'I7', '1', '', '7'], ['V', 'V7', '5', '', '7'], ['IV', 'IV7', '4', '', '7'], ['I', 'I7', '1', '', '7'], ['V', 'V7', '5', '', '7']] },
-  { id: 'turn', mode: 'major', name: 'Jazz turnaround', alt: 'I – vi – ii – V', tag: 'Jazz', hint: 'Loops back to the start of a tune. Ends on V so it wants to begin again.',
+  { id: 'turn', genres: ['Jazz', 'City pop'], mode: 'major', name: 'Jazz turnaround', alt: 'I – vi – ii – V', tag: 'Jazz', hint: 'Loops back to the start of a tune. Ends on V so it wants to begin again.',
     steps: [['I', 'Imaj7', '1', '', 'maj7'], ['vi', 'vi7', '6', 'm', 'm7'], ['ii', 'ii7', '2', 'm', 'm7'], ['V', 'V7', '5', '', '7']] },
-  { id: 'circle', mode: 'major', name: 'Circle progression', alt: 'iii – vi – ii – V – I', tag: 'Jazz / classical', hint: 'Each chord falls a fifth to the next, all the way home. Follow it on the circle of fifths.',
+  { id: 'circle', genres: ['Jazz', 'Classical', 'J-pop'], mode: 'major', name: 'Circle progression', alt: 'iii – vi – ii – V – I', tag: 'Jazz / classical', hint: 'Each chord falls a fifth to the next, all the way home. Follow it on the circle of fifths.',
     steps: [['iii', 'iii7', '3', 'm', 'm7'], ['vi', 'vi7', '6', 'm', 'm7'], ['ii', 'ii7', '2', 'm', 'm7'], ['V', 'V7', '5', '', '7'], ['I', 'Imaj7', '1', '', 'maj7']] },
-  { id: 'canon', mode: 'major', name: 'Pachelbel’s Canon', alt: 'I – V – vi – iii – IV – I – IV – V', tag: 'Classical / pop', hint: 'The famous wedding piece. Its bass line steps down and many pop songs borrow it.',
+  { id: 'canon', genres: ['Classical', 'C-pop', 'J-pop', 'Pop'], mode: 'major', name: 'Pachelbel’s Canon', alt: 'I – V – vi – iii – IV – I – IV – V', tag: 'Classical / pop', hint: 'The famous wedding piece. Its bass line steps down and many pop songs borrow it.',
     steps: [['I', 'Imaj7', '1', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['vi', 'vi7', '6', 'm', 'm7'], ['iii', 'iii7', '3', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['I', 'Imaj7', '1', '', 'maj7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7']] },
-  { id: 'm251', mode: 'minor', name: 'Minor 2–5–1', alt: 'iiø – V – i', tag: 'Jazz', hint: 'The 2–5–1 in a minor key: a half-diminished ii, a dominant V, home to minor i.',
+  { id: 'm251', genres: ['Jazz', 'Bossa nova'], mode: 'minor', name: 'Minor 2–5–1', alt: 'iiø – V – i', tag: 'Jazz', hint: 'The 2–5–1 in a minor key: a half-diminished ii, a dominant V, home to minor i.',
     steps: [['ii°', 'iiø7', '2', '°', 'm7♭5'], ['V', 'V7', '5', '', '7'], ['i', 'i7', '1', 'm', 'm7']] },
-  { id: 'andalusian', mode: 'minor', name: 'Andalusian cadence', alt: 'i – ♭VII – ♭VI – V', tag: 'Flamenco / rock', hint: 'Steps down to a dramatic major V. Spanish and flamenco flavour.',
+  { id: 'andalusian', genres: ['Flamenco', 'Rock', 'Film'], mode: 'minor', name: 'Andalusian cadence', alt: 'i – ♭VII – ♭VI – V', tag: 'Flamenco / rock', hint: 'Steps down to a dramatic major V. Spanish and flamenco flavour.',
     steps: [['i', 'i7', '1', 'm', 'm7'], ['♭VII', '♭VII7', 'b7', '', '7'], ['♭VI', '♭VImaj7', 'b6', '', 'maj7'], ['V', 'V7', '5', '', '7']] },
-  { id: 'epic', mode: 'minor', name: 'Epic minor', alt: 'i – ♭VI – ♭III – ♭VII', tag: 'Rock / film', hint: 'A powerful minor loop used in rock ballads and film music.',
+  { id: 'epic', genres: ['Rock', 'Film', 'K-pop'], mode: 'minor', name: 'Epic minor', alt: 'i – ♭VI – ♭III – ♭VII', tag: 'Rock / film', hint: 'A powerful minor loop used in rock ballads and film music.',
     steps: [['i', 'i7', '1', 'm', 'm7'], ['♭VI', '♭VImaj7', 'b6', '', 'maj7'], ['♭III', '♭IIImaj7', 'b3', '', 'maj7'], ['♭VII', '♭VII7', 'b7', '', '7']] },
-  { id: 'minor145', mode: 'minor', name: 'Minor blues shape', alt: 'i – iv – V – i', tag: 'Blues / classical', hint: 'The three main chords of a minor key, with a major V for a strong pull home.',
+  { id: 'minor145', genres: ['Blues', 'Classical'], mode: 'minor', name: 'Minor blues shape', alt: 'i – iv – V – i', tag: 'Blues / classical', hint: 'The three main chords of a minor key, with a major V for a strong pull home.',
     steps: [['i', 'i7', '1', 'm', 'm7'], ['iv', 'iv7', '4', 'm', 'm7'], ['V', 'V7', '5', '', '7'], ['i', 'i7', '1', 'm', 'm7']] },
-  { id: 'minorpop', mode: 'minor', name: 'Minor pop loop', alt: 'i – ♭VII – ♭VI – ♭VII', tag: 'Pop / rock', hint: 'Rocks back and forth between the top three chords of the natural minor.',
+  { id: 'minorpop', genres: ['Pop', 'Rock'], mode: 'minor', name: 'Minor pop loop', alt: 'i – ♭VII – ♭VI – ♭VII', tag: 'Pop / rock', hint: 'Rocks back and forth between the top three chords of the natural minor.',
     steps: [['i', 'i7', '1', 'm', 'm7'], ['♭VII', '♭VII7', 'b7', '', '7'], ['♭VI', '♭VImaj7', 'b6', '', 'maj7'], ['♭VII', '♭VII7', 'b7', '', '7']] },
+  // J-pop, anime, city pop
+  { id: 'royal', genres: ['J-pop', 'Anime', 'C-pop'], mode: 'major', name: 'Royal road (王道進行)', alt: 'IV – V – iii – vi', tag: 'J-pop / anime', hint: 'The signature J-pop chorus: it lifts from IV to V, then lands on the minor chords instead of going home, so it feels bittersweet and keeps moving. Very common in anime themes.',
+    steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['iii', 'iii7', '3', 'm', 'm7'], ['vi', 'vi7', '6', 'm', 'm7']] },
+  { id: 'royalhome', genres: ['J-pop', 'Anime'], mode: 'major', name: 'Royal road, going home', alt: 'IV – V – iii – vi – ii – V – I', tag: 'J-pop / anime', hint: 'The royal road continued down the circle of fifths (vi – ii – V – I) until it resolves. A big, satisfying chorus ending.',
+    steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['iii', 'iii7', '3', 'm', 'm7'], ['vi', 'vi7', '6', 'm', 'm7'], ['ii', 'ii7', '2', 'm', 'm7'], ['V', 'V7', '5', '', '7'], ['I', 'Imaj7', '1', '', 'maj7']] },
+  { id: 'royalsec', genres: ['J-pop', 'K-pop', 'Anime'], mode: 'major', name: 'Royal road with a push', alt: 'IV – V – III – vi', tag: 'J-pop / K-pop', hint: 'The royal road with iii turned major (III, the V of vi). That borrowed chord pulls hard into vi: a dramatic pre-chorus or chorus lift.',
+    steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['III', 'III7', '3', '', '7'], ['vi', 'vi7', '6', 'm', 'm7']] },
+  { id: 'komuro', genres: ['J-pop', 'C-pop', 'Anime'], mode: 'major', name: 'Komuro progression (小室進行)', alt: 'vi – IV – V – I', tag: 'J-pop / C-pop', hint: 'Named after producer Tetsuya Komuro. Starts on the minor vi and climbs back home to I, so every repeat feels like a payoff. In Chinese pop it is the "6451" universal progression.',
+    steps: [['vi', 'vi7', '6', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['I', 'Imaj7', '1', '', 'maj7']] },
+  { id: '6453', genres: ['J-pop', 'Anime'], mode: 'major', name: '6–4–5–3', alt: 'vi – IV – V – iii', tag: 'J-pop', hint: 'The Komuro progression ending on iii instead of home. It stays unresolved, so it suits verses and bittersweet moments; many songs use 6–4–5–3 in the verse and 6–4–5–1 in the chorus.',
+    steps: [['vi', 'vi7', '6', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['iii', 'iii7', '3', 'm', 'm7']] },
+  { id: 'marusa', genres: ['J-pop', 'City pop', 'R&B / soul'], mode: 'major', name: 'Just the Two of Us (丸サ進行)', alt: 'IVmaj7 – III7 – vi7 – v7 I7', tag: 'City pop / J-pop', hint: 'The jazzy loop from the 1981 soul hit, now everywhere in J-pop. The major III7 pulls into vi, then a minor v and I7 lead back to IV. Floating, stylish and a little melancholy. Best with 7th chords.',
+    steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['III', 'III7', '3', '', '7'], ['vi', 'vi7', '6', 'm', 'm7'], ['v', 'v7', '5', 'm', 'm7'], ['I', 'I7', '1', '', '7']] },
+  // C-pop (Mandopop / Cantopop)
+  { id: '4536251', genres: ['C-pop', 'J-pop', 'Ballad'], mode: 'major', name: '4536251', alt: 'IV – III – vi – ii – V – I', tag: 'C-pop', hint: 'A favourite of Chinese-language ballads, named by its scale numbers. It falls down the circle of fifths from III to I, so it sounds rich and keeps pulling forward until it lands home.',
+    steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['III', 'III7', '3', '', '7'], ['vi', 'vi7', '6', 'm', 'm7'], ['ii', 'ii7', '2', 'm', 'm7'], ['V', 'V7', '5', '', '7'], ['I', 'Imaj7', '1', '', 'maj7']] },
+  { id: '4321', genres: ['C-pop', 'R&B / soul', 'Neo-soul'], mode: 'major', name: 'Stepping down 4–3–2–1', alt: 'IV – iii – ii – I', tag: 'C-pop / R&B', hint: 'Each chord is one step lower than the last, a smooth slide home. With 7th chords (IVmaj7 – iii7 – ii7 – Imaj7) it is a classic R&B and neo-soul sound.',
+    steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['iii', 'iii7', '3', 'm', 'm7'], ['ii', 'ii7', '2', 'm', 'm7'], ['I', 'Imaj7', '1', '', 'maj7']] },
+  { id: '1564', genres: ['C-pop', 'Pop'], mode: 'major', name: 'Canon, first half', alt: 'I – V – vi – iii – IV', tag: 'C-pop / pop', hint: 'The opening of the Canon progression, used on its own in many Mandopop and Cantopop ballads before it turns to IV – I – IV – V or IV – V – I.',
+    steps: [['I', 'Imaj7', '1', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['vi', 'vi7', '6', 'm', 'm7'], ['iii', 'iii7', '3', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7']] },
+  // K-pop, R&B, gospel, rock
+  { id: 'kpoplift', genres: ['K-pop', 'Pop'], mode: 'major', name: 'Pre-chorus lift', alt: 'ii – iii – IV – V', tag: 'K-pop', hint: 'Climbs step by step to the V chord, building tension right before the chorus drops.',
+    steps: [['ii', 'ii7', '2', 'm', 'm7'], ['iii', 'iii7', '3', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7']] },
+  { id: 'gospel', genres: ['Gospel', 'R&B / soul', 'Pop'], mode: 'major', name: 'Minor plagal (gospel)', alt: 'I – IV – iv – I', tag: 'Gospel / soul', hint: 'IV turns minor (iv, borrowed from the minor key) before going home. A warm, tearful "amen" sound used in gospel, soul and big ballads.',
+    steps: [['I', 'Imaj7', '1', '', 'maj7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['iv', 'iv7', '4', 'm', 'm7'], ['I', 'Imaj7', '1', '', 'maj7']] },
+  { id: 'mixo', genres: ['Rock', 'Folk'], mode: 'major', name: 'Mixolydian rock', alt: 'I – ♭VII – IV – I', tag: 'Rock', hint: 'The borrowed ♭VII chord gives a laid-back classic-rock and anthem sound, instead of the usual V.',
+    steps: [['I', 'I7', '1', '', '7'], ['♭VII', '♭VIImaj7', 'b7', '', 'maj7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['I', 'I7', '1', '', '7']] },
+  { id: 'neosoul', genres: ['Neo-soul', 'R&B / soul', 'Jazz'], mode: 'major', name: 'Neo-soul loop', alt: 'ii7 – iii7 – IVmaj7 – iii7', tag: 'Neo-soul', hint: 'Rocks gently around ii, iii and IV without ever landing on I, so it floats. Play it with 7th chords for the smooth neo-soul colour.',
+    steps: [['ii', 'ii7', '2', 'm', 'm7'], ['iii', 'iii7', '3', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['iii', 'iii7', '3', 'm', 'm7']] },
+  // minor keys
+  { id: 'mroyal', genres: ['J-pop', 'Anime'], mode: 'minor', name: 'Royal road in minor', alt: '♭VI – ♭VII – v – i', tag: 'J-pop / anime', hint: 'The royal road shape in a minor key: up from ♭VI to ♭VII, then down to the minor home. Dramatic and emotional, common in anime openings.',
+    steps: [['♭VI', '♭VImaj7', 'b6', '', 'maj7'], ['♭VII', '♭VII7', 'b7', '', '7'], ['v', 'v7', '5', 'm', 'm7'], ['i', 'i7', '1', 'm', 'm7']] },
+  { id: 'mroyalV', genres: ['J-pop', 'Anime', 'C-pop'], mode: 'minor', name: 'Minor climb to V', alt: '♭VI – ♭VII – V – i', tag: 'J-pop / C-pop', hint: 'Like the minor royal road, but with a major V for a much stronger pull home. A favourite for powerful minor-key choruses.',
+    steps: [['♭VI', '♭VImaj7', 'b6', '', 'maj7'], ['♭VII', '♭VII7', 'b7', '', '7'], ['V', 'V7', '5', '', '7'], ['i', 'i7', '1', 'm', 'm7']] },
+  { id: 'mcircle', genres: ['K-pop', 'Pop', 'Jazz'], mode: 'minor', name: 'Minor circle', alt: 'i – iv – ♭VII – ♭III', tag: 'K-pop / pop', hint: 'Falls by fifths through the minor key (i, iv, ♭VII, ♭III), ending on the bright relative major. Moody but hopeful.',
+    steps: [['i', 'i7', '1', 'm', 'm7'], ['iv', 'iv7', '4', 'm', 'm7'], ['♭VII', '♭VII7', 'b7', '', '7'], ['♭III', '♭IIImaj7', 'b3', '', 'maj7']] },
+  { id: 'aeolian', genres: ['K-pop', 'Rock', 'Film'], mode: 'minor', name: 'Aeolian cadence', alt: 'i – ♭VI – ♭VII – i', tag: 'Rock / K-pop', hint: 'Climbs ♭VI – ♭VII back to the minor home: a powerful, heroic minor ending used in rock, film and dark pop.',
+    steps: [['i', 'i7', '1', 'm', 'm7'], ['♭VI', '♭VImaj7', 'b6', '', 'maj7'], ['♭VII', '♭VII7', 'b7', '', '7'], ['i', 'i7', '1', 'm', 'm7']] },
 ];
 function progChords(def, tonicName, seventh) {
   return def.steps.map((s) => {
@@ -1476,19 +1514,29 @@ function analyzeProg(slots, hint) {
     for (let i = 1; i < n; i++) { if (((out[i - 1].root - out[i].root) % 12 + 12) % 12 === 7) { run++; best = Math.max(best, run); } else run = 1; }
     if (best >= 3) add('fifths', `${best} chords in a row fall by fifths (one step anticlockwise on the circle each time): the strongest kind of chord movement.`, 0);
   }
-  // familiar progressions inside this one (anywhere, also across the loop)
-  const bases = out.map((x) => x.base.replace('♭', '♭'));
+  // familiar progressions inside this one (anywhere, also across the loop). A song can borrow a progression
+  // in a nearby key (the J-pop royal road F – G – Em – Am is in C even when the song sits in A minor), so every key is tried, the song's own first
+  const norm = (s) => s.replace(/[°ø+]/g, '');
+  const baseIn = (c, t) => romanOf(c.root, c.sym, c.pcs, t).replace(/(maj7|7|9|6|sus2|sus4|ø7|°7|\(maj7\)|7sus4|maj9|7♭9|7♯9)$/, '').replace(/[°+ø]$/, '');
   const matches = [];
-  COMMON_PROGS.forEach((p) => {
-    if (p.mode !== M) return;
-    const seq = p.steps.map((s) => s[0]);
-    if (seq.length > n) return;
-    for (let s = 0; s < n; s++) {
-      let ok = true;
-      for (let k = 0; k < seq.length && ok; k++) ok = bases[(s + k) % n].replace(/[°ø+]/g, '') === seq[k].replace(/[°ø+]/g, '');
-      if (ok) { matches.push({ id: p.id, name: p.name, alt: p.alt, hint: p.hint, at: s }); break; }
-    }
-  });
+  const tryKey = (t, m) => {
+    const bases = chords.map((c) => norm(baseIn(c, t)));
+    COMMON_PROGS.forEach((p) => {
+      if (p.mode !== m || matches.some((x) => x.id === p.id)) return;
+      const seq = p.steps.map((st) => norm(st[0]));
+      if (seq.length > n || seq.length < 3) return;
+      for (let s0 = 0; s0 < n; s0++) {
+        let ok = true;
+        for (let k = 0; k < seq.length && ok; k++) ok = bases[(s0 + k) % n] === seq[k];
+        if (ok) { matches.push({ id: p.id, name: p.name, alt: p.alt, hint: p.hint, at: s0, tonic: t, mode: m, sameKey: t === T && m === M }); break; }
+      }
+    });
+  };
+  tryKey(T, M);
+  tryKey(M === 'major' ? (T + 9) % 12 : (T + 3) % 12, M === 'major' ? 'minor' : 'major');   // the relative key
+  for (let t = 0; t < 12; t++) for (const m of ['major', 'minor']) tryKey(t, m);
+  // prefer what was found in the song's own key or its relative, then longer patterns
+  matches.sort((a, b) => (b.sameKey - a.sameKey) || (COMMON_PROGS.find((p) => p.id === b.id).steps.length - COMMON_PROGS.find((p) => p.id === a.id).steps.length));
   const fit = Math.round(100 * out.filter((x) => x.kind === 'diatonic').length / n);
   return { key: { tonic: T, mode: M, fit, alt: scored.slice(1, 3).map((k) => ({ tonic: k.tonic, mode: k.mode })) }, chords: out, notes, matches };
 }
