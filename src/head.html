@@ -145,6 +145,18 @@ select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; b
 .neck-scroll { overflow-x: auto; border-radius: 10px; }
 #neck { display: block; width: 100%; height: auto; }
 #neck text { font-family: var(--font-body); }
+#neck .dot.picked { transform: scale(1.25); filter: drop-shadow(0 0 6px var(--lit-glow)); }
+#neck .dot.picked circle { fill: var(--lit); stroke: var(--accent); stroke-width: 4; opacity: 1; }
+#neck .dot.picked text { fill: var(--root-fg); }
+.pickbtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.pickbar { margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--accent); border-radius: 10px; display: grid; gap: 8px; }
+.pickbar .pkhead { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.pickbar .pkhead b { font-family: var(--font-head); font-size: 1.05rem; }
+.pickbar .pkhead span { color: var(--muted); font-size: 0.82rem; }
+.pickbar .pknotes { display: flex; flex-wrap: wrap; gap: 6px; }
+.pickbar .pknote { font: inherit; font-size: 0.8rem; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+.pickbar .pknote small { color: var(--muted); margin-left: 4px; font-size: 0.68rem; }
+.pickbar .lsbtns { display: flex; flex-wrap: wrap; gap: 6px; }
 #neck .dot { cursor: pointer; transform-box: fill-box; transform-origin: center; }
 #neck .dot circle { transition: fill 0.12s, stroke 0.12s, stroke-width 0.12s; }
 #neck .dot.lit { transform: scale(1.4); filter: drop-shadow(0 0 7px var(--lit-glow)); }
@@ -345,6 +357,17 @@ button.pcell { cursor: pointer; }
 .pcount.stepon, .pcell.stepon { background: var(--root-dot); border-color: var(--root-dot); color: var(--root-fg); }
 .edgrid .rv-cell.stepon, .rv-cell.stepon { background: var(--root-dot); border-color: var(--root-dot); }
 /* recording and the strum pad */
+.recbox { margin: 14px 0 10px; display: grid; gap: 8px; }
+.recbox .recbar { margin: 0; }
+.recbox .recstate { margin: 0; line-height: 1.45; }
+.takelane { display: block; width: 100%; height: 64px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
+.takelane[hidden] { display: none; }
+.takecard { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--accent); border-radius: 10px; background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+.takerow { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end; }
+.takecard .hint2 { margin: 0; color: var(--muted); font-size: 0.8rem; }
+.strumpad.live { box-shadow: 0 0 0 2px var(--live); }
+.padhead .padchord { margin-left: auto; }
+.edgrid .rv-cell.bar, .pcell.bar, .pcount.bar { margin-left: 8px; }
 .recbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 14px 0 10px; }
 .recbar .check { padding-bottom: 0; font-size: 0.88rem; }
 .tapbtn.rec { color: #c0262d; border-color: #c0262d; }
@@ -832,6 +855,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 </style>
 
 
+
 <div class="sitegate" id="siteGate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gatebox">
     <h2 id="gateTitle">Fretboard Library</h2>
@@ -919,10 +943,12 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <p id="patMeta"></p>
           </div>
           <div class="now" id="now" style="visibility:hidden"><span>♪</span> <b>C</b></div>
+          <button type="button" class="tapbtn pickbtn" id="pickBtn" aria-pressed="false" title="Tap notes on the neck to build a chord from them">Pick notes</button>
           <button type="button" class="play" id="playBtn"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 4l14 8-14 8z" fill="currentColor"/></svg> Play</button>
         </div>
         <div class="neck-scroll"><svg id="neck" role="img" aria-label="Guitar fretboard"></svg></div>
         <div class="note-empty" id="boardNote" hidden></div>
+        <div class="pickbar" id="pickBar" hidden></div>
       </section>
 
       <section class="panel" id="shapePanel" data-tab-of="fretboard" hidden aria-label="Chord shapes">

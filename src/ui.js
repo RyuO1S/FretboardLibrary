@@ -265,7 +265,7 @@
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-pk', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -1250,6 +1250,7 @@
     svg.setAttribute('viewBox', x0.toFixed(1) + ' 0 ' + (x1 - x0).toFixed(1) + ' ' + VBH);
     svg.style.minWidth = Math.round((x1 - x0) * 0.72) + 'px';
     svg.innerHTML = boardSvg(vm.dots, ghostDots);
+    pkPaint();
     const bn = $('boardNote');
     bn.hidden = !vm.empty;
     if (vm.empty) bn.textContent = 'No ' + title + ' voicing fits between fret ' + S.from + ' and fret ' + S.to + '. Widen the range or choose another string set or inversion.';
@@ -1628,7 +1629,7 @@
   /* pattern editor: pick a stroke, tap the boxes */
   const TOOLS = [['D', '↓', 'Down'], ['U', '↑', 'Up'], ['d', '↓', 'Soft down'], ['u', '↑', 'Soft up'], ['x', '×', 'Muted'], ['C', '↓', 'Top strings'], ['K', '↑', 'Short chop'],
     ['B', 'B', 'Bass'], ['A', 'b', 'Other bass'], ['P', '•', 'Pluck top 3'], ['T', 'B•', 'Bass + pluck'], ['1', '1', '1st string'], ['2', '2', '2nd string'], ['3', '3', '3rd string'], ['M', 'PM', 'Palm mute'], ['.', '', 'Erase']];
-  const ED = { open: false, id: null, name: '', grid: 2, beats: 4, steps: [], picks: [], mode: 'strum', swing: false, short: false, tool: 'D', armedDel: null, overdub: false, tx: null, txDir: 'beat', txAuto: true, txMsg: '' };
+  const ED = { open: false, id: null, name: '', grid: 2, beats: 4, steps: [], picks: [], mode: 'strum', swing: false, short: false, tool: 'D', armedDel: null, tx: null, txDir: 'beat', txAuto: true, txMsg: '', metro: false, take: null, takeGrid: 0, takeX: 1, fit: 0, padSlot: 0 };
   const STR_NAMES = ['E', 'A', 'D', 'G', 'B', 'e'];
   const COUNT_NAMES = { 2: ['', '&'], 3: ['', 'trip', 'let'], 4: ['', 'e', '&', 'a'] };
   function openEditor(from, quiet) {
@@ -1639,7 +1640,7 @@
     else if (r && r.id === 'hold') steps = 'D.......';
     else if (r && r.id === 'arp') steps = 'B321A123';
     else steps = '........';
-    if (beats > 8) { steps = steps.slice(0, grid * 8); beats = 8; }
+    if (beats > GROOVE_MAX_BEATS) { steps = steps.slice(0, grid * GROOVE_MAX_BEATS); beats = GROOVE_MAX_BEATS; }
     const picks = r && r.picks ? r.picks.slice(0, grid * beats) : new Array(grid * beats).fill(0);
     Object.assign(ED, { open: true, id: r && r.custom ? r.id : null, name: r ? (r.custom ? r.name : 'My ' + r.name) : 'My pattern', grid, beats, steps: steps.split(''), picks, mode: r && r.picks ? 'pick' : 'strum', swing: !!(r && r.swing), short: !!(r && r.short), tool: 'D' });
     renderEditor();
@@ -1660,13 +1661,14 @@
     if (!ED.open) { box.innerHTML = ''; return; }
     const segb = (key, v, label, on) => `<button type="button" data-ed="${key}" data-v="${v}" aria-pressed="${on}">${label}</button>`;
     const names = COUNT_NAMES[ED.grid];
-    const cnt = (i) => (i % ED.grid === 0 ? String(Math.floor(i / ED.grid) + 1) : names[i % ED.grid]);
+    const cnt = (i) => (i % ED.grid === 0 ? String((Math.floor(i / ED.grid) % 4) + 1) : names[i % ED.grid]);
+    const barc = (i) => (i && i % (ED.grid * 4) === 0 ? ' bar' : '');
     const pick = ED.mode === 'pick';
     let h = `<div class="rv-head"><b>${ED.id ? 'Edit pattern' : 'New pattern'}</b><span>${pick ? 'Tap the boxes to choose which strings to pick on each step. Tap again to clear.' : 'Pick a stroke below, then tap the boxes. Tap a box again to clear it.'} Or record it: strum the pad below, use the buttons, or the keyboard.</span></div>`
       + `<div class="row ed-row">`
       + `<label class="field"><span>Name</span><input type="text" id="edName" maxlength="40" value="${esc(ED.name).replace(/"/g, '&quot;')}" autocomplete="off"></label>`
       + `<div class="field"><span>Type</span><div class="seg">${segb('mode', 'strum', 'Strumming', !pick)}${segb('mode', 'pick', 'Picking (per string)', pick)}</div></div>`
-      + `<label class="field"><span>Length</span><select id="edBeats">${[1, 2, 3, 4, 5, 6, 7, 8].map((b) => `<option value="${b}"${b === ED.beats ? ' selected' : ''}>${b} ${b === 1 ? 'beat' : 'beats'}</option>`).join('')}</select></label>`
+      + `<label class="field"><span>Length</span><select id="edBeats">${[1, 2, 3, 4, 5, 6, 7, 8, 12, 16].map((b) => `<option value="${b}"${b === ED.beats ? ' selected' : ''}>${b} ${b === 1 ? 'beat' : 'beats'}</option>`).join('')}</select></label>`
       + `<div class="field"><span>Subdivision</span><div class="seg">${segb('grid', 2, '8ths', ED.grid === 2)}${segb('grid', 3, 'Triplets', ED.grid === 3)}${segb('grid', 4, '16ths', ED.grid === 4)}</div></div>`
       + (ED.grid === 2 ? `<div class="field"><span>Feel</span><div class="seg">${segb('swing', 0, 'Straight', !ED.swing)}${segb('swing', 1, 'Swing', ED.swing)}</div></div>` : '')
       + `<div class="field"><span>Notes</span><div class="seg">${segb('short', 0, 'Let ring', !ED.short)}${segb('short', 1, 'Short', ED.short)}</div></div>`
@@ -1675,30 +1677,33 @@
       h += `<div class="field" style="margin:10px 0"><span>Stroke</span><div class="qbtns tools">`
         + TOOLS.map(([c, s, label]) => `<button type="button" class="qbtn tool" data-tool="${c === '.' ? 'erase' : c}" aria-pressed="${ED.tool === c}"><b>${s || '⌫'}</b> ${esc(label)}</button>`).join('')
         + `</div></div><div class="rv-grid edgrid">`
-        + ED.steps.map((c, i) => `<button type="button" class="rv-cell${i % ED.grid === 0 ? ' beat' : ''}${RCLASS[c] ? ' ' + RCLASS[c] : ''}" data-cell="${i}" aria-label="Step ${i + 1}: ${c === '.' ? 'rest' : esc((TOOLS.find((x) => x[0] === c) || ['', '', c])[2])}"><b>${RSYM[c] || ''}</b><small>${cnt(i)}</small></button>`).join('')
+        + ED.steps.map((c, i) => `<button type="button" class="rv-cell${i % ED.grid === 0 ? ' beat' : ''}${barc(i)}${RCLASS[c] ? ' ' + RCLASS[c] : ''}" data-cell="${i}" aria-label="Step ${i + 1}: ${c === '.' ? 'rest' : esc((TOOLS.find((x) => x[0] === c) || ['', '', c])[2])}"><b>${RSYM[c] || ''}</b><small>${cnt(i)}</small></button>`).join('')
         + `</div>`;
     } else {
       // tab layout: high e on top
       h += `<div class="pgrid" role="group" aria-label="Picking grid">`;
       for (let s = 5; s >= 0; s--) {
         h += `<div class="prow"><span class="plbl">${STR_NAMES[s]}</span>`
-          + ED.picks.map((m, i) => `<button type="button" class="pcell${i % ED.grid === 0 ? ' beat' : ''}${m & (1 << s) ? ' on' : ''}" data-pcell="${s}:${i}" aria-pressed="${!!(m & (1 << s))}" aria-label="${STR_NAMES[s]} string, step ${i + 1}"></button>`).join('')
+          + ED.picks.map((m, i) => `<button type="button" class="pcell${i % ED.grid === 0 ? ' beat' : ''}${barc(i)}${m & (1 << s) ? ' on' : ''}" data-pcell="${s}:${i}" aria-pressed="${!!(m & (1 << s))}" aria-label="${STR_NAMES[s]} string, step ${i + 1}"></button>`).join('')
           + `</div>`;
       }
-      h += `<div class="prow counts"><span class="plbl"></span>${ED.picks.map((m, i) => `<span class="pcount${i % ED.grid === 0 ? ' beat' : ''}" data-pc="${i}">${cnt(i)}</span>`).join('')}</div></div>`;
+      h += `<div class="prow counts"><span class="plbl"></span>${ED.picks.map((m, i) => `<span class="pcount${i % ED.grid === 0 ? ' beat' : ''}${barc(i)}" data-pc="${i}">${cnt(i)}</span>`).join('')}</div></div>`;
     }
     const pc = practiceChord();
-    h += `<div class="recbar"><button type="button" class="tapbtn rec${REC.on ? ' live' : ''}" id="recBtn">${REC.on ? '■ Stop' : '● Record'}</button>`
-      + `<label class="check"><input type="checkbox" id="recOver"${ED.overdub ? ' checked' : ''}> Keep what is there (record on top)</label>`
-      + `<span class="recstate" id="recState">${REC.on ? '' : 'You get a 4-beat count-in, then ' + ED.beats + (ED.beats === 1 ? ' beat' : ' beats') + ' to play. Hits snap to the nearest box.'}</span></div>`
-      + `<div class="padwrap"><div class="padhead"><b>Strum pad</b><span>Drag down or up across the strings to strum, tap one string to pick it. Low E is at the top, as when you look down at your guitar. Plays ${esc(pc.name)}${P.slots.length ? ' (your first chord)' : ''}.</span></div>`
-      + `<div class="strumpad" id="strumPad">${[0, 1, 2, 3, 4, 5].map((s) => `<span class="pstr" data-pstr="${s}" style="top:${((s + 0.5) / 6 * 100).toFixed(2)}%"><i>${STR_NAMES[s]}</i></span>`).join('')}</div>`
+    const chordOpts = P.slots.length ? `<label class="field padchord"><span>Chord on the pad</span><select id="padSlot">${P.slots.map((s, i) => `<option value="${i}"${i === Math.min(ED.padSlot, P.slots.length - 1) ? ' selected' : ''}>${i + 1}. ${esc(s.name)}</option>`).join('')}</select></label>` : '';
+    h += `<div class="recbox"><div class="recbar"><button type="button" class="tapbtn rec${REC.on ? ' live' : ''}" id="recBtn">${REC.on ? '■ Stop' : '● Record a take'}</button>`
+      + `<label class="check"><input type="checkbox" id="recMetro"${ED.metro ? ' checked' : ''}${REC.on ? ' disabled' : ''}> Play to a click (${Math.round(P.bpm * P.speed)} BPM, 4-beat count-in)</label>`
+      + `<label class="check"><input type="checkbox" id="txAuto"${ED.txAuto ? ' checked' : ''}> Set the tempo from my playing</label></div>`
+      + `<p class="recstate" id="recState" role="status">${REC.on ? '' : esc(REC.msg || 'Record like into a DAW: press Record, then strum the pad below (or use the buttons or keyboard) as long as you like, at your own speed, pauses and all. Stop, or just stop playing for 3 seconds. The site finds the tempo, the beat, the subdivision and the part that repeats, and writes the pattern.')}</p>`
+      + `<canvas class="takelane" id="takeLane" height="64"${REC.on || ED.take ? '' : ' hidden'} aria-label="Your take: every hit, with the beats and bars found in it"></canvas>`
+      + takeCard() + `</div>`
+      + `<div class="padwrap"><div class="padhead"><b>Strum pad</b><span>Drag down or up across the strings to strum, tap one string to pick it. Low E is at the top, as when you look down at your guitar. Plays ${esc(pc.name)}.</span>${chordOpts}</div>`
+      + `<div class="strumpad${REC.on ? ' live' : ''}" id="strumPad">${[0, 1, 2, 3, 4, 5].map((s) => `<span class="pstr" data-pstr="${s}" style="top:${((s + 0.5) / 6 * 100).toFixed(2)}%"><i>${STR_NAMES[s]}</i></span>`).join('')}</div>`
       + `<div class="padbtns">${[['D', '↓ Down'], ['U', '↑ Up'], ['d', '↓ Soft'], ['u', '↑ Soft'], ['x', '× Mute']].map(([k, l]) => `<button type="button" class="tapbtn" data-padhit="${k}">${l}</button>`).join('')}</div>`
       + `<p class="hint2">Keyboard: ↓ and ↑ arrows strum (hold Shift for soft), X mutes, keys 1–6 pick strings (1 = high e, 6 = low E).</p></div>`
       + `<div class="padwrap txwrap" id="txBlock"><div class="padhead"><b>From your guitar</b><span>Play the pattern on your real guitar and the site writes it down. Press <b>Listen to my guitar</b> and strum it live, or choose a recording. Start on beat 1 and play it once or twice. Each hit becomes a box: muted hits become ×, quieter ones become soft strums, and the tempo follows your playing. In Picking mode it works out which string each note was on, from the shape of ${esc(pc.name)}.</span></div>`
       + `<div class="txrow"><button type="button" class="tapbtn strong gtrbtn${GTR.on ? ' live' : ''}" id="gtrBtn" aria-pressed="${GTR.on}">${GTR.on ? ICON.stopf + ' Stop and write it down' : ICON.mic + ' Listen to my guitar'}</button>`
       + `<label class="tapbtn filebtn">Choose a recording<input type="file" id="txFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.webm,.caf"></label>`
-      + `<label class="check"><input type="checkbox" id="txAuto"${ED.txAuto ? ' checked' : ''}> Take the tempo from the recording</label>`
       + `<div class="field"><span>Up or down strokes</span><div class="seg">${segb('txdir', 'beat', 'By beat (down on the beat)', ED.txDir === 'beat')}${segb('txdir', 'sound', 'From the sound', ED.txDir === 'sound')}</div></div>`
       + (ED.tx ? `<button type="button" class="tapbtn" id="txAgain">Read it again with these settings</button>` : '') + `</div>`
       + (ED.tx ? `<canvas class="txwave" id="txWave" height="90" aria-label="The recording, with each hit marked"></canvas><p class="txkey"><i class="k hit"></i> strum or note <i class="k ghost"></i> soft <i class="k mute"></i> muted</p>` : '')
@@ -1709,6 +1714,7 @@
       + `<button type="button" class="tapbtn strong" id="edSave">${ED.id ? 'Save changes' : 'Save pattern'}</button><button type="button" class="tapbtn" id="edCancel">Close</button></div>`;
     box.innerHTML = h;
     drawTx();
+    drawTake();
   }
 
   /* ---------- reading a recording of a real guitar ---------- */
@@ -1880,31 +1886,14 @@
   function applyTx() {
     const tx = ED.tx;
     if (!tx) return;
-    let step = beatSec() / ED.grid;
-    let tempoNote = '';
-    if (ED.txAuto && tx.step) {
-      step = tx.step;
-      // pick the subdivision that gives a sensible tempo for the smallest gap played
-      let bpm = 60 / (step * ED.grid);
-      if (bpm > 200 && ED.grid < 4) { ED.steps = regridSteps(ED.steps.join(''), ED.grid, ED.beats, 4, ED.beats).split(''); ED.picks = regridPicks(ED.picks, ED.grid, ED.beats, 4, ED.beats); ED.grid = 4; ED.swing = false; bpm = 60 / (step * 4); }
-      if (bpm < 45 && ED.grid > 2) { ED.grid = 2; bpm = 60 / (step * 2); }
-      P.bpm = Math.max(40, Math.min(220, Math.round(bpm / P.speed)));
-      saveProg();
-      tempoNote = ' Tempo set to about ' + Math.round(bpm) + ' BPM.';
-    }
-    const p = hitsToPattern(tx.hits, { grid: ED.grid, step, mode: ED.mode, dirMode: ED.txDir });
-    ED.beats = p.beats;
-    ED.steps = p.steps.split('');
-    ED.picks = p.picks;
-    const nm = tx.hits.filter((h) => h.kind === 'mute').length, ng = tx.hits.filter((h) => h.kind === 'ghost').length;
-    ED.txMsg = 'Found ' + tx.hits.length + ' hits' + (nm ? ', ' + nm + ' muted' : '') + (ng ? ', ' + ng + ' soft' : '') + '.' + tempoNote
-      + ' Press Hear it to compare, fix any box by hand, then Save pattern.';
-    if (tempoNote) renderProg(); else renderEditor();
+    ED.take = { src: 'mic', hits: tx.hits.map((h) => Object.assign({}, h)), clicked: null };
+    ED.takeGrid = 0; ED.takeX = 1;
+    applyTake();
   }
 
   /* ---------- playing it yourself: the strum pad, buttons, keyboard, and recording ---------- */
   const C_MAJOR = { name: 'C', tones: [{ name: 'C', pc: 0, label: '1' }, { name: 'E', pc: 4, label: '3' }, { name: 'G', pc: 7, label: '5' }], frets: [-1, 3, 2, 0, 1, 0], beats: 4 };
-  const practiceChord = () => P.slots[0] || C_MAJOR;
+  const practiceChord = () => P.slots[Math.min(ED.padSlot, P.slots.length - 1)] || C_MAJOR;
   function padString(s, vol, when) {
     const c = audio();
     if (!c) return;
@@ -1926,82 +1915,172 @@
     const t0 = c.currentTime + 0.005;
     plan.notes.forEach((n) => pluckAt(n.midi, t0 + n.t, n.dur, { vol: n.vol, sustain: true, cut: n.cut }));
   }
-  const REC = { on: false, t0: 0, end: 0, sd: 0, total: 0, timer: 0, lastStep: -1 };
+  /* recording a take, like recording into a DAW: no fixed length, no snapping while you play.
+     Every hit is kept with its exact time; when you stop, the groove engine finds the tempo, beat, subdivision,
+     bar and repeating part (rests included) and writes the pattern. */
+  const REC = { on: false, t0: 0, metro: false, hits: [], timer: 0, nextClick: 0, bs: 0, last: 0, msg: '' };
+  const REC_IDLE = 3, REC_MAX = 120;
   function startRec() {
     const c = audio();
     if (!c || REC.on) return;
     if (PL.on) stopProg();
+    if (GTR.on) gtrStop(false);
     const bs = beatSec();
     const now = c.currentTime + 0.15;
-    for (let b = 0; b < 4; b++) clickAt(now + b * bs, b === 0);
-    const t0 = now + 4 * bs;
-    for (let b = 0; b < ED.beats; b++) clickAt(t0 + b * bs, b === 0);
-    if (!ED.overdub) { ED.steps = ED.steps.map(() => '.'); ED.picks = ED.picks.map(() => 0); }
-    Object.assign(REC, { on: true, t0, bs, end: t0 + ED.beats * bs, sd: bs / ED.grid, total: ED.beats * ED.grid, lastStep: -1 });
+    Object.assign(REC, { on: true, hits: [], metro: ED.metro, bs, last: 0, msg: '', started: now });
+    if (REC.metro) {
+      for (let b = 0; b < 4; b++) clickAt(now + b * bs, b === 0);
+      REC.t0 = now + 4 * bs;
+      REC.nextClick = REC.t0;
+    } else REC.t0 = null;
     renderEditor();
-    REC.timer = setInterval(recTick, 30);
+    REC.timer = setInterval(recTick, 50);
     recTick();
   }
   function stopRec(msg) {
     if (!REC.on) return;
     clearInterval(REC.timer);
     REC.on = false;
-    renderEditor();
-    say(msg || 'Recording stopped.');
+    const hits = REC.hits.slice();
+    if (hits.length < 3) { REC.msg = msg || 'Only ' + hits.length + (hits.length === 1 ? ' hit was' : ' hits were') + ' recorded. Press Record a take and play a few bars.'; renderEditor(); say(REC.msg); return; }
+    ED.take = { src: 'pad', hits, clicked: REC.metro ? { bpm: 60 / REC.bs, t0: REC.t0 } : null };
+    ED.tx = null;
+    ED.takeGrid = 0; ED.takeX = 1;
+    applyTake();
   }
   function recTick() {
     const c = ac;
     if (!c || !REC.on) return;
     const now = c.currentTime;
+    if (REC.metro) { let k = Math.round((REC.nextClick - REC.t0) / REC.bs); while (REC.nextClick < now + 0.25) { clickAt(REC.nextClick, k % 4 === 0); REC.nextClick += REC.bs; k++; } }
     const st = $('recState');
-    if (now < REC.t0) {
+    if (REC.metro && now < REC.t0) {
       const left = Math.ceil((REC.t0 - now) / REC.bs);
-      if (st) st.textContent = 'Get ready… ' + Math.min(4, Math.max(1, 5 - left)) + ' of 4';
+      if (st) st.textContent = 'Count-in… ' + Math.min(4, Math.max(1, 5 - left)) + ' of 4. Start on the next "1".';
+      drawTake();
       return;
     }
-    if (now > REC.end + REC.sd / 2) {
-      stopRec(edEmpty() ? 'Nothing was recorded. Press Record and play along after the count-in.' : 'Recorded. Press Hear it to listen back, then Save pattern.');
-      return;
-    }
-    const i = Math.min(REC.total - 1, Math.floor((now - REC.t0) / REC.sd));
-    if (st) st.textContent = 'Recording… beat ' + (Math.floor(i / ED.grid) + 1) + ' of ' + ED.beats;
-    if (i !== REC.lastStep) {
-      REC.lastStep = i;
-      qsa($('rhythmEdit'), '[data-cell],[data-pc]').forEach((el) => el.classList.toggle('stepon', +(el.getAttribute('data-cell') || el.getAttribute('data-pc')) === i));
-    }
+    const from = REC.metro ? REC.t0 : REC.started;
+    const secs = Math.max(0, now - from);
+    if (REC.hits.length >= 3 && now - REC.last > REC_IDLE) { stopRec(); return; }
+    if (secs > REC_MAX) { stopRec(); return; }
+    if (st) st.textContent = REC.hits.length
+      ? '● Recording · ' + REC.hits.length + ' hits · ' + secs.toFixed(1) + ' s. Keep playing, or stop for 3 seconds to finish.'
+      : '● Recording. Start whenever you are ready' + (REC.metro ? ', on the beat.' : ': your first strum is where the take begins.');
+    drawTake();
   }
-  // snap a hit to the nearest box of the pattern
-  function recStep(when) {
-    if (!REC.on || !ac) return -1;
-    const rel = ((when || ac.currentTime) - REC.t0) / REC.sd;
-    if (rel < -0.5 || rel > REC.total - 0.5 + 1) return -1;
-    let i = Math.round(rel);
-    if (i < 0) i = 0;
-    if (i >= REC.total) i = 0; // a hit right on the next downbeat belongs to beat 1
-    return i;
+  // every hit you play while recording: the exact time, which way, how hard, and (for picking) which strings
+  const STROKE_DIR = { D: 'down', d: 'down', C: 'down', M: 'down', U: 'up', u: 'up', K: 'up' };
+  function recPush(h) {
+    if (!REC.on || !ac) return;
+    const t = h.t || ac.currentTime;
+    if (REC.metro && t < REC.t0 - REC.bs * 0.5) return;   // still counting in
+    REC.hits.push(Object.assign(h, { t }));
+    REC.last = t;
   }
-  function paintStrumCell(i) {
-    const el = document.querySelector('[data-cell="' + i + '"]');
-    if (!el) return;
-    const c = ED.steps[i];
-    el.className = 'rv-cell' + (i % ED.grid === 0 ? ' beat' : '') + (RCLASS[c] ? ' ' + RCLASS[c] : '');
-    el.querySelector('b').textContent = RSYM[c] || '';
+  function recordStroke(kind, when, vel) {
+    if (kind === '.') return;
+    const sl = practiceChord();
+    let mask = 0;
+    for (let s = 0; s < 6; s++) if (!sl.frets || sl.frets[s] >= 0) mask |= 1 << s;
+    const soft = kind === 'd' || kind === 'u';
+    recPush({ t: when, ch: kind, dir: STROKE_DIR[kind], kind: kind === 'x' ? 'mute' : soft ? 'ghost' : 'hit', peak: vel || (soft ? 0.5 : kind === 'x' ? 0.6 : 1), mask: kind === 'x' ? 0 : mask });
+  }
+  // one string on its own: in picking it is that string, in strumming a bass note or one of the top strings
+  function recordString(s, when) {
+    recPush({ t: when, mask: 1 << s, ch: s >= 3 ? ['3', '2', '1'][s - 3] : 'B', kind: 'hit', peak: 0.8 });
   }
   function paintPickCell(s, i) {
     const el = document.querySelector('[data-pcell="' + s + ':' + i + '"]');
     if (el) { const on = !!(ED.picks[i] & (1 << s)); el.classList.toggle('on', on); el.setAttribute('aria-pressed', String(on)); }
   }
-  function recordStroke(kind, when) {
-    if (ED.mode === 'pick' || kind === '.') return;
-    const i = recStep(when);
-    if (i < 0) return;
-    ED.steps[i] = kind;
-    paintStrumCell(i);
+  // turn the take into a pattern (again, when a setting changes)
+  function applyTake() {
+    const tk = ED.take;
+    if (!tk) return;
+    const o = { mode: ED.mode, dirMode: ED.txDir, grid: ED.takeGrid || 0, tempoX: ED.takeX || 1 };
+    if (tk.clicked) Object.assign(o, tk.clicked);
+    const hits = tk.src === 'mic' && ED.txDir !== 'sound' ? tk.hits.map((h) => Object.assign({}, h, { dir: undefined })) : tk.hits;
+    const g = grooveFromHits(hits, o);
+    tk.res = g;
+    if (!g) { REC.msg = 'The hits did not line up into a steady groove. Try again with a few more bars, or play to a click.'; renderEditor(); return; }
+    ED.grid = g.grid; ED.beats = g.beats; ED.swing = g.swing;
+    const n = g.grid * g.beats;
+    if (ED.mode === 'pick') { ED.picks = g.picks ? g.picks.slice(0, n) : new Array(n).fill(0); ED.steps = new Array(n).fill('.'); }
+    else { ED.steps = g.steps.split(''); ED.picks = new Array(n).fill(0); }
+    let tempoNote = '';
+    if (ED.txAuto && !tk.clicked) {
+      P.bpm = Math.max(40, Math.min(220, Math.round(g.bpm / P.speed)));
+      saveProg();
+      tempoNote = ' Tempo set to ' + g.bpm + ' BPM.';
+    }
+    const gridName = g.grid === 4 ? '16ths' : g.grid === 3 ? 'triplets' : g.swing ? 'swung 8ths' : '8ths';
+    REC.msg = 'Found ' + tk.hits.length + ' hits at about ' + g.bpm + ' BPM, in ' + gridName + '. '
+      + (g.reps > 1 ? 'The ' + g.beats + '-beat groove repeats ' + g.reps + ' times; each box is what you played most often there.' : 'Kept all ' + g.beats + ' beats as one pattern.')
+      + (g.truncated ? ' The take was long and did not repeat, so the first ' + g.beats + ' beats were kept.' : '')
+      + (g.restBeats.length ? ' Rests on beat' + (g.restBeats.length > 1 ? 's ' : ' ') + g.restBeats.join(', ') + '.' : '')
+      + tempoNote;
+    ED.txMsg = tk.src === 'mic' ? REC.msg : '';
+    if (tk.src === 'mic') REC.msg = '';
+    if (tempoNote) renderProg(); else renderEditor();
+    say(ED.txMsg || REC.msg);
   }
-  function recordString(s, when) {
-    const i = recStep(when);
-    if (i < 0) return;
-    if (ED.mode === 'pick') { ED.picks[i] |= 1 << s; paintPickCell(s, i); }
+  function takeCard() {
+    const tk = ED.take, g = tk && tk.res;
+    if (!g || REC.on) return '';
+    const b = (k, v, label, on) => `<button type="button" data-take="${k}" data-v="${v}" aria-pressed="${on}">${label}</button>`;
+    const fits = [[0, 'Keep as they are'], [4, '1 bar each'], [8, '2 bars each']];
+    return `<div class="takecard"><div class="takerow"><div class="field"><span>Tempo</span><div class="seg">${b('x', 0.5, '½ ×', ED.takeX === 0.5)}${b('x', 1, 'As found (' + g.bpm + ')', ED.takeX === 1)}${b('x', 2, '2 ×', ED.takeX === 2)}</div></div>`
+      + `<div class="field"><span>Grid</span><div class="seg">${b('g', 0, 'Auto', !ED.takeGrid)}${b('g', 2, '8ths', ED.takeGrid === 2)}${b('g', 3, 'Triplets', ED.takeGrid === 3)}${b('g', 4, '16ths', ED.takeGrid === 4)}</div></div></div>`
+      + `<div class="takerow"><div class="field"><span>Then each chord lasts</span><div class="seg">${fits.map(([v, l]) => b('fit', v, l, ED.fit === v)).join('')}</div></div>`
+      + `<button type="button" class="tapbtn strong" id="takeApply">Use for my whole progression</button></div>`
+      + `<p class="hint2">That saves the pattern, plays it on every chord at ${Math.round(P.bpm * P.speed)} BPM, with your rests. Patterns longer than a chord keep going across the chord changes.</p></div>`;
+  }
+  // the take on a timeline: hits (down, up, soft, muted) over the beats and bars that were found
+  function drawTake() {
+    const cv = $('takeLane');
+    if (!cv || !cv.getContext) return;
+    const live = REC.on;
+    const hits = live ? REC.hits : ED.take ? ED.take.hits : [];
+    cv.hidden = !live && !ED.take;
+    if (cv.hidden) return;
+    const w = Math.max(200, Math.round(cv.clientWidth || 600)), H = 64;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = w * dpr; cv.height = H * dpr;
+    const gx = cv.getContext('2d');
+    gx.scale(dpr, dpr);
+    const cs = getComputedStyle(document.documentElement);
+    const col = (n) => cs.getPropertyValue(n).trim() || '#888';
+    const now = ac ? ac.currentTime : 0;
+    const g = !live && ED.take && ED.take.res;
+    let a, z;
+    if (live) { a = REC.metro ? REC.t0 - REC.bs : (hits.length ? hits[0].t - 0.3 : REC.started); z = Math.max(a + 6, now + 0.5); }
+    else { a = Math.min(hits[0].t, g ? g.startT : hits[0].t) - 0.3; z = hits[hits.length - 1].t + 0.5; }
+    const X = (t) => ((t - a) / (z - a)) * w;
+    const beatT = live ? (REC.metro ? REC.bs : 0) : g ? g.beatT : 0;
+    const t0 = live ? REC.t0 : g ? g.startT : 0;
+    if (beatT) {
+      if (g) { gx.fillStyle = col('--accent'); gx.globalAlpha = 0.1; gx.fillRect(X(t0), 0, X(t0 + g.beats * beatT) - X(t0), H); gx.globalAlpha = 1; }
+      for (let k = Math.ceil((a - t0) / beatT); t0 + k * beatT < z; k++) {
+        const x = X(t0 + k * beatT);
+        gx.fillStyle = k % 4 === 0 ? col('--fg') : col('--line');
+        gx.globalAlpha = k % 4 === 0 ? 0.55 : 0.9;
+        gx.fillRect(Math.round(x), 0, k % 4 === 0 ? 2 : 1, H);
+        if (k % 4 === 0 && k >= 0) { gx.globalAlpha = 0.7; gx.fillStyle = col('--muted'); gx.font = '10px system-ui, sans-serif'; gx.fillText(String(k / 4 + 1), x + 3, 10); }
+      }
+      gx.globalAlpha = 1;
+    }
+    hits.forEach((h) => {
+      const x = X(h.t);
+      const up = h.dir === 'up';
+      gx.fillStyle = h.kind === 'mute' ? col('--muted') : h.kind === 'ghost' ? col('--dot') : col('--root-dot');
+      const s = h.kind === 'ghost' ? 5 : 7;
+      gx.beginPath();
+      if (h.dir) { const y = 36; gx.moveTo(x - s, up ? y + s : y - s); gx.lineTo(x + s, up ? y + s : y - s); gx.lineTo(x, up ? y - s : y + s); }
+      else gx.rect(x - 1.5, 22, 3, 28);
+      gx.fill();
+    });
+    if (live) { gx.fillStyle = col('--live'); gx.fillRect(Math.round(X(now)), 0, 2, H); }
   }
   // the pad: crossing string lines while dragging plays them in order
   let PAD = null;
@@ -2018,8 +2097,9 @@
     for (let s = 1; s < 6; s++) if (Math.abs(lineY(s, h) - y) < Math.abs(lineY(near, h) - y)) near = s;
     if (Math.abs(lineY(near, h) - y) < h / 14) {
       PAD.tapped = near;
+      PAD.tapT = ac ? ac.currentTime : 0;
       padString(near, 0.18);
-      recordString(near);
+      if (ED.mode === 'pick') recordString(near, PAD.tapT);
     }
   });
   document.addEventListener('pointermove', (e) => {
@@ -2036,7 +2116,7 @@
       padString(s, dt < 15 ? 0.19 : dt < 40 ? 0.15 : 0.09);
       PAD.crossed.push(s);
       PAD.times.push(now);
-      recordString(s, now);
+      if (ED.mode === 'pick') recordString(s, now);
     });
     PAD.lastY = y;
   });
@@ -2044,12 +2124,14 @@
     if (!PAD) return;
     const p = PAD;
     PAD = null;
-    if (p.crossed.length >= 2) {
-      const down = p.crossed[p.crossed.length - 1] > p.crossed[0];
-      const per = ((p.times[p.times.length - 1] - p.times[0]) * 1000) / (p.crossed.length - 1);
+    if (ED.mode === 'pick') return;
+    if (p.crossed.length >= 2 || (p.crossed.length === 1 && p.tapped === null)) {
+      // a quick flick over even one string is a stroke; slow, spread-out strums are soft ones
+      const down = p.crossed.length >= 2 ? p.crossed[p.crossed.length - 1] > p.crossed[0] : p.lastY > p.y0;
+      const per = p.crossed.length >= 2 ? ((p.times[p.times.length - 1] - p.times[0]) * 1000) / (p.crossed.length - 1) : 0;
       const soft = per > 30;
-      recordStroke(down ? (soft ? 'd' : 'D') : (soft ? 'u' : 'U'), p.times[0]);
-    }
+      recordStroke(down ? (soft ? 'd' : 'D') : (soft ? 'u' : 'U'), p.times[0], soft ? 0.5 : Math.min(1.3, 1 + (12 - Math.min(12, per)) / 30));
+    } else if (p.tapped !== null) recordString(p.tapped, p.tapT);
   });
   document.addEventListener('pointercancel', () => { PAD = null; });
   document.addEventListener('keydown', (e) => {
@@ -2073,7 +2155,6 @@
       e.preventDefault();
       strike(kind);
       recordStroke(kind);
-      if (ED.mode === 'pick' && REC.on) { const sl = practiceChord(); for (let s = 0; s < 6; s++) if (!sl.frets || sl.frets[s] >= 0) recordString(s); }
       return;
     }
     if (/^[1-6]$/.test(e.key)) {
@@ -2084,6 +2165,33 @@
     }
   });
 
+  function savePattern(all) {
+    if (REC.on) stopRec();
+    if (edEmpty()) { say('Put at least one stroke in the pattern first.'); return false; }
+    const id = ED.id || 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const r = draftOf(id);
+    const at = P.customs.findIndex((x) => x.id === id);
+    if (at >= 0) P.customs[at] = r;
+    else if (P.customs.length >= 40) { say('You have 40 patterns already. Delete one to make room.'); return false; }
+    else P.customs.push(r);
+    P.style = id;
+    ED.id = id;
+    if (all) {
+      P.slots.forEach((s) => { s.style = ''; if (ED.fit) s.beats = ED.fit; });
+    }
+    syncCustoms();
+    ED.open = false;
+    saveProg();
+    renderProg();
+    say(all
+      ? 'Your progression now plays “' + r.name + '” on every chord at ' + Math.round(P.bpm * P.speed) + ' BPM' + (ED.fit ? ', ' + (ED.fit / 4) + (ED.fit === 4 ? ' bar' : ' bars') + ' per chord' : '') + '. Press Play to hear it.'
+      : 'Saved the pattern “' + r.name + '”. It is selected for the whole progression.');
+    return true;
+  }
+  function takeToProgression() {
+    if (!ED.name || /^My pattern$/.test(ED.name)) ED.name = 'My take ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (savePattern(true)) flash('Applied to your progression');
+  }
   function edPlayStroke(c) {
     if (c === '.') return;
     const r = cleanRhythm({ id: 'cstroke', grid: 2, beats: 1, steps: c + '.', short: ED.short });
@@ -2119,7 +2227,17 @@
     if (t.closest('#gtrBtn')) { if (GTR.on) gtrStop(true); else gtrStart(); return true; }
     if (t.closest('#rPad')) { if (!ED.open) openEditor(null); focusIn('#strumPad'); return true; }
     if (t.closest('#rFile')) { if (!ED.open) openEditor(null); focusIn('#txBlock'); return true; }
-    if (t.closest('#recBtn')) { if (REC.on) stopRec('Recording stopped.'); else startRec(); return true; }
+    if (t.closest('#recBtn')) { if (REC.on) stopRec(); else startRec(); return true; }
+    const tb = t.closest('[data-take]');
+    if (tb) {
+      const k = tb.getAttribute('data-take'), v = +tb.getAttribute('data-v');
+      if (k === 'x') ED.takeX = v;
+      if (k === 'g') ED.takeGrid = v;
+      if (k === 'fit') { ED.fit = v; renderEditor(); return true; }
+      applyTake();
+      return true;
+    }
+    if (t.closest('#takeApply')) { takeToProgression(); return true; }
     const e = t.closest('[data-ed]');
     if (e) {
       const k = e.getAttribute('data-ed'), v = +e.getAttribute('data-v');
@@ -2139,23 +2257,7 @@
     }
     if (t.closest('#edClear')) { if (REC.on) stopRec(); if (ED.mode === 'pick') ED.picks = ED.picks.map(() => 0); else ED.steps = ED.steps.map(() => '.'); renderEditor(); return true; }
     if (t.closest('#edCancel')) { if (REC.on) stopRec(); if (GTR.on) gtrStop(false); ED.open = false; try { localStorage.setItem('fretboard-ed-closed', '1'); } catch (e) {} renderEditor(); return true; }
-    if (t.closest('#edSave')) {
-      if (REC.on) stopRec();
-      if (edEmpty()) { say('Put at least one stroke in the pattern first.'); return true; }
-      const id = ED.id || 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      const r = draftOf(id);
-      const at = P.customs.findIndex((x) => x.id === id);
-      if (at >= 0) P.customs[at] = r;
-      else if (P.customs.length >= 40) { say('You have 40 patterns already. Delete one to make room.'); return true; }
-      else P.customs.push(r);
-      P.style = id;
-      syncCustoms();
-      ED.open = false;
-      saveProg();
-      renderProg();
-      say('Saved the pattern “' + r.name + '”. It is selected for the whole progression.');
-      return true;
-    }
+    if (t.closest('#edSave')) { savePattern(false); return true; }
     if (t.closest('#rNew')) { openEditor(null); return true; }
     if (t.closest('#rvCopy') || t.closest('#rvEdit')) { openEditor(rhythmShown || P.style); return true; }
     const del = t.closest('#rvDel');
@@ -2836,6 +2938,83 @@
         const up = notes.map((n) => base + n.semis).sort((a, b) => a - b).concat([base + 12]);
         up.concat(up.slice(0, -1).reverse()).forEach((m, k) => pluck(m, k * 0.22, 0.8));
       }
+      return true;
+    }
+    return false;
+  }
+
+  /* ---------- Pick notes on the scale and send them to the chord creator ---------- */
+  const NP = { on: false, picks: [] };   // picks: {s, f, midi, pc} in the order tapped
+  function pkPaint() {
+    const neck = $('neck');
+    if (neck && neck.querySelectorAll) qsa(neck, '.dot').forEach((el) => el.classList.toggle('picked', NP.on && NP.picks.some((p) => String(p.s) === el.getAttribute('data-s') && String(p.f) === el.getAttribute('data-f'))));
+    const btn = $('pickBtn');
+    if (btn) { btn.setAttribute('aria-pressed', String(NP.on)); btn.textContent = NP.on ? 'Picking notes…' : 'Pick notes'; }
+    const bar = $('pickBar');
+    if (!bar) return;
+    bar.hidden = !NP.on;
+    if (!NP.on) { bar.innerHTML = ''; return; }
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    const r = pkResult();
+    const ch = r ? lsFresh(r) : null;
+    const sorted = NP.picks.slice().sort((a, b) => a.midi - b.midi);
+    bar.innerHTML = `<div class="pkhead">${ch ? `<b>${esc(ch.name)}</b><span>${esc(ch.inKey ? ch.roman + ' in ' + homeName() : 'not in ' + homeName())}</span>` : '<b>Pick notes</b>'}`
+      + `<span>${NP.picks.length ? 'Tap more notes on the neck, or tap a picked one again to drop it.' : 'Tap notes on the neck to pick them. Pick two or more to make a chord.'}</span></div>`
+      + (sorted.length ? `<div class="pknotes">${sorted.map((p) => `<button type="button" class="pknote" data-pk="drop:${p.s}:${p.f}" title="Remove this note">${esc(names[p.pc])}<small>${esc(STRING_NAMES[p.s])} string, ${p.f === 0 ? 'open' : 'fret ' + p.f} ×</small></button>`).join('')}</div>` : '')
+      + `<div class="lsbtns"><button type="button" class="tapbtn" data-pk="hear"${NP.picks.length ? '' : ' disabled'}>Hear them</button>`
+      + `<button type="button" class="shapeadd" data-pk="send"${NP.picks.length ? '' : ' disabled'}>Open in chord creator</button>`
+      + `<button type="button" class="tapbtn" data-pk="add"${ch ? '' : ' disabled'}>+ Add to progression</button>`
+      + `<button type="button" class="tapbtn" data-pk="clear"${NP.picks.length ? '' : ' disabled'}>Clear</button>`
+      + `<button type="button" class="tapbtn" data-pk="done">Done</button></div>`;
+  }
+  // the lowest picked note is the bass; the chord is named from it when the notes make a known chord on it
+  function pkResult() {
+    if (!NP.picks.length) return null;
+    const sorted = NP.picks.slice().sort((a, b) => a.midi - b.midi);
+    const pcs = Array.from(new Set(sorted.map((p) => p.pc)));
+    const r = nameNotes(pcs, sorted[0].pc);
+    if (r && sorted[0].pc !== r.root) r.bass = sorted[0].pc;
+    return r;
+  }
+  // one finger per string, like a real guitar: when a string has two picks, the later one wins
+  function pkFrets() {
+    const fr = [-1, -1, -1, -1, -1, -1];
+    NP.picks.forEach((p) => { fr[p.s] = p.f; });
+    return fr;
+  }
+  const pkOnePerString = () => new Set(NP.picks.map((p) => p.s)).size === NP.picks.length;
+  function pkToggle(s, f, midi, pc) {
+    const at = NP.picks.findIndex((p) => p.s === s && p.f === f);
+    if (at >= 0) NP.picks.splice(at, 1);
+    else { NP.picks.push({ s, f, midi, pc }); pluck(midi, 0, 1.2); }
+    pkPaint();
+  }
+  function pkClick(t) {
+    if (t.closest('#pickBtn')) { NP.on = !NP.on; pkPaint(); return true; }
+    const b = t.closest('[data-pk]');
+    if (!b) return false;
+    const a = b.getAttribute('data-pk');
+    if (a.indexOf('drop:') === 0) { const [s, f] = a.slice(5).split(':').map(Number); NP.picks = NP.picks.filter((p) => !(p.s === s && p.f === f)); pkPaint(); return true; }
+    if (a === 'clear') { NP.picks = []; pkPaint(); return true; }
+    if (a === 'done') { NP.on = false; pkPaint(); return true; }
+    if (a === 'hear') {
+      NP.picks.slice().sort((x, y) => x.midi - y.midi).forEach((p, k) => pluck(p.midi, k * STRUM_GAP, 2.0));
+      return true;
+    }
+    const r = pkResult();
+    if (!r) return true;
+    if (a === 'add') { const ch = lsFresh(r); if (ch) addToProg(ch, pkOnePerString() ? { frets: pkFrets() } : null); return true; }
+    if (a === 'send') {
+      leOpen(null, 'pwEdit', true);
+      try { localStorage.removeItem('fretboard-pw-closed'); } catch (e) {}
+      const pcs = Array.from(new Set(NP.picks.slice().sort((x, y) => x.midi - y.midi).map((p) => p.pc)));
+      const one = pkOnePerString();   // two picks on one string can't both be fingered: let the creator find a playable shape
+      Object.assign(LE, { pcs, root: r.root, bass: Number.isInteger(r.bass) ? r.bass : -1, frets: one ? pkFrets() : null, stale: !one });
+      if (one) lePlace();
+      renderLsEdit();
+      setTab('progression');
+      focusIn('#pwEdit');
+      say('Sent ' + pcs.length + ' note' + (pcs.length === 1 ? '' : 's') + ' to the chord creator' + (lsFresh(r) ? ': ' + lsFresh(r).name : '') + '.');
       return true;
     }
     return false;
@@ -3725,7 +3904,7 @@
   const INFO = {
     library: { t: 'The library', tour: 'fretboard', b: '<p>Everything you can show on the neck, in groups:</p><ul><li><b>Scales</b>: the set of notes a song is built from. Major sounds bright, minor sounds sad.</li><li><b>Modes</b>: the major scale started from a different note, each with its own mood.</li><li><b>Dominant scales</b>: scales that fit 7th chords such as G7.</li><li><b>Arpeggios</b>: the notes of one chord played one at a time.</li><li><b>Diatonic arpeggios</b>: the chords of a key, as arpeggios.</li><li><b>Drop 2 and Drop 3</b>: jazz-style four-note chord shapes.</li></ul><p>Type in the search box to find one fast.</p>' },
     keyopts: { t: 'Key and display', tour: 'fretboard', b: '<p>The <b>key</b> is the home note. Pick C and the scale starts on C.</p><p><b>Labels</b>: Notes shows letter names. Intervals shows each note’s job: 1 is the root (home), 3 gives major or minor colour, 5 is the strong partner, and so on.</p><p><b>Flats or sharps</b>: the same notes can be named two ways (D♯ = E♭). Keys usually use one or the other.</p><p><b>Pattern</b> shows one hand position at a time, the way guitarists learn scales.</p>' },
-    board: { t: 'Reading the fretboard', tour: 'fretboard', b: '<p>The six lines are the strings: low E at the bottom, high e at the top, like looking at your guitar from the front. Each box is a fret, and every fret is one semitone, the smallest step in music.</p><p><b>Amber dots</b> are the root (home note). <b>Blue dots</b> are the other notes. Tap any dot to hear it; press <b>Play</b> to hear the whole pattern while the notes light up.</p><p>At the 12th fret everything repeats an octave higher.</p>' },
+    board: { t: 'Reading the fretboard', tour: 'fretboard', b: '<p>The six lines are the strings: low E at the bottom, high e at the top, like looking at your guitar from the front. Each box is a fret, and every fret is one semitone, the smallest step in music.</p><p><b>Amber dots</b> are the root (home note). <b>Blue dots</b> are the other notes. Tap any dot to hear it; press <b>Play</b> to hear the whole pattern while the notes light up.</p><p>At the 12th fret everything repeats an octave higher.</p><p><b>Pick notes</b> turns the neck into a note picker: tap any notes (as many as you like), hear them together, then send them to the <b>chord creator</b> with the exact frets you tapped, or add them straight to your progression. The lowest note you pick becomes the bass, so picking E under C–E–G gives C/E.</p>' },
     shapes: { t: 'Reading chord diagrams', b: '<p>A chord diagram is the neck standing up: strings run top to bottom, low E on the left. Dots show where your fingers go. <b>○</b> means play the string open, <b>×</b> means don’t play it. A bar across several strings is a <b>barre</b>: one finger presses them all. "5fr" means the diagram starts at the 5th fret.</p><p>The numbers under it are <b>tab</b>: the fret on each string, low E to high e.</p>' },
     chordsScale: { t: 'Chords from a scale', b: '<p>Every scale contains chords. Start on any note of the scale, skip one, take the next, skip one, take the next: that stack of notes is a chord.</p><p>The <b>Roman numerals</b> show where each chord sits in the key. Capital (I, IV, V) means major, small (ii, iii, vi) means minor, ° means diminished. Songs talk in numbers so they work in any key: "I–IV–V" is C–F–G in C and G–C–D in G.</p>' },
     circle: { t: 'The circle of fifths', tour: 'keys', b: '<p>The 12 keys arranged like a clock. Each step clockwise goes up five notes (a fifth) and adds one sharp; anticlockwise adds a flat.</p><p>Keys next to each other share six of their seven notes, so they sound related. The inner ring holds the <b>relative minor</b>: A minor uses the same notes as C major.</p><p>The shaded slice around your key holds its most-used chords: I, IV and V on the outside, ii, iii and vi inside. Tap any key to move there and hear its chord.</p>' },
@@ -4112,6 +4291,7 @@
     const dh = t.closest('[data-dhear]');
     if (dh) { const sl = P.slots[+dh.getAttribute('data-dhear')]; if (sl) auditionSlot(sl); return; }
     if (guideClick(t)) { if (t.closest('summary')) e.preventDefault(); return; }
+    if (pkClick(t)) return;
     const cpg = t.closest('[data-cpg]');
     if (cpg) { cpGenre = cpg.getAttribute('data-cpg'); try { localStorage.setItem('fretboard-cp-genre', cpGenre); } catch (e) { /* ignore */ } renderCommon(); return; }
     const cpb = t.closest('[data-cpact]');
@@ -4259,6 +4439,10 @@
       return;
     }
     const dot = t.closest('[data-midi]');
+    if (dot && NP.on && dot.closest && dot.closest('#neck')) {
+      pkToggle(+dot.getAttribute('data-s'), +dot.getAttribute('data-f'), +dot.getAttribute('data-midi'), +attr(dot, 'data-pc'));
+      return;
+    }
     if (dot) {
       pluck(+dot.getAttribute('data-midi'), 0, 1.4);
       const pc = attr(dot, 'data-pc');
@@ -4419,7 +4603,8 @@
   document.addEventListener('input', (e) => { if (e.target && e.target.id === 'edName') ED.name = e.target.value; });
   document.addEventListener('change', (e) => {
     const id = e.target && e.target.id;
-    if (id === 'recOver') ED.overdub = !!e.target.checked;
+    if (id === 'recMetro') ED.metro = !!e.target.checked;
+    if (id === 'padSlot') { ED.padSlot = +e.target.value || 0; renderEditor(); }
     if (id === 'instSel') {
       INST = INSTS.indexOf(e.target.value) >= 0 ? e.target.value : 'steel';
       try { localStorage.setItem('fretboard-inst', INST); } catch (err) {}
@@ -4430,14 +4615,14 @@
     }
     if (id === 'learnToggle') { GUIDE.learn = !!e.target.checked; saveGuide(); syncLearn(); if (GUIDE.learn) maybeLearnTour(TAB); }
     if (id === 'cpRoot') setHome(+e.target.value, S.hm === 'minor' ? 'minor' : 'major');
-    if (id === 'txAuto') { ED.txAuto = !!e.target.checked; if (ED.tx) applyTx(); }
+    if (id === 'txAuto') { ED.txAuto = !!e.target.checked; if (ED.take) applyTake(); }
     if (id === 'txFile' && e.target.files && e.target.files[0]) transcribeFile(e.target.files[0]);
     if (id === 'lsFile' && e.target.files && e.target.files[0]) { lsFile(e.target.files[0]); e.target.value = ''; }
     if (id === 'leRoot' || id === 'leQual' || id === 'leBass' || id === 'lePos' || id === 'leFret') leChange(id, e.target.value);
     if (id === 'leGhost') { LE.ghost = !!e.target.checked; try { localStorage.setItem('fretboard-le-ghost', LE.ghost ? '1' : '0'); } catch (err) {} renderLsEdit(); }
     if (id === 'slFile' && e.target.files && e.target.files[0]) { slFile(e.target.files[0]); e.target.value = ''; }
   });
-  if (window.addEventListener) window.addEventListener('resize', () => { if (ED.tx) drawTx(); });
+  if (window.addEventListener) window.addEventListener('resize', () => { if (ED.tx) drawTx(); drawTake(); });
   document.addEventListener('change', (e) => {
     const s = e.target && e.target.closest ? e.target.closest('[data-slotstyle]') : null;
     if (!s) return;

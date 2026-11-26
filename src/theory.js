@@ -507,7 +507,7 @@ const rhythmOf = (id) => (id && typeof id === 'object' ? id : RHYTHMS.find((r) =
 function cleanRhythm(r) {
   if (!r || typeof r !== 'object' || typeof r.id !== 'string' || !/^c[a-z0-9]{1,24}$/.test(r.id)) return null;
   const grid = [2, 3, 4].indexOf(r.grid) >= 0 ? r.grid : 2;
-  const beats = Number.isInteger(r.beats) && r.beats >= 1 && r.beats <= 8 ? r.beats : 4;
+  const beats = Number.isInteger(r.beats) && r.beats >= 1 && r.beats <= GROOVE_MAX_BEATS ? r.beats : 4;
   const n = grid * beats;
   const steps = (typeof r.steps === 'string' ? r.steps : '').split('').map((c) => (STEP_CHARS.indexOf(c) >= 0 ? c : '.')).join('').slice(0, n).padEnd(n, '.');
   const name = (typeof r.name === 'string' && r.name.trim() ? r.name.trim() : 'My pattern').slice(0, 40);
@@ -902,6 +902,198 @@ function hitsToPattern(hits, o) {
     steps[i] = h.kind === 'mute' ? 'x' : h.kind === 'ghost' ? (down ? 'd' : 'u') : down ? 'D' : 'U';
   });
   return { beats, steps: steps.join(''), picks };
+}
+/* ---------- Groove: a free take (any tempo, any length, with pauses) -> tempo, grid and a looping pattern ----------
+   Hits: { t (s), peak?, kind? ('hit' | 'ghost' | 'mute'), dir? ('down' | 'up'), ch? (a pattern letter), mask? / string? (picking) }
+   o: { mode 'strum'|'pick', dirMode 'beat'|'sound', bpm + t0 (when played to a click), grid (2|3|4 to force), tempoX (0.5 | 2) } */
+const GROOVE_MAX_BEATS = 16;
+function grooveTrack(hits, unit, t0, firm) {
+  // follows the player like a drummer would: each hit nudges where the next grid line is expected and how long a step is
+  const a = firm ? 0.25 : 0.5, b = firm ? 0.03 : 0.12, lim = firm ? 0.05 : 0.15;
+  let u = unit, at = t0, ai = 0, errSum = 0;
+  const idx = [];
+  hits.forEach((h, k) => {
+    let i = ai + Math.round((h.t - at) / u);
+    if (k && i <= idx[k - 1]) i = idx[k - 1];        // squeezed into the previous step (merged later)
+    const pred = at + (i - ai) * u;
+    const err = h.t - pred;
+    errSum += Math.min(0.5, Math.abs(err) / u);
+    const gap = Math.max(1, i - ai);
+    at = pred + a * err; ai = i;
+    u = Math.max(unit * (1 - lim), Math.min(unit * (1 + lim), u + (b * err) / gap));
+    idx.push(i);
+  });
+  return { idx, err: errSum / hits.length, unit: u };
+}
+function grooveFromHits(raw, o) {
+  o = o || {};
+  const pick = o.mode === 'pick';
+  const sorted = (raw || []).filter((h) => h && Number.isFinite(h.t)).slice().sort((x, y) => x.t - y.t);
+  const hits = [];
+  sorted.forEach((h0) => {
+    const h = Object.assign({}, h0);
+    if (!h.mask && Number.isInteger(h.string) && h.string >= 0) h.mask = 1 << h.string;
+    const p = hits[hits.length - 1];
+    if (p && h.t - p.t < 0.045) {                    // one strum crossing six strings is one hit
+      const m = (p.mask || 0) | (h.mask || 0), t = p.t;
+      if ((h.peak || 0) > (p.peak || 0)) Object.assign(p, h);
+      p.t = t; p.mask = m;
+      return;
+    }
+    hits.push(h);
+  });
+  if (hits.length < 2) return null;
+  const med = (arr) => { const s = arr.slice().sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; };
+  const mp = med(hits.map((h) => h.peak || 1)) || 1;
+  const acc = hits.map((h) => Math.max(0.3, Math.min(2, (h.peak || 1) / mp)) * (h.kind === 'mute' ? 0.5 : h.kind === 'ghost' ? 0.6 : 1) * (h.dir === 'down' ? 1.2 : h.dir === 'up' ? 0.8 : 1));
+  const accSum = acc.reduce((s, v) => s + v, 0);
+  const clicked = Number.isFinite(o.bpm) && o.bpm > 0 && Number.isFinite(o.t0);
+  // every reading of the take worth considering: step length, steps per beat (g), which step is the beat (p)
+  const cands = [];
+  const consider = (tr, g, p, extra) => {
+    const bpm = 60 / (g * tr.unit);
+    if (bpm < 40 || bpm > 230) return;
+    let on = 0, dirN = 0, dirOk = 0;
+    tr.idx.forEach((i, k) => {
+      const r = (((i - p) % g) + g) % g;
+      if (r === 0) on += acc[k];
+      if (hits[k].dir) { dirN++; const shouldDown = g === 3 ? r !== 1 : r % 2 === 0; if ((hits[k].dir === 'down') === shouldDown) dirOk++; }
+    });
+    const prior = Math.exp(-Math.pow(Math.log2(bpm / 100), 2) / (2 * 0.55 * 0.55));
+    const first = (((tr.idx[0] - p) % g) + g) % g === 0 ? 0.12 : 0;
+    const score = on / accSum + (dirN ? 0.6 * (dirOk / dirN) : 0.3) + 0.5 * prior - 2 * tr.err - (g === 4 ? 0.03 : g === 3 ? 0.08 : 0) - (extra || 0) + first;
+    cands.push({ tr, g, p, bpm, score });
+  };
+  if (clicked) {
+    const beat = 60 / o.bpm;
+    // a pickup before the first click is fine: the grid simply starts earlier
+    [2, 3, 4].forEach((g) => { const tr = grooveTrack(hits, beat / g, o.t0, true); const lo = Math.min(0, tr.idx[0]); if (lo < 0) tr.idx = tr.idx.map((i) => i - Math.floor(lo / g) * g); consider(tr, g, 0, 0); });
+    cands.forEach((c) => { c.score = -4 * c.tr.err - (c.g === 4 ? 0.03 : c.g === 3 ? 0.06 : 0); });
+  } else {
+    const u0 = estimateStep(hits);
+    if (!u0) return null;
+    // the smallest gap played might be one step, or two or four (slow chops, a pause-heavy groove)
+    [1, 2, 4].forEach((d) => {
+      const tr = grooveTrack(hits, u0 / d, hits[0].t, false);
+      [2, 3, 4].forEach((g) => { for (let p = 0; p < g; p++) consider(tr, g, p, d === 1 ? 0 : d === 2 ? 0.08 : 0.16); });
+    });
+  }
+  if (!cands.length) return null;
+  let pool = o.grid ? cands.filter((c) => c.g === o.grid) : cands;
+  if (!pool.length) pool = cands;
+  pool.sort((x, y) => y.score - x.score);
+  let best = pool[0];
+  if (o.tempoX && o.tempoX !== 1) {
+    const want = best.bpm * o.tempoX;
+    const near = pool.filter((c) => Math.abs(Math.log2(c.bpm / want)) < 0.2);
+    if (near.length) best = near[0];
+  }
+  const { tr, p } = best;
+  let g = best.g;
+  // which beat is "1": usually the first one you played; a strongly accented other beat can win
+  const beatOf = (i) => Math.floor((i - p) / g);
+  const bFirst = beatOf(tr.idx[0]);
+  let q = ((bFirst % 4) + 4) % 4;
+  if (!clicked) {
+    const sc = [0, 0, 0, 0];
+    tr.idx.forEach((i, k) => { if ((((i - p) % g) + g) % g === 0) sc[((beatOf(i) % 4) + 4) % 4] += acc[k]; });
+    sc[q] += 0.35 * sc.reduce((s, v) => s + v, 0) / 4 + 0.5;
+    q = sc.indexOf(Math.max.apply(null, sc));
+  } else q = 0;
+  let barBeat = bFirst - ((((bFirst - q) % 4) + 4) % 4);
+  const start = p + barBeat * g;
+  // symbols on a grid starting at bar 1
+  const cells = new Map();
+  tr.idx.forEach((i, k) => {
+    const pos = i - start;
+    const h = hits[k];
+    const prev = cells.get(pos);
+    if (prev && (prev.h.peak || 0) >= (h.peak || 0)) { if (pick) prev.mask |= h.mask || 0; return; }
+    cells.set(pos, { h, mask: (h.mask || 0) | (prev ? prev.mask : 0) });
+  });
+  const symOf = (pos, c) => {
+    if (pick) return c.h.kind === 'mute' ? 0 : c.mask;
+    const h = c.h;
+    if (h.ch) return h.ch;
+    const r = pos % g;
+    const down = o.dirMode === 'sound' && h.dir ? h.dir === 'down' : h.dir ? h.dir === 'down' : (g === 3 ? r !== 1 : r % 2 === 0);
+    return h.kind === 'mute' ? 'x' : h.kind === 'ghost' ? (down ? 'd' : 'u') : down ? 'D' : 'U';
+  };
+  let maxPos = 0;
+  cells.forEach((c, pos) => { if (pos > maxPos) maxPos = pos; });
+  const fullBeats = Math.max(4, Math.ceil((maxPos + 1) / g / 4) * 4);
+  const rest = pick ? 0 : '.';
+  const seqOf = (beats) => { const a = new Array(beats * g).fill(rest); cells.forEach((c, pos) => { if (pos >= 0 && pos < a.length) a[pos] = symOf(pos, c); }); return a; };
+  // the shortest stretch that keeps repeating is the pattern (majority vote per step later)
+  const loopOf = (seq) => {
+    const n = seq.length, found = [];
+    for (const lb of [4, 8, 16]) {
+      const len = lb * g;
+      if (len * 2 > n) break;
+      let tot = 0, ok = 0;
+      for (let j = 0; j < len; j++) {
+        const vals = [];
+        for (let s = j; s < n; s += len) vals.push(seq[s]);
+        if (vals.every((v) => v === rest)) continue;
+        const cnt = new Map();
+        vals.forEach((v) => cnt.set(v, (cnt.get(v) || 0) + 1));
+        tot++; ok += Math.max.apply(null, Array.from(cnt.values())) / vals.length;
+      }
+      if (tot) found.push({ L: lb, agree: ok / tot });
+    }
+    const tight = found.find((f) => f.agree >= 0.9);
+    if (tight) return tight;
+    const ok = found.filter((f) => f.agree >= 0.72).sort((x, y) => y.agree - x.agree)[0];
+    return ok || { L: 0, agree: 0 };
+  };
+  let totalBeats = fullBeats, seq = seqOf(fullBeats), lp = loopOf(seq);
+  // a lone strum on the "1" after the last bar is usually the ending, not part of the groove: drop it when that fits better
+  if (fullBeats > 4) {
+    let inLast = 0, lastOnOne = false;
+    cells.forEach((c, pos) => { if (pos >= (fullBeats - 4) * g) { inLast++; if (pos === (fullBeats - 4) * g && c.h.kind !== 'mute') lastOnOne = true; } });
+    if (inLast === 1 && lastOnOne) {
+      const s2 = seqOf(fullBeats - 4), l2 = loopOf(s2);
+      if (l2.agree >= lp.agree || (!lp.L && fullBeats - 4 <= GROOVE_MAX_BEATS)) { totalBeats = fullBeats - 4; seq = s2; lp = l2; }
+    }
+  }
+  const n = seq.length;
+  let L = lp.L;
+  const agree = lp.agree;
+  const truncated = !L && totalBeats > GROOVE_MAX_BEATS;
+  if (!L) L = Math.min(totalBeats, GROOVE_MAX_BEATS);
+  const len = L * g;
+  let pat = [];
+  for (let j = 0; j < len; j++) {
+    const vals = [];
+    for (let s = j; s < n; s += len) vals.push(seq[s]);
+    const cnt = new Map();
+    vals.forEach((v) => cnt.set(v, (cnt.get(v) || 0) + 1));
+    let top = vals[0], topN = 0;
+    cnt.forEach((c, v) => { if (c > topN || (c === topN && v !== rest && top === rest)) { top = v; topN = c; } });
+    pat.push(top);
+  }
+  let unit = tr.unit, swing = false;
+  // simplest way to write it: 16ths with nothing on the in-between steps are 8ths; triplets that skip the middle are swing
+  if (!o.grid && g === 4 && pat.every((v, j) => j % 2 === 0 || v === rest)) { pat = pat.filter((v, j) => j % 2 === 0); g = 2; unit *= 2; }
+  if (!o.grid && g === 3 && pat.every((v, j) => j % 3 !== 1 || v === rest) && pat.some((v, j) => j % 3 === 2 && v !== rest)) {
+    pat = pat.filter((v, j) => j % 3 !== 1); g = 2; swing = true; unit *= 1.5;
+  }
+  // the tempo you held on average across the take (the tracker's last step length only says where you ended up)
+  const span = tr.idx[tr.idx.length - 1] - tr.idx[0];
+  const avgUnit = span > 0 ? (hits[hits.length - 1].t - hits[0].t) / span : tr.unit;
+  const bpm = Math.round(60 / (best.g * (clicked ? tr.unit : avgUnit)));
+  const beatT = best.g * tr.unit;
+  const restBeats = [];
+  for (let b = 0; b < L; b++) if (pat.slice(b * g, (b + 1) * g).every((v) => v === rest)) restBeats.push(b + 1);
+  const out = {
+    bpm, grid: g, swing, beats: L, reps: Math.max(1, Math.round(totalBeats / L)), totalBeats, truncated, agree,
+    steps: pick ? pat.map((m) => (m ? 'S' : '.')).join('') : pat.join(''),
+    picks: pick ? pat.slice() : null,
+    restBeats,
+    // where the grid sits in the take, for drawing it
+    startT: hits[0].t - (tr.idx[0] - start) * tr.unit, beatT, hitsN: hits.length,
+  };
+  return out;
 }
 // pitch of a single picked note (autocorrelation), in Hz, or 0
 function detectPitch(x, sr, start, len) {
@@ -1589,5 +1781,5 @@ function scaleMatches(weights, opts) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches };
+  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches, grooveFromHits, GROOVE_MAX_BEATS };
 }
