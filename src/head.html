@@ -790,8 +790,8 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .lefretwrap { flex: 0 0 auto; display: flex; gap: 6px; align-items: stretch; max-width: 100%; touch-action: manipulation; }
 .lesvgbox { width: 240px; max-width: calc(100vw - 110px); }
 .lesvg { display: block; width: 100%; height: auto; user-select: none; }
-.lesvg .lstr { stroke: var(--muted); stroke-width: 1.4; }
-.lesvg .lfret { stroke: var(--line); stroke-width: 1.6; }
+.lesvg .lstr { stroke: var(--fg); stroke-opacity: 0.55; stroke-width: 1.4; }
+.lesvg .lfret { stroke: var(--fg); stroke-opacity: 0.45; stroke-width: 1.6; }
 .lesvg .lnut { stroke: var(--fg); stroke-width: 6; }
 .lesvg .lcell, .lesvg .leopen { cursor: pointer; }
 .lesvg .lcell:hover rect, .lesvg .leopen:hover rect { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
@@ -809,6 +809,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .leslide input[type="range"] { writing-mode: vertical-lr; direction: ltr; width: 26px; flex: 1 1 auto; min-height: 120px; margin: 0; accent-color: var(--accent); }
 .letab { margin: 0; }
 .letab b { font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.04em; }
+.leside #leFret { max-width: 220px; }
 .sitegate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: var(--bg); }
 .sitegate[hidden] { display: none; }
 .gatebox { width: min(380px,100%); display: grid; gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 12px 40px rgba(0,0,0,.18); }
@@ -818,6 +819,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .gateform input { min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
 .gateerr { min-height: 20px; color: #b91c1c; }
 </style>
+
 <div class="sitegate" id="siteGate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gatebox">
     <h2 id="gateTitle">Fretboard Library</h2>
