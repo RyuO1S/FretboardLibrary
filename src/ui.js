@@ -4644,8 +4644,8 @@
     sel.innerHTML = Object.keys(SAMPLED).map((k) => `<option value="${k}">${esc(SAMPLED[k])}</option>`).join('') + '<option value="synth">Simple synth (original)</option>';
     sel.value = INST;
   })();
-  /* tabs: Fretboard, Keys and chords, Progression (the link remembers which one: #fretboard, #keys, #progression) */
-  const TABS = ['fretboard', 'keys', 'progression'];
+  /* tabs: Fretboard, Keys and chords, Progression, Listen (the link remembers which one: #fretboard, #keys, #progression, #listen) */
+  const TABS = ['fretboard', 'keys', 'progression', 'listen'];
   let TAB = 'fretboard';
   let LAYOUT = root && root.classList && root.classList.contains('alltabs') ? 'one' : 'tabs';
   try { const l = localStorage.getItem('fretboard-layout'); if (l === 'one' || l === 'tabs') LAYOUT = l; } catch (e) {}
@@ -4659,7 +4659,7 @@
     try { localStorage.setItem('fretboard-layout', LAYOUT); } catch (e) {}
     syncDock();
   }
-  const TAB_TARGET = { fretboard: 'boardPanel', keys: 'keyPanel', progression: 'progPanel' };
+  const TAB_TARGET = { fretboard: 'boardPanel', keys: 'keyPanel', progression: 'progPanel', listen: 'listenPanel' };
   function setTab(t) {
     if (TABS.indexOf(t) < 0) t = 'fretboard';
     if (LAYOUT === 'one') {
