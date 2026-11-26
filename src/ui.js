@@ -641,6 +641,19 @@
     try { return new C({ latencyHint: 'playback' }); } catch (e) { try { return new C(); } catch (e2) { return null; } }
   }
   function closeMic(mc) { try { if (mc && mc.state !== 'closed') mc.close(); } catch (e) {} }
+  // Playing anything (a scale, a chord, the progression) switches the microphone off first, so the sound plays cleanly.
+  // "Hear it to compare" in the chord listener is the one exception: it only pauses listening for a moment.
+  let keepListening = false;
+  function stopListeningForSound() {
+    try {
+      const msg = 'Stopped listening so the sound plays cleanly. Press Listen live to listen again.';
+      let any = false;
+      if (LS.live) { lsStop(); lsSay(msg); any = true; }
+      if (SL.live) { slStop(); slSay(msg); any = true; }
+      if (GTR.on) { gtrStop(false); txSay(msg); any = true; }
+      if (any) flash('Listening stopped');
+    } catch (e) {}
+  }
   // while the site itself is making sound, the listeners skip it (so they never hear the site instead of your guitar)
   let selfSoundUntil = 0;
   function pluckAt(midi, when, dur, o) {
@@ -648,6 +661,7 @@
     if (!c) return;
     o = o || {};
     const t = Math.max(when, c.currentTime);
+    if (!keepListening) stopListeningForSound();
     selfSoundUntil = Math.max(selfSoundUntil, Date.now() + (t - c.currentTime + Math.min(dur, 2) + 0.25) * 1000);
     if (INST !== 'synth') { guitarNote(c, midi, t, dur, o); return; }
     const f = 440 * Math.pow(2, (midi - 69) / 12);
@@ -1617,7 +1631,8 @@
   const ED = { open: false, id: null, name: '', grid: 2, beats: 4, steps: [], picks: [], mode: 'strum', swing: false, short: false, tool: 'D', armedDel: null, overdub: false, tx: null, txDir: 'beat', txAuto: true, txMsg: '' };
   const STR_NAMES = ['E', 'A', 'D', 'G', 'B', 'e'];
   const COUNT_NAMES = { 2: ['', '&'], 3: ['', 'trip', 'let'], 4: ['', 'e', '&', 'a'] };
-  function openEditor(from) {
+  function openEditor(from, quiet) {
+    if (!quiet) { try { localStorage.removeItem('fretboard-ed-closed'); } catch (e) {} }
     const r = from ? rhythmOf(from) : null;
     let steps = '', grid = 2, beats = 4;
     if (r && r.steps) { steps = r.steps; grid = r.grid; beats = r.beats || Math.round(r.steps.length / r.grid); }
@@ -1629,7 +1644,7 @@
     Object.assign(ED, { open: true, id: r && r.custom ? r.id : null, name: r ? (r.custom ? r.name : 'My ' + r.name) : 'My pattern', grid, beats, steps: steps.split(''), picks, mode: r && r.picks ? 'pick' : 'strum', swing: !!(r && r.swing), short: !!(r && r.short), tool: 'D' });
     renderEditor();
     const box = $('rhythmEdit');
-    if (box && box.scrollIntoView) { wantJump = true; box.scrollIntoView({ block: 'nearest', behavior: calmMotion() ? 'auto' : 'smooth' }); }
+    if (!quiet && box && box.scrollIntoView) { wantJump = true; box.scrollIntoView({ block: 'nearest', behavior: calmMotion() ? 'auto' : 'smooth' }); }
   }
   function focusIn(sel) {
     const el = document.querySelector && document.querySelector(sel);
@@ -2123,7 +2138,7 @@
       return true;
     }
     if (t.closest('#edClear')) { if (REC.on) stopRec(); if (ED.mode === 'pick') ED.picks = ED.picks.map(() => 0); else ED.steps = ED.steps.map(() => '.'); renderEditor(); return true; }
-    if (t.closest('#edCancel')) { if (REC.on) stopRec(); if (GTR.on) gtrStop(false); ED.open = false; renderEditor(); return true; }
+    if (t.closest('#edCancel')) { if (REC.on) stopRec(); if (GTR.on) gtrStop(false); ED.open = false; try { localStorage.setItem('fretboard-ed-closed', '1'); } catch (e) {} renderEditor(); return true; }
     if (t.closest('#edSave')) {
       if (REC.on) stopRec();
       if (edEmpty()) { say('Put at least one stroke in the pattern first.'); return true; }
@@ -2829,7 +2844,8 @@
   /* ---------- Chord editor / creator: fix a heard chord, or build one note by note ---------- */
   const LE = { open: false, target: null, root: 0, pcs: [], host: 'lsEdit', bass: -1, frets: null, pos: 1, stale: true, ghost: false };
   try { LE.ghost = localStorage.getItem('fretboard-le-ghost') === '1'; } catch (e) {}
-  function leOpen(target, host) {
+  function leOpen(target, host, quiet) {
+    if ((host || 'lsEdit') === 'pwEdit' && !quiet) { try { localStorage.removeItem('fretboard-pw-closed'); } catch (e) {} }
     let src = null;
     let bass = -1;
     if (target && target.kind === 'slot') { const sl = P.slots[target.i]; if (sl) { const pcs = sl.tones.map((t) => t.pc); src = nameNotes(pcs, pcs[0]); if (Number.isInteger(sl.bass)) bass = sl.bass; } }
@@ -2842,7 +2858,7 @@
     Object.assign(LE, { open: true, target: target || null, root: src.root, pcs: chordPcs(src), host: host || 'lsEdit', bass, frets: null, stale: true });
     if (target && target.kind === 'slot' && P.slots[target.i] && P.slots[target.i].frets) { LE.frets = P.slots[target.i].frets.slice(); LE.stale = false; lePlace(); }
     renderLsEdit();
-    focusIn('#' + LE.host);
+    if (!quiet) focusIn('#' + LE.host);
   }
   function leResult() { const r = nameNotes(LE.pcs, LE.root); if (r && LE.bass >= 0 && LE.bass !== r.root) r.bass = LE.bass; return r; }
   function renderLsEdit() {
@@ -2902,6 +2918,24 @@
     LE.root = r.root;
     if (lowest !== r.root) { LE.bass = lowest; LE.bassAuto = true; }   // a different lowest note makes a slash chord (C/E)
   }
+  // where the shape sits: its lowest fret (0 when it uses open strings), and how far it may move
+  function leBase() { const fr = (LE.frets || []).filter((f) => f >= 0); return fr.length ? Math.min.apply(null, fr) : -1; }
+  function leSpan() { const fr = (LE.frets || []).filter((f) => f >= 0); return fr.length ? Math.max.apply(null, fr) - Math.min.apply(null, fr) : 0; }
+  // move the whole shape along the neck (open strings become a barre, like turning an E shape into F)
+  function leShift(to, sound) {
+    const base = leBase();
+    if (base < 0) return false;
+    const target = Math.max(0, Math.min(MAX_FRET - leSpan(), to));
+    const d = target - base;
+    if (!d) return false;
+    LE.frets = LE.frets.map((f) => (f < 0 ? -1 : f + d));
+    LE.root = (((LE.root + d) % 12) + 12) % 12;
+    if (LE.bass >= 0) LE.bass = (((LE.bass + d) % 12) + 12) % 12;
+    leFromFrets();
+    lePlace();
+    if (sound) { const r = leResult(), ch = r && lsFresh(r); if (ch) strumShape({ frets: LE.frets.slice() }, ch.tones); }
+    return true;
+  }
   function leBoard(ch) {
     const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
     const fr = LE.frets || [-1, -1, -1, -1, -1, -1];
@@ -2936,10 +2970,10 @@
     g += `</svg>`;
     const tab = fr.map((f) => (f < 0 ? 'x' : f)).join(' ');
     return `<div class="leboard"><div class="lefretwrap"><div class="lesvgbox">${g}</div>`
-      + `<div class="leslide" title="Slide the diagram up or down the neck"><button type="button" class="ib" data-le="pos:-1" aria-label="Move up the neck toward the nut"${LE.pos <= 1 ? ' disabled' : ''}>▲</button>`
-      + `<input type="range" id="lePos" min="1" max="${MAX_FRET - LE_ROWS + 1}" value="${LE.pos}" aria-label="Which frets the diagram shows">`
-      + `<button type="button" class="ib" data-le="pos:1" aria-label="Move down the neck"${LE.pos >= MAX_FRET - LE_ROWS + 1 ? ' disabled' : ''}>▼</button></div></div>`
-      + `<div class="leside"><p class="letab">Tab: <b>${esc(tab)}</b></p>`
+      + `<div class="leslide" title="Slide the whole chord up or down the neck"><button type="button" class="ib" data-le="pos:-1" aria-label="Move the chord one fret toward the nut"${leBase() <= 0 ? ' disabled' : ''}>▲</button>`
+      + `<input type="range" id="lePos" min="0" max="${MAX_FRET - leSpan()}" value="${Math.max(0, leBase())}" aria-label="Fret the chord starts on"${leBase() < 0 ? ' disabled' : ''}>`
+      + `<button type="button" class="ib" data-le="pos:1" aria-label="Move the chord one fret up the neck"${leBase() < 0 || leBase() >= MAX_FRET - leSpan() ? ' disabled' : ''}>▼</button></div></div>`
+      + `<div class="leside"><label class="field"><span>Chord starts on</span><select id="leFret"${leBase() < 0 ? ' disabled' : ''}>${Array.from({ length: MAX_FRET - leSpan() + 1 }, (_, f) => `<option value="${f}"${f === leBase() ? ' selected' : ''}>${f === 0 ? 'Open position (fret 0)' : 'Fret ' + f}</option>`).join('')}</select></label><p class="letab">Tab: <b>${esc(tab)}</b></p>`
       + `<label class="check"><input type="checkbox" id="leGhost"${LE.ghost ? ' checked' : ''}> Show note names</label>`
       + `<div class="lsbtns"><button type="button" class="tapbtn lssmall" data-le="shp:-1">◀ Other shape</button><button type="button" class="tapbtn lssmall" data-le="shp:1">Other shape ▶</button><button type="button" class="tapbtn lssmall" data-le="clearb">Clear board</button></div>`
       + `<p class="hint">Tap a fret to put a finger there (one note per string), tap it again to lift it. Tap above the nut for an open string ○ or a muted one ×.</p></div></div>`;
@@ -2997,8 +3031,15 @@
       renderLsEdit();
       return true;
     }
-    if (a === 'close') { LE.open = false; renderLsEdit(); return true; }
-    if (a.indexOf('pos:') === 0) { LE.pos = Math.max(1, Math.min(MAX_FRET - LE_ROWS + 1, LE.pos + +a.slice(4))); renderLsEdit(); return true; }
+    if (a === 'close') {
+      const wasPw = LE.host === 'pwEdit';
+      LE.open = false;
+      renderLsEdit();
+      if (wasPw) { try { localStorage.setItem('fretboard-pw-closed', '1'); } catch (e) {} }
+      else pwDefault();   // the workspace's chord creator comes back after editing a heard chord
+      return true;
+    }
+    if (a.indexOf('pos:') === 0) { if (leShift(leBase() + +a.slice(4), true)) renderLsEdit(); return true; }
     if (a === 'clearb') { LE.frets = [-1, -1, -1, -1, -1, -1]; LE.pcs = []; LE.bass = -1; renderLsEdit(); return true; }
     if (a.indexOf('shp:') === 0) {
       const r0 = LE.pcs.length ? leResult() : null, c0 = r0 && lsFresh(r0);
@@ -3053,16 +3094,23 @@
   }
   // sliding the diagram: redraw just the board so the slider keeps working while you drag it
   function leSlide(v) {
-    LE.pos = +v;
-    const wrap = document.querySelector && document.querySelector('#' + LE.host + ' .lesvgbox');
-    if (!wrap) return;
+    if (!leShift(+v, false)) return;
+    const host = document.querySelector && document.querySelector('#' + LE.host);
+    if (!host) return;
     const r = LE.pcs.length ? leResult() : null;
-    const html = leBoard(r ? lsFresh(r) : null);
-    const a = html.indexOf('<svg'), b = html.indexOf('</svg>') + 6;
-    wrap.innerHTML = html.slice(a, b);
+    const ch = r ? lsFresh(r) : null;
+    const html = leBoard(ch);
+    const box = host.querySelector('.lesvgbox');
+    if (box) box.innerHTML = html.slice(html.indexOf('<svg'), html.indexOf('</svg>') + 6);
+    const tab = host.querySelector('.letab b');
+    if (tab) tab.textContent = LE.frets.map((f) => (f < 0 ? 'x' : f)).join(' ');
+    const fs = host.querySelector('#leFret');
+    if (fs) fs.value = String(leBase());
+    const out = host.querySelector('.leout');
+    if (out && ch) out.innerHTML = `<b>${esc(ch.name)}</b> <span>${esc(ch.tones.map((t) => t.name).join(' '))} · ${ch.inKey ? '<b>' + esc(ch.roman) + '</b> in ' + esc(homeName()) : 'not in ' + esc(homeName())}</span>`;
   }
   function leChange(id, v) {
-    if (id === 'lePos') { LE.pos = +v; renderLsEdit(); return true; }
+    if (id === 'lePos' || id === 'leFret') { leShift(+v, true); renderLsEdit(); return true; }
     if (id === 'leRoot') {
       const root = +v;
       if (LE.bassAuto) { LE.bass = -1; LE.bassAuto = false; }
@@ -3079,6 +3127,17 @@
     LE.stale = true;
     renderLsEdit();
     return true;
+  }
+  // the chord creator and the pattern editor start open in the workspace (so new visitors find them), until closed
+  function pwDefault() {
+    let closed = false;
+    try { closed = localStorage.getItem('fretboard-pw-closed') === '1'; } catch (e) {}
+    if (!closed && !LE.open) leOpen(null, 'pwEdit', true);
+  }
+  function edDefault() {
+    let closed = false;
+    try { closed = localStorage.getItem('fretboard-ed-closed') === '1'; } catch (e) {}
+    if (!closed && !ED.open) openEditor(P.style, true);
   }
   function lsClick(t) {
     if (leClick(t)) return true;
@@ -3140,7 +3199,7 @@
     else if (a === 'auto') { LS.auto = !LS.auto; renderListen(); }
     else if (a === 'compare') {
       const ch = lsFresh(LS.cur);
-      if (ch) { LS.pauseUntil = Date.now() + 2600; audition(ch); }
+      if (ch) { LS.pauseUntil = Date.now() + 2600; keepListening = true; try { audition(ch); } finally { keepListening = false; } }
     }
     else if (a === 'edit') leOpen(LS.focus && (LS.focus.kind !== 'cur' || LS.cur) ? LS.focus : (LS.cur ? { kind: 'cur' } : null));
     else if (a === 'create') leOpen(null);
@@ -4358,7 +4417,7 @@
     if (id === 'txAuto') { ED.txAuto = !!e.target.checked; if (ED.tx) applyTx(); }
     if (id === 'txFile' && e.target.files && e.target.files[0]) transcribeFile(e.target.files[0]);
     if (id === 'lsFile' && e.target.files && e.target.files[0]) { lsFile(e.target.files[0]); e.target.value = ''; }
-    if (id === 'leRoot' || id === 'leQual' || id === 'leBass' || id === 'lePos') leChange(id, e.target.value);
+    if (id === 'leRoot' || id === 'leQual' || id === 'leBass' || id === 'lePos' || id === 'leFret') leChange(id, e.target.value);
     if (id === 'leGhost') { LE.ghost = !!e.target.checked; try { localStorage.setItem('fretboard-le-ghost', LE.ghost ? '1' : '0'); } catch (err) {} renderLsEdit(); }
     if (id === 'slFile' && e.target.files && e.target.files[0]) { slFile(e.target.files[0]); e.target.value = ''; }
   });
@@ -4453,6 +4512,7 @@
   renderProg();
   renderLib();
   initLib();
+  try { pwDefault(); edDefault(); } catch (e) {}
   let startTab = 'fretboard';
   try {
     const h = (location.hash || '').slice(1);
