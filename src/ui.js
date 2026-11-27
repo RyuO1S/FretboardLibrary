@@ -265,7 +265,7 @@
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-trace', 'data-pk', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-trace', 'data-tus', 'data-tulock', 'data-pk', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -651,6 +651,7 @@
       if (LS.live) { lsStop(); lsSay(msg); any = true; }
       if (SL.live) { slStop(); slSay(msg); any = true; }
       if (GTR.on) { gtrStop(false); txSay(msg); any = true; }
+      if (TU.live) { tuStop('Stopped the tuner so the sound plays cleanly. Press Start tuner to tune again.'); any = true; }
       if (any) flash('Listening stopped');
     } catch (e) {}
   }
@@ -1768,6 +1769,7 @@
     if (PL.on) stopProg();
     if (LS.live) lsStop();
     if (SL.live) slStop();
+    if (TU.live) tuStop();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { gtrBlocked(); return; }
     txSay('Asking to use the microphone…');
     let stream;
@@ -2586,6 +2588,7 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { lsBlocked(); return; }
     if (GTR.on) gtrStop(false);
     if (SL.live) slStop();
+    if (TU.live) tuStop();
     lsSay('Asking to use the microphone…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
@@ -2805,6 +2808,7 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { slBlocked(); return; }
     if (LS.live) lsStop();
     if (GTR.on) gtrStop(false);
+    if (TU.live) tuStop();
     slSay('Asking to use the microphone…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
@@ -3105,6 +3109,158 @@
       }
       return true;
     }
+    return false;
+  }
+
+  /* ---------- Guitar tuner ---------- */
+  const TU = { live: false, stream: null, src: null, an: null, timer: 0, mc: null, tuning: 'std', a4: 440, lock: -1, fs: [], cents: null, read: null, good: 0, done: {}, floor: undefined, lastAt: 0 };
+  try { const sv = JSON.parse(localStorage.getItem('fretboard-tuner') || 'null'); if (sv) { if (TUNINGS.some((x) => x.id === sv.tuning)) TU.tuning = sv.tuning; if (sv.a4 >= 425 && sv.a4 <= 450) TU.a4 = sv.a4; } } catch (e) {}
+  const tuSave = () => { try { localStorage.setItem('fretboard-tuner', JSON.stringify({ tuning: TU.tuning, a4: TU.a4 })); } catch (e) {} };
+  const tuTuning = () => TUNINGS.find((x) => x.id === TU.tuning) || TUNINGS[0];
+  const tuSay = (m) => { const el = $('tuMsg'); if (el) el.textContent = m || ''; };
+  const noteName = (m) => { const names = S.flats ? FLAT_NAMES : SHARP_NAMES; return names[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1); };
+  async function tuStart() {
+    if (!(window.AudioContext || window.webkitAudioContext)) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { tuBlocked(); return; }
+    if (LS.live) lsStop();
+    if (SL.live) slStop();
+    if (GTR.on) gtrStop(false);
+    if (PL.on) stopProg();
+    tuSay('Asking to use the microphone…');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      const c = micContext();
+      if (!c) { stream.getTracks().forEach((t) => t.stop()); tuBlocked(); return; }
+      TU.mc = c;
+      if (c.state !== 'running') { try { await c.resume(); } catch (e) {} }
+      TU.stream = stream;
+      TU.src = c.createMediaStreamSource(stream);
+      TU.an = c.createAnalyser();
+      TU.an.fftSize = 8192;
+      TU.src.connect(TU.an);
+      Object.assign(TU, { live: true, fs: [], cents: null, read: null, good: 0, floor: undefined, lastAt: Date.now() });
+      const buf = new Float32Array(TU.an.fftSize);
+      TU.timer = setInterval(() => tuTick(buf, c.sampleRate), 60);
+      tuSay('Listening. Play one open string and let it ring.');
+      renderTuner();
+    } catch (e) { tuBlocked(); }
+  }
+  function tuBlocked() {
+    TU.live = false;
+    tuSay('The microphone is not available here. Pages shown inside the Claude app cannot use it; on your own hosted site (or localhost) the tuner works.');
+    renderTuner();
+  }
+  function tuStop(msg) {
+    clearInterval(TU.timer);
+    try { if (TU.src) TU.src.disconnect(); } catch (e) {}
+    try { if (TU.stream) TU.stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    closeMic(TU.mc); TU.mc = null;
+    TU.stream = TU.src = TU.an = null;
+    TU.live = false;
+    TU.read = null;
+    tuSay(msg || '');
+    renderTuner();
+  }
+  function tuTick(buf, sr) {
+    if (!TU.an) return;
+    if (Date.now() - TU.lastAt > 120000) { tuStop('The tuner stopped after two minutes without a note. Press Start tuner to tune again.'); return; }
+    if (Date.now() < selfSoundUntil) return;   // the site is playing the reference note: do not tune to it
+    TU.an.getFloatTimeDomainData(buf);
+    const p = tunerPitch(buf, sr);
+    TU.floor = TU.floor === undefined ? p.rms : Math.min(p.rms, TU.floor * 1.003 + 0.00001);
+    const heard = p.f > 0 && p.rms > Math.max(0.002, TU.floor * 3) && p.clarity > 0.8;
+    if (!heard) {
+      TU.fs.length = 0;
+      TU.quiet = (TU.quiet || 0) + 1;
+      if (TU.read && TU.quiet > 12) { TU.read = null; TU.cents = null; tuPaint(); }   // the note died away
+      return;
+    }
+    TU.quiet = 0;
+    TU.lastAt = Date.now();
+    // steady reading: the middle of the last few, then a little smoothing
+    TU.fs.push(p.f); if (TU.fs.length > 5) TU.fs.shift();
+    const med = TU.fs.slice().sort((a, b) => a - b)[Math.floor(TU.fs.length / 2)];
+    const r = tunerRead(med, tuTuning(), TU.a4, TU.lock);
+    if (!r) return;
+    const jump = !TU.read || TU.read.string !== r.string || Math.abs(r.toTarget - (TU.cents || 0)) > 40;
+    TU.cents = jump ? r.toTarget : 0.6 * TU.cents + 0.4 * r.toTarget;
+    TU.read = Object.assign(r, { f: med });
+    if (Math.abs(TU.cents) <= 3) { TU.good++; if (TU.good === 8) { TU.done[r.string] = true; renderTunerStrings(); } } else TU.good = 0;
+    tuPaint();
+  }
+  // the gauge: -50 to +50 cents, green in the middle
+  function tuGauge() {
+    const cx = 150, cy = 150, R = 120;
+    const pt = (deg, r) => { const a = (deg - 90) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+    const arc = (d0, d1, r) => { const [x0, y0] = pt(d0, r), [x1, y1] = pt(d1, r); return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
+    let g = `<path d="${arc(-60, 60, R)}" style="fill:none;stroke:var(--line);stroke-width:14;stroke-linecap:round"/>`;
+    g += `<path d="${arc(-6, 6, R)}" style="fill:none;stroke:var(--live);stroke-width:14"/>`;
+    for (let c = -50; c <= 50; c += 10) {
+      const [x0, y0] = pt(c * 1.2, R - 16), [x1, y1] = pt(c * 1.2, R - (c % 50 === 0 || c === 0 ? 34 : 26));
+      g += `<line x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" style="stroke:var(--muted);stroke-width:${c === 0 ? 3 : 1.5}"/>`;
+    }
+    const [lx, ly] = pt(-60, R + 20), [rx, ry] = pt(60, R + 20);
+    g += `<text x="${lx}" y="${ly + 4}" text-anchor="middle" style="fill:var(--muted);font:600 12px sans-serif">♭</text><text x="${rx}" y="${ry + 4}" text-anchor="middle" style="fill:var(--muted);font:600 12px sans-serif">♯</text>`;
+    g += `<g id="tuNeedle" style="transform-origin:${cx}px ${cy}px;transition:transform 0.12s ease-out"><line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy - R + 6}" style="stroke:var(--fg);stroke-width:3.5;stroke-linecap:round"/></g>`;
+    g += `<circle cx="${cx}" cy="${cy}" r="8" style="fill:var(--fg)"/>`;
+    return `<svg id="tuGauge" viewBox="0 10 300 150" role="img" aria-label="Tuning needle">${g}</svg>`;
+  }
+  function tuPaint() {
+    const nd = $('tuNeedle'), big = $('tuNote'), sub = $('tuSub'), body = $('tuBody');
+    if (!nd || !big) return;
+    const r = TU.read, c = TU.cents;
+    const shown = c === null || !r ? 0 : Math.max(-50, Math.min(50, c));
+    nd.style.transform = `rotate(${(shown * 1.2).toFixed(1)}deg)`;
+    const ok = r && Math.abs(c) <= 3;
+    if (body && body.classList) { body.classList.toggle('intune', !!ok); body.classList.toggle('heard', !!r); }
+    if (!r) { big.textContent = TU.live ? '…' : '–'; sub.textContent = TU.live ? 'Play one string' : 'Press Start tuner'; return; }
+    const t = noteName(r.target);
+    big.textContent = t.replace(/-?\d+$/, '');
+    const off = Math.round(c);
+    const way = off < 0 ? 'too low: tighten (tune up)' : 'too high: loosen (tune down)';
+    sub.textContent = ok ? 'In tune ✓ ' + r.f.toFixed(1) + ' Hz'
+      : Math.abs(off) > 50 ? 'Heard ' + noteName(r.near) + ', ' + Math.abs(Math.round(off / 100 * 10) / 10) + ' frets ' + (off < 0 ? 'low: tighten a lot' : 'high: loosen a lot')
+      : Math.abs(off) + ' cents ' + way + ' · ' + r.f.toFixed(1) + ' Hz';
+    qsa(document, '[data-tus]').forEach((b) => b.classList.toggle('on', +b.getAttribute('data-tus') === r.string));
+  }
+  function renderTunerStrings() {
+    const box = $('tuStrings');
+    if (!box) return;
+    const tn = tuTuning();
+    box.innerHTML = `<button type="button" class="tus auto" data-tulock="-1" aria-pressed="${TU.lock < 0}">Auto</button>`
+      + tn.notes.map((m, i) => `<button type="button" class="tus${TU.read && TU.read.string === i ? ' on' : ''}${TU.done[i] ? ' done' : ''}" data-tus="${i}" aria-pressed="${TU.lock === i}" title="String ${6 - i}: ${noteName(m)}"><b>${esc(noteName(m).replace(/-?\d+$/, ''))}</b><small>${6 - i}${TU.done[i] ? ' ✓' : ''}</small></button>`).join('');
+  }
+  function renderTuner() {
+    const btn = $('tuLive');
+    if (!btn) return;
+    btn.innerHTML = (TU.live ? ICON.stopf : ICON.mic) + (TU.live ? ' Stop tuner' : ' Start tuner');
+    btn.setAttribute('aria-pressed', String(TU.live));
+    const sel = $('tuTuning');
+    if (sel && !(sel.options && sel.options.length)) sel.innerHTML = options(TUNINGS.map((x) => [x.id, x.name]), TU.tuning);
+    if (sel) sel.value = TU.tuning;
+    const a4 = $('tuA4');
+    if (a4 && !(a4.options && a4.options.length)) a4.innerHTML = options([432, 435, 438, 439, 440, 441, 442, 443, 444, 446].map((v) => [v, 'A = ' + v + ' Hz' + (v === 440 ? ' (standard)' : '')]), TU.a4);
+    if (a4) a4.value = String(TU.a4);
+    const g = $('tuGaugeBox');
+    if (g && !g.firstChild) g.innerHTML = tuGauge();
+    renderTunerStrings();
+    tuPaint();
+  }
+  function tuClick(t) {
+    if (t.closest('#tuLive')) { if (TU.live) tuStop('Stopped.'); else tuStart(); return true; }
+    const lk = t.closest('[data-tulock]');
+    if (lk) { TU.lock = -1; TU.read = null; TU.cents = null; renderTuner(); return true; }
+    const s = t.closest('[data-tus]');
+    if (s) { const i = +s.getAttribute('data-tus'); TU.lock = TU.lock === i ? -1 : i; TU.read = null; TU.cents = null; renderTuner(); return true; }
+    if (t.closest('#tuHear')) {
+      // the note to tune to (the string you chose, or the one you are tuning)
+      const i = TU.lock >= 0 ? TU.lock : TU.read ? TU.read.string : 0;
+      keepListening = true;
+      try { pluck(tuTuning().notes[i], 0, 2.4); } finally { keepListening = false; }
+      tuSay('That is ' + noteName(tuTuning().notes[i]) + (TU.a4 !== 440 ? ' (played at A = 440)' : '') + '. The tuner waits until it fades.');
+      return true;
+    }
+    if (t.closest('#tuReset')) { TU.done = {}; renderTunerStrings(); return true; }
     return false;
   }
 
@@ -4095,6 +4251,7 @@
       + '<li><b>Slash chords</b> (C/E, D/F♯, A/B): when the bass note is not the chord\'s root and holds steady, the name shows it after a slash. Inversions are the hardest thing to hear, so if it shows plain C when you played C/E, the slash version is often among the other guesses to tap.</li>'
       + '<li>Just learning? Choose <b>Simple: major, minor, 7</b>. Fewer chord types means fewer look-alikes (a C will not turn into Cmaj7 or Csus2).</li>'
       + '<li>If it still names a chord wrong, tap one of the <b>other guesses</b> under the name. The listener remembers that correction for the rest of the session.</li></ul>' },
+    tuner: { t: 'Guitar tuner', b: '<p>Press <b>Start tuner</b>, then play <b>one string at a time</b>, open (no fingers), and let it ring. The tuner finds which string it is and shows how far off it is.</p><ul><li>Needle <b>left</b> (♭): the string is too low. <b>Tighten</b> it (tune up) slowly.</li><li>Needle <b>right</b> (♯): too high. <b>Loosen</b> it a little, then come back up to the note (tuning up to a note holds better).</li><li><b>Green in the middle</b>: in tune. The string gets a ✓.</li></ul><p><b>Cents</b>: 100 cents is one fret, so 5 cents is a tiny nudge of the tuning peg.</p><p>Pick another <b>tuning</b> (Drop D, Open G, DADGAD…) from the list. Tap a string to lock the tuner to it, useful when a string is far off. <b>Hear the note</b> plays the note to tune to. The A = 440 setting is the standard reference; change it only to match a piano or a recording tuned differently.</p>' },
     trace: { t: 'What you played, on the neck', b: '<p>While the <b>Scale listener</b> is on, every note it hears is put on this fretboard. A guitar has the same note in several places, so the site picks the place closest to where your hand has been. If it picked the wrong string, <b>tap the dot</b> to move it.</p><p>Bigger dots are notes you played more often. The amber dot is the <b>home note</b> of the scale you compare with, faint dots are the notes of that scale you have not played yet, and a red dashed ring marks a note that is <b>not in that scale</b>.</p><p>Choose another scale under <b>Compare with</b> to check it against what you played. When every dot fits and nothing is ringed red, that is your scale. It is all saved on this device until you press Clear.</p>' },
     scalelisten: { t: 'Scale listener', b: '<p>Play a scale, a riff or a melody one note at a time. The listener hears each note, keeps count of which of the 12 notes you used, and lists the scales that contain them, best first.</p><p>The same notes can make different scales (C major and A minor share every note). What decides it is the <b>home note</b>, so start and end on the note that sounds like home.</p><p>Tap <b>Show on fretboard</b> to see the scale on the neck. Live listening needs the microphone, which pages inside the Claude app cannot use; upload a clip there instead.</p>' },
     common: { t: 'Common progressions', tour: 'progression', wide: true, b: () => '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' + svg251() + '<p>Use the style chips to narrow the list. <b>J-pop and anime</b> lean on the <b>Royal road (王道進行, IV–V–iii–vi)</b>, which starts away from home and leans toward the sad vi, and on <b>丸サ (IVmaj7–III7–vi7)</b>, where the borrowed III7 pulls hard into vi. <b>C-pop</b> ballads love <b>4536251</b> and the Canon’s bass walking down. <b>K-pop</b> often lifts into a chorus with ii–iii–IV–V. <b>Gospel</b> turns IV minor (iv) for a sigh before home, and <b>rock</b> borrows ♭VII from Mixolydian.</p>' + romanLink() },
@@ -4606,6 +4763,7 @@
     }
     if (t.closest('#rvHear')) { previewRhythm(rhythmShown || P.style); return; }
     if (edClick(t)) return;
+    if (tuClick(t)) return;
     if (lsClick(t)) return;
     if (slClick(t)) return;
     if (anaClick(t)) return;
@@ -4895,6 +5053,8 @@
     const id = e.target && e.target.id;
     if (id === 'recMetro') ED.metro = !!e.target.checked;
     if (id === 'traceCmp') { TR.cmp = e.target.value; renderTrace(); }
+    if (id === 'tuTuning') { TU.tuning = e.target.value; TU.done = {}; TU.lock = -1; TU.read = null; tuSave(); renderTuner(); }
+    if (id === 'tuA4') { TU.a4 = +e.target.value || 440; tuSave(); renderTuner(); }
     if (id === 'traceFill') { TR.fill = !!e.target.checked; renderTrace(); }
     if (id === 'padSlot') { ED.padSlot = +e.target.value || 0; renderEditor(); }
     if (id === 'instSel') {
@@ -5002,6 +5162,7 @@
 
   traceLoad();
   renderLibrary();
+  renderTuner();
   render();
   renderProg();
   renderLib();
