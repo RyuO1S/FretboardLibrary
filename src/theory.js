@@ -1702,6 +1702,65 @@ function chordTrack(x, sr, opts) {
   frames.forEach((f, i) => { if (!quiet(f)) for (let p = 0; p < 12; p++) tot[p] += sm[i].c[p]; });
   return { segments: chords, frames: frames.length, key: guessKey(tot, chords), dur: x.length / sr, tune };
 }
+
+/* ---------- Tuner ---------- */
+// Exact pitch of one ringing string (YIN with a smooth peak between samples): good to about a cent, from about 60 Hz up
+function tunerPitch(x, sr) {
+  // half rate is plenty for guitar strings, and four times less work
+  const half = sr > 30000;
+  const n0 = half ? Math.floor(x.length / 2) : x.length;
+  const y = new Float32Array(n0);
+  if (half) for (let i = 0; i < n0; i++) y[i] = (x[2 * i] + x[2 * i + 1]) * 0.5; else y.set(x.subarray ? x.subarray(0, n0) : x.slice(0, n0));
+  const fs = half ? sr / 2 : sr;
+  let e = 0;
+  for (let i = 0; i < n0; i++) e += y[i] * y[i];
+  const rms = Math.sqrt(e / n0);
+  const minLag = Math.floor(fs / 1200), maxLag = Math.min(Math.floor(fs / 60), Math.floor(n0 / 2));
+  const W = n0 - maxLag;
+  if (W < 256) return { f: 0, rms, clarity: 0 };
+  const d = new Float32Array(maxLag + 2);
+  for (let lag = 1; lag <= maxLag + 1 && lag < n0 - W; lag++) {
+    let s = 0;
+    for (let i = 0; i < W; i++) { const v = y[i] - y[i + lag]; s += v * v; }
+    d[lag] = s;
+  }
+  // cumulative mean normalised difference
+  const cm = new Float32Array(maxLag + 2);
+  cm[0] = 1;
+  let run = 0;
+  for (let lag = 1; lag <= maxLag + 1; lag++) { run += d[lag]; cm[lag] = run ? (d[lag] * lag) / run : 1; }
+  let best = -1;
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    if (cm[lag] < 0.15) { while (lag + 1 <= maxLag && cm[lag + 1] < cm[lag]) lag++; best = lag; break; }
+  }
+  if (best < 0) { let m = Infinity; for (let lag = minLag; lag <= maxLag; lag++) if (cm[lag] < m) { m = cm[lag]; best = lag; } if (m > 0.35) return { f: 0, rms, clarity: 1 - m }; }
+  // between samples: fit a parabola through the dip
+  const a = cm[best - 1], b = cm[best], c = cm[best + 1];
+  const den = a - 2 * b + c;
+  const shift = den ? Math.max(-1, Math.min(1, (a - c) / (2 * den))) : 0;
+  return { f: fs / (best + shift), rms, clarity: 1 - b };
+}
+const TUNINGS = [
+  { id: 'std', name: 'Standard (E A D G B E)', notes: [40, 45, 50, 55, 59, 64] },
+  { id: 'dropd', name: 'Drop D (D A D G B E)', notes: [38, 45, 50, 55, 59, 64] },
+  { id: 'half', name: 'Half step down (E♭ A♭ D♭ G♭ B♭ E♭)', notes: [39, 44, 49, 54, 58, 63] },
+  { id: 'whole', name: 'Whole step down (D G C F A D)', notes: [38, 43, 48, 53, 57, 62] },
+  { id: 'dropc', name: 'Drop C (C G C F A D)', notes: [36, 43, 48, 53, 57, 62] },
+  { id: 'dadgad', name: 'DADGAD', notes: [38, 45, 50, 55, 57, 62] },
+  { id: 'openg', name: 'Open G (D G D G B D)', notes: [38, 43, 50, 55, 59, 62] },
+  { id: 'opend', name: 'Open D (D A D F♯ A D)', notes: [38, 45, 50, 54, 57, 62] },
+  { id: 'opene', name: 'Open E (E B E G♯ B E)', notes: [40, 47, 52, 56, 59, 64] },
+];
+// which string you are tuning, and how far off: cents (100 = one fret), for a reference A
+function tunerRead(f, tuning, a4, lockString) {
+  if (!(f > 0)) return null;
+  const midi = 69 + 12 * Math.log2(f / (a4 || 440));
+  let s = Number.isInteger(lockString) && lockString >= 0 ? lockString : -1;
+  if (s < 0) { let bd = Infinity; tuning.notes.forEach((m, i) => { const dd = Math.abs(midi - m); if (dd < bd) { bd = dd; s = i; } }); }
+  const target = tuning.notes[s];
+  const near = Math.round(midi);
+  return { midi, near, cents: (midi - near) * 100, string: s, target, toTarget: (midi - target) * 100 };
+}
 // Which key fits a set of notes and chords best (Krumhansl's key profiles, plus a nudge toward the chords' own roots)
 const KEY_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
 const KEY_MINOR = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
@@ -1927,5 +1986,5 @@ function scaleMatches(weights, opts) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches, grooveFromHits, GROOVE_MAX_BEATS, HEAR_LOW, HEAR_7, HEAR_9, HEAR_X, HEAR_SLASH };
+  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches, grooveFromHits, GROOVE_MAX_BEATS, HEAR_LOW, HEAR_7, HEAR_9, HEAR_X, HEAR_SLASH, tunerPitch, tunerRead, TUNINGS };
 }
