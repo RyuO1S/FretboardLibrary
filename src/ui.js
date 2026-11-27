@@ -265,7 +265,7 @@
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-trace', 'data-tus', 'data-tulock', 'data-pk', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-trace', 'data-sl-mine', 'data-mine', 'data-tus', 'data-tulock', 'data-pk', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -1252,6 +1252,7 @@
     svg.style.minWidth = Math.round((x1 - x0) * 0.72) + 'px';
     svg.innerHTML = boardSvg(vm.dots, ghostDots);
     pkPaint();
+    minePaint();
     const bn = $('boardNote');
     bn.hidden = !vm.empty;
     if (vm.empty) bn.textContent = 'No ' + title + ' voicing fits between fret ' + S.from + ' and fret ' + S.to + '. Widen the range or choose another string set or inversion.';
@@ -2799,6 +2800,8 @@
     SL.last = pc;
     if (midi < SL.low) SL.low = midi;
     if (SL.seq[SL.seq.length - 1] !== midi) { SL.seq.push(midi); if (SL.seq.length > 40) SL.seq.shift(); SL.dirty = true; traceAdd(midi); }
+    const tl = TR.notes[TR.notes.length - 1];
+    if (tl && tl.midi === midi) tl.w = (tl.w || 0) + dt;   // how long each note rang counts toward the scale
   }
   function slMatch() {
     SL.res = scaleMatches(SL.w, { first: SL.first, last: SL.last, lowest: SL.low < 999 ? SL.low % 12 : undefined });
@@ -2929,13 +2932,13 @@
     $('slResults').innerHTML = res.length
       ? `<h4>Scales that fit</h4>` + res.map((r, i) => {
         const fits = r.extra.length ? 'misses ' + r.extra.map((p) => names[p]).join(', ') : r.missing.length ? 'fits every note you played · not played yet: ' + r.missing.map((p) => names[p]).join(', ') : 'fits every note, and you played all of them';
-        return `<div class="slres${i === 0 ? ' best' : ''}"><div><b>${esc(names[r.root] + ' ' + r.name)} <button type="button" class="info" data-info="scale:${r.id}" aria-label="About the ${esc(r.name)} scale">i</button></b><small>${esc(fits)}</small></div><button type="button" class="tapbtn" data-sl-show="${r.id}:${r.root}">Show on fretboard</button><button type="button" class="tapbtn" data-sl-hear="${r.id}:${r.root}">Hear it</button></div>`;
+        return `<div class="slres${i === 0 ? ' best' : ''}"><div><b>${esc(names[r.root] + ' ' + r.name)} <button type="button" class="info" data-info="scale:${r.id}" aria-label="About the ${esc(r.name)} scale">i</button></b><small>${esc(fits)}</small></div><button type="button" class="tapbtn" data-sl-show="${r.id}:${r.root}">Show the scale</button><button type="button" class="tapbtn" data-sl-mine="${r.id}:${r.root}"${TR.notes.length ? '' : ' disabled'} title="Open the Fretboard on the pattern where you played, with your notes ringed">Show my pattern</button><button type="button" class="tapbtn" data-sl-hear="${r.id}:${r.root}">Hear it</button></div>`;
       }).join('') + `<p class="hint">The first one is the best guess. The home note matters: the same notes make C major and A minor, so play the note you hear as "home" first and last.</p>`
       : `<p class="hint">Play a scale or a melody, one note at a time. The notes light up here and the scales that fit appear.</p>`;
     renderTrace();
   }
   /* ---------- the scale listener on the neck: every note you play appears where you (most likely) played it ---------- */
-  const TR = { notes: [], hand: 5, labels: 'note', cmp: '', fill: true, saveT: 0, lastKey: '' };
+  const TR = { notes: [], hand: 5, labels: 'note', cmp: '', fill: true, saveT: 0, lastKey: '', tap: 'remove', undo: [], show: false };
   const TR_MAX = 400;
   // where on the neck a note was played: the place closest to where your hand has been, on or next to the last string
   function tracePlace(midi) {
@@ -2978,6 +2981,19 @@
       if (Number.isFinite(d.low)) SL.low = d.low;
       if (SL.seq.length) slMatch();
     } catch (e) {}
+  }
+  // what the listener knows comes from the notes that are left: a removed wrong note no longer counts toward the scale
+  function slFromTrace() {
+    const w = new Array(12).fill(0);
+    TR.notes.forEach((n) => { w[n.midi % 12] += Number.isFinite(n.w) && n.w > 0 ? n.w : 0.25; });
+    SL.w = w;
+    SL.seq = TR.notes.slice(-40).map((n) => n.midi);
+    SL.first = TR.notes.length ? TR.notes[0].midi % 12 : -1;
+    SL.last = TR.notes.length ? TR.notes[TR.notes.length - 1].midi % 12 : -1;
+    SL.low = TR.notes.length ? Math.min.apply(null, TR.notes.map((n) => n.midi)) : 999;
+    if (TR.notes.length) slMatch(); else SL.res = [];
+    traceSave();
+    renderScaleListen();
   }
   function traceClear() { TR.notes = []; TR.hand = 5; TR.cmp = ''; try { localStorage.removeItem('fretboard-sl-trace'); } catch (e) {} }
   function renderTrace() {
@@ -3049,17 +3065,70 @@
       sel.innerHTML = options(opts, TR.cmp);
     }
     seg('traceLbl', 'trlbl', [['note', 'Notes'], ['interval', 'Intervals'], ['none', 'None']], TR.labels);
+    seg('traceTap', 'trtap', [['remove', 'Remove it'], ['move', 'Move it to another string']], TR.tap);
+    const ub = $('traceUndo');
+    if (ub) ub.disabled = !TR.undo.length;
+    const bb = $('traceBoard');
+    if (bb) bb.disabled = !TR.notes.length;
     const fl = $('traceFill');
     if (fl) fl.checked = TR.fill;
     const hb = $('traceHear');
     if (hb) hb.disabled = !TR.notes.length;
   }
+  // take the scale to the Fretboard page, on the pattern (position) where you played it, with your notes ringed
+  function traceToBoard(id, root) {
+    const at = new Set(TR.notes.map((n) => n.s + ':' + n.f));
+    if (id) {
+      const e = ENTRIES.find((x) => x.id === id);
+      S.key = root; S.id = id; S.pos = 'all'; S.chord = 'none'; S.cx = null; S.pat = 'all';
+      if (e) {
+        const pats = patternsFor(e, buildPattern(e, root, S.flats).notes);
+        let best = -1, bestN = 0, bestOcc = 0;
+        pats.forEach((p, i) => p.occurrences.forEach((o, k) => { const n = o.dots.filter((d) => at.has(d.s + ':' + d.f)).length; if (n > bestN) { bestN = n; best = i; bestOcc = k; } }));
+        if (best >= 0) { S.pat = String(best); S.zoom = bestOcc === 0; }
+      }
+      const fr = TR.notes.map((n) => n.f);
+      if (S.pat === 'all' && fr.length) { S.from = Math.max(0, Math.min.apply(null, fr) - 1); S.to = Math.min(MAX_FRET, Math.max(Math.max.apply(null, fr) + 1, S.from + 4)); }
+    }
+    TR.show = true;
+    render();
+    if (LAYOUT === 'tabs') setTab('fretboard'); else showBoard();
+  }
+  // on the main fretboard: ring the places you played, and say how they fit
+  function minePaint() {
+    const bar = $('mineBar');
+    const neck = $('neck');
+    if (!bar || !neck) return;
+    if (!TR.show || !TR.notes.length) { bar.hidden = true; bar.innerHTML = ''; qsa(neck, '.dot.mine').forEach((el) => el.classList.remove('mine')); return; }
+    const at = new Map();
+    TR.notes.forEach((n) => at.set(n.s + ':' + n.f, (at.get(n.s + ':' + n.f) || 0) + 1));
+    let hit = 0;
+    qsa(neck, '.dot').forEach((el) => { const on = at.has(el.getAttribute('data-s') + ':' + el.getAttribute('data-f')); el.classList.toggle('mine', on); if (on) hit++; });
+    const places = at.size;
+    bar.hidden = false;
+    bar.innerHTML = `<span><i class="minek"></i><b>Your playing</b>: ${places} place${places === 1 ? '' : 's'} on the neck, ${hit} of them in this ${esc(lastVM && lastVM.sel ? 'pattern' : 'view')}${hit < places ? ' (the rest are outside it: try another pattern, or they were not in this scale)' : ''}.</span><button type="button" class="tapbtn" data-mine="back">Back to the listener</button><button type="button" class="tapbtn" data-mine="hide">Hide my notes</button>`;
+  }
   function traceClick(t) {
+    const mn = t.closest('[data-mine]');
+    if (mn) {
+      if (mn.getAttribute('data-mine') === 'hide') { TR.show = false; minePaint(); } else { if (LAYOUT === 'tabs') setTab('listen'); focusIn('#tracePanel'); }
+      return true;
+    }
     const d = t.closest('[data-trace]');
     if (d && t.closest('#traceNeck')) {
-      // you played it somewhere else? tap it to move it to the next place that has the same note
       const [s, f] = d.getAttribute('data-trace').split(':').map(Number);
       const midi = OPEN[s] + f;
+      if (TR.tap === 'remove') {
+        // a wrong note: take it out (every time it was played there), and the scale is worked out again without it
+        const gone = TR.notes.filter((n) => n.s === s && n.f === f);
+        TR.undo.push(TR.notes.slice());
+        if (TR.undo.length > 20) TR.undo.shift();
+        TR.notes = TR.notes.filter((n) => !(n.s === s && n.f === f));
+        slSay('Removed ' + (S.flats ? FLAT_NAMES : SHARP_NAMES)[midi % 12] + (gone.length > 1 ? ' (played ' + gone.length + ' times there)' : '') + '. The scales below no longer count it.');
+        slFromTrace();
+        return true;
+      }
+      // you played it somewhere else? tap it to move it to the next place that has the same note
       const opts = [];
       for (let k = 0; k < 6; k++) { const ff = midi - OPEN[k]; if (ff >= 0 && ff <= MAX_FRET) opts.push({ s: k, f: ff }); }
       const i = opts.findIndex((o) => o.s === s && o.f === f);
@@ -3068,6 +3137,17 @@
       pluck(midi, 0, 1.0);
       traceSave();
       renderTrace();
+      return true;
+    }
+    const tp = t.closest('[data-seg="trtap"]');
+    if (tp) { TR.tap = tp.getAttribute('data-v') === 'move' ? 'move' : 'remove'; renderTrace(); return true; }
+    if (t.closest('#traceUndo')) { if (TR.undo.length) { TR.notes = TR.undo.pop(); slSay('Put the note back.'); slFromTrace(); } return true; }
+    const mine = t.closest('[data-sl-mine]');
+    if (mine) { const [id, root] = mine.getAttribute('data-sl-mine').split(':'); traceToBoard(id, +root); return true; }
+    if (t.closest('#traceBoard')) {
+      const res = SL.res.slice(0, 5);
+      const cmp = res.find((r) => r.id + ':' + r.root === TR.cmp) || res[0];
+      if (cmp && TR.cmp !== 'none') traceToBoard(cmp.id, cmp.root); else traceToBoard(null, null);
       return true;
     }
     const sg = t.closest('[data-seg="trlbl"]');
@@ -3082,7 +3162,7 @@
       setTimeout(() => { const svg = $('traceNeck'); if (svg) qsa(svg, '.dot.echo').forEach((el) => el.classList.remove('echo')); }, seq.length * 260 + 300);
       return true;
     }
-    if (t.closest('#traceClear')) { traceClear(); slReset(); slSay(''); return true; }
+    if (t.closest('#traceClear')) { TR.undo = []; traceClear(); slReset(); slSay(''); return true; }
     return false;
   }
   function slClick(t) {
@@ -3113,9 +3193,9 @@
   }
 
   /* ---------- Guitar tuner ---------- */
-  const TU = { live: false, stream: null, src: null, an: null, timer: 0, mc: null, tuning: 'std', a4: 440, lock: -1, fs: [], cents: null, read: null, good: 0, done: {}, floor: undefined, lastAt: 0 };
-  try { const sv = JSON.parse(localStorage.getItem('fretboard-tuner') || 'null'); if (sv) { if (TUNINGS.some((x) => x.id === sv.tuning)) TU.tuning = sv.tuning; if (sv.a4 >= 425 && sv.a4 <= 450) TU.a4 = sv.a4; } } catch (e) {}
-  const tuSave = () => { try { localStorage.setItem('fretboard-tuner', JSON.stringify({ tuning: TU.tuning, a4: TU.a4 })); } catch (e) {} };
+  const TU = { ding: true, live: false, stream: null, src: null, an: null, timer: 0, mc: null, tuning: 'std', a4: 440, lock: -1, fs: [], cents: null, read: null, good: 0, done: {}, floor: undefined, lastAt: 0 };
+  try { const sv = JSON.parse(localStorage.getItem('fretboard-tuner') || 'null'); if (sv) { if (TUNINGS.some((x) => x.id === sv.tuning)) TU.tuning = sv.tuning; if (sv.a4 >= 425 && sv.a4 <= 450) TU.a4 = sv.a4; if (sv.ding === false) TU.ding = false; } } catch (e) {}
+  const tuSave = () => { try { localStorage.setItem('fretboard-tuner', JSON.stringify({ tuning: TU.tuning, a4: TU.a4, ding: TU.ding })); } catch (e) {} };
   const tuTuning = () => TUNINGS.find((x) => x.id === TU.tuning) || TUNINGS[0];
   const tuSay = (m) => { const el = $('tuMsg'); if (el) el.textContent = m || ''; };
   const noteName = (m) => { const names = S.flats ? FLAT_NAMES : SHARP_NAMES; return names[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1); };
@@ -3185,7 +3265,7 @@
     const jump = !TU.read || TU.read.string !== r.string || Math.abs(r.toTarget - (TU.cents || 0)) > 40;
     TU.cents = jump ? r.toTarget : 0.6 * TU.cents + 0.4 * r.toTarget;
     TU.read = Object.assign(r, { f: med });
-    if (Math.abs(TU.cents) <= 3) { TU.good++; if (TU.good === 8) { TU.done[r.string] = true; renderTunerStrings(); } } else TU.good = 0;
+    if (Math.abs(TU.cents) <= 3) { TU.good++; if (TU.good === 8) { TU.done[r.string] = true; renderTunerStrings(); tuChime(); } } else TU.good = 0;
     tuPaint();
   }
   // the gauge: -50 to +50 cents, green in the middle
@@ -3241,10 +3321,30 @@
     const a4 = $('tuA4');
     if (a4 && !(a4.options && a4.options.length)) a4.innerHTML = options([432, 435, 438, 439, 440, 441, 442, 443, 444, 446].map((v) => [v, 'A = ' + v + ' Hz' + (v === 440 ? ' (standard)' : '')]), TU.a4);
     if (a4) a4.value = String(TU.a4);
+    const dg = $('tuDing');
+    if (dg) dg.checked = TU.ding;
     const g = $('tuGaugeBox');
     if (g && !g.firstChild) g.innerHTML = tuGauge();
     renderTunerStrings();
     tuPaint();
+  }
+  // a short bright 'ding' when a string reaches the note (high bell tones, far above any guitar string, so the tuner does not hear them)
+  function tuChime() {
+    if (!TU.ding) return;
+    const c = audio();
+    if (!c) return;
+    selfSoundUntil = Math.max(selfSoundUntil, Date.now() + 600);
+    const out = busNode(c);
+    [[1568, 0], [2349.3, 0.09]].forEach(([f, d]) => {
+      const t0 = c.currentTime + 0.01 + d;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+      o.connect(g); g.connect(out);
+      o.start(t0); o.stop(t0 + 0.5);
+    });
   }
   function tuClick(t) {
     if (t.closest('#tuLive')) { if (TU.live) tuStop('Stopped.'); else tuStart(); return true; }
@@ -4252,7 +4352,7 @@
       + '<li>Just learning? Choose <b>Simple: major, minor, 7</b>. Fewer chord types means fewer look-alikes (a C will not turn into Cmaj7 or Csus2).</li>'
       + '<li>If it still names a chord wrong, tap one of the <b>other guesses</b> under the name. The listener remembers that correction for the rest of the session.</li></ul>' },
     tuner: { t: 'Guitar tuner', b: '<p>Press <b>Start tuner</b>, then play <b>one string at a time</b>, open (no fingers), and let it ring. The tuner finds which string it is and shows how far off it is.</p><ul><li>Needle <b>left</b> (♭): the string is too low. <b>Tighten</b> it (tune up) slowly.</li><li>Needle <b>right</b> (♯): too high. <b>Loosen</b> it a little, then come back up to the note (tuning up to a note holds better).</li><li><b>Green in the middle</b>: in tune. The string gets a ✓.</li></ul><p><b>Cents</b>: 100 cents is one fret, so 5 cents is a tiny nudge of the tuning peg.</p><p>Pick another <b>tuning</b> (Drop D, Open G, DADGAD…) from the list. Tap a string to lock the tuner to it, useful when a string is far off. <b>Hear the note</b> plays the note to tune to. The A = 440 setting is the standard reference; change it only to match a piano or a recording tuned differently.</p>' },
-    trace: { t: 'What you played, on the neck', b: '<p>While the <b>Scale listener</b> is on, every note it hears is put on this fretboard. A guitar has the same note in several places, so the site picks the place closest to where your hand has been. If it picked the wrong string, <b>tap the dot</b> to move it.</p><p>Bigger dots are notes you played more often. The amber dot is the <b>home note</b> of the scale you compare with, faint dots are the notes of that scale you have not played yet, and a red dashed ring marks a note that is <b>not in that scale</b>.</p><p>Choose another scale under <b>Compare with</b> to check it against what you played. When every dot fits and nothing is ringed red, that is your scale. It is all saved on this device until you press Clear.</p>' },
+    trace: { t: 'What you played, on the neck', b: '<p>While the <b>Scale listener</b> is on, every note it hears is put on this fretboard. A guitar has the same note in several places, so the site picks the place closest to where your hand has been.</p><p><b>Played a wrong note?</b> With <b>Tap a dot to: Remove it</b>, tap it and it is taken out, and the scale is worked out again without it (<b>Undo</b> puts it back). Switch to <b>Move it</b> to put a note on the string you really used.</p><p><b>Show on the Fretboard</b> (or <b>Show my pattern</b> next to a scale) opens the Fretboard page on that scale, at the pattern where you played, with your notes ringed in green.</p><p>Bigger dots are notes you played more often. The amber dot is the <b>home note</b> of the scale you compare with, faint dots are the notes of that scale you have not played yet, and a red dashed ring marks a note that is <b>not in that scale</b>.</p><p>Choose another scale under <b>Compare with</b> to check it against what you played. When every dot fits and nothing is ringed red, that is your scale. It is all saved on this device until you press Clear.</p>' },
     scalelisten: { t: 'Scale listener', b: '<p>Play a scale, a riff or a melody one note at a time. The listener hears each note, keeps count of which of the 12 notes you used, and lists the scales that contain them, best first.</p><p>The same notes can make different scales (C major and A minor share every note). What decides it is the <b>home note</b>, so start and end on the note that sounds like home.</p><p>Tap <b>Show on fretboard</b> to see the scale on the neck. Live listening needs the microphone, which pages inside the Claude app cannot use; upload a clip there instead.</p>' },
     common: { t: 'Common progressions', tour: 'progression', wide: true, b: () => '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' + svg251() + '<p>Use the style chips to narrow the list. <b>J-pop and anime</b> lean on the <b>Royal road (王道進行, IV–V–iii–vi)</b>, which starts away from home and leans toward the sad vi, and on <b>丸サ (IVmaj7–III7–vi7)</b>, where the borrowed III7 pulls hard into vi. <b>C-pop</b> ballads love <b>4536251</b> and the Canon’s bass walking down. <b>K-pop</b> often lifts into a chorus with ii–iii–IV–V. <b>Gospel</b> turns IV minor (iv) for a sigh before home, and <b>rock</b> borrows ♭VII from Mixolydian.</p>' + romanLink() },
     playback: { t: 'Tempo and playback', b: '<p><b>Tempo</b> is speed in beats per minute (BPM). 60 BPM is one beat a second; most pop songs sit between 80 and 130. <b>Tap</b> the button in time to set it.</p><p><b>Speed</b> plays everything slower or faster while keeping your tempo setting: great for practising at half speed.</p><p><b>Click track</b> adds a metronome tick on each beat; the first beat of each bar is higher.</p>' },
@@ -5055,6 +5155,7 @@
     if (id === 'traceCmp') { TR.cmp = e.target.value; renderTrace(); }
     if (id === 'tuTuning') { TU.tuning = e.target.value; TU.done = {}; TU.lock = -1; TU.read = null; tuSave(); renderTuner(); }
     if (id === 'tuA4') { TU.a4 = +e.target.value || 440; tuSave(); renderTuner(); }
+    if (id === 'tuDing') { TU.ding = !!e.target.checked; tuSave(); if (TU.ding) tuChime(); }
     if (id === 'traceFill') { TR.fill = !!e.target.checked; renderTrace(); }
     if (id === 'padSlot') { ED.padSlot = +e.target.value || 0; renderEditor(); }
     if (id === 'instSel') {
