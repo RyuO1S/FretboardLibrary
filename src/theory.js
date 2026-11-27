@@ -318,7 +318,18 @@ function harmonize(notes, entry) {
         tones: tones.map((t, k) => ({ name: t.name, pc: t.pc, label: chordLabel(k, semis[k]), semis: semis[k] })),
       };
     });
-  return { triads: build(3), sevenths: build(4) };
+  // 9th chords: the 7th chord plus the scale note a 9th above the root (Imaj9, ii9, V9; V7♭9 in harmonic minor).
+  // Where the key only gives a ♭9 on a minor or half-diminished chord (iii, vii), that is not a usual chord: the 7th stays.
+  const sev = build(4);
+  const ninths = sev.map((c, i) => {
+    const r = notes[i], n9 = notes[(i + 1) % 7];
+    const s9 = (n9.pc - r.pc + 12) % 12;
+    const to = s9 === 2 ? { maj7: 'maj9', '7': '9', m7: 'm9' }[c.sym] : s9 === 1 && c.sym === '7' ? '7♭9' : undefined;
+    if (!to) return c;
+    const tag = { maj9: 'maj9', '9': '9', m9: '9', '7♭9': '7♭9' }[to];
+    return Object.assign({}, c, { sym: to, name: r.name + to, roman: c.roman.replace(/(maj7|7)$/, '') + tag, tones: c.tones.concat([{ name: n9.name, pc: n9.pc, label: s9 === 1 ? 'b9' : '9', semis: s9 + 12 }]) });
+  });
+  return { triads: build(3), sevenths: sev, ninths };
 }
 
 /* ---------- Chords related to a key (beyond the seven diatonic ones) ----------
@@ -410,7 +421,8 @@ function chordShapes(tones, max, bass) {
   const bassIsTone = slash === null || pcs.has(slash);
   if (slash !== null) pcs.add(slash);
   const rootPc = slash === null ? tones[0].pc : slash;
-  const need = (tones.length >= 4 ? [tones[0].pc, tones[1].pc, tones[3].pc] : tones.map((t) => t.pc)).concat(slash === null ? [] : [slash]);
+  // must sound: root, 3rd and 7th (the 5th may go), and the 9th of a 9th chord, which is what makes it one
+  const need = (tones.length >= 4 ? [tones[0].pc, tones[1].pc, tones[3].pc].concat(tones.length >= 5 ? [tones[4].pc] : []) : tones.map((t) => t.pc)).concat(slash === null ? [] : [slash]);
   const all = [];
   const seen = new Set();
   for (const strict of [true, false]) {
@@ -1186,12 +1198,12 @@ const COMMON_PROGS = [
     steps: [['i', 'i7', '1', 'm', 'm7'], ['♭VI', '♭VImaj7', 'b6', '', 'maj7'], ['♭III', '♭IIImaj7', 'b3', '', 'maj7'], ['♭VII', '♭VII7', 'b7', '', '7']] },
   { id: 'minor145', genres: ['Blues', 'Classical'], mode: 'minor', name: 'Minor blues shape', alt: 'i – iv – V – i', tag: 'Blues / classical', hint: 'The three main chords of a minor key, with a major V for a strong pull home.',
     steps: [['i', 'i7', '1', 'm', 'm7'], ['iv', 'iv7', '4', 'm', 'm7'], ['V', 'V7', '5', '', '7'], ['i', 'i7', '1', 'm', 'm7']] },
-  { id: 'minorpop', genres: ['Pop', 'Rock'], mode: 'minor', name: 'Minor pop loop', alt: 'i – ♭VII – ♭VI – ♭VII', tag: 'Pop / rock', hint: 'Rocks back and forth between the top three chords of the natural minor.',
+  { id: 'minorpop', genres: ['Pop', 'Rock'], mode: 'minor', name: 'Minor pop loop', alt: 'i – ♭VII – ♭VI – ♭VII', tag: 'Pop / rock', hint: 'Rocks between i, ♭VII and ♭VI, three chords of the natural minor, without the major V.',
     steps: [['i', 'i7', '1', 'm', 'm7'], ['♭VII', '♭VII7', 'b7', '', '7'], ['♭VI', '♭VImaj7', 'b6', '', 'maj7'], ['♭VII', '♭VII7', 'b7', '', '7']] },
   // J-pop, anime, city pop
   { id: 'royal', genres: ['J-pop', 'Anime', 'C-pop'], mode: 'major', name: 'Royal road (王道進行)', alt: 'IV – V – iii – vi', tag: 'J-pop / anime', hint: 'The signature J-pop chorus: it lifts from IV to V, then lands on the minor chords instead of going home, so it feels bittersweet and keeps moving. Very common in anime themes.',
     steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['iii', 'iii7', '3', 'm', 'm7'], ['vi', 'vi7', '6', 'm', 'm7']] },
-  { id: 'royalhome', genres: ['J-pop', 'Anime'], mode: 'major', name: 'Royal road, going home', alt: 'IV – V – iii – vi – ii – V – I', tag: 'J-pop / anime', hint: 'The royal road continued down the circle of fifths (vi – ii – V – I) until it resolves. A big, satisfying chorus ending.',
+  { id: 'royalhome', genres: ['J-pop', 'Anime', 'C-pop', 'Ballad'], mode: 'major', name: 'Royal road, going home (4536251)', alt: 'IV – V – iii – vi – ii – V – I', tag: 'J-pop / C-pop', hint: 'The royal road continued down the circle of fifths (vi – ii – V – I) until it resolves. A big, satisfying chorus ending. Chinese-language pop calls it 4536251, after its scale numbers.',
     steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['iii', 'iii7', '3', 'm', 'm7'], ['vi', 'vi7', '6', 'm', 'm7'], ['ii', 'ii7', '2', 'm', 'm7'], ['V', 'V7', '5', '', '7'], ['I', 'Imaj7', '1', '', 'maj7']] },
   { id: 'royalsec', genres: ['J-pop', 'K-pop', 'Anime'], mode: 'major', name: 'Royal road with a push', alt: 'IV – V – III – vi', tag: 'J-pop / K-pop', hint: 'The royal road with iii turned major (III, the V of vi). That borrowed chord pulls hard into vi: a dramatic pre-chorus or chorus lift.',
     steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['III', 'III7', '3', '', '7'], ['vi', 'vi7', '6', 'm', 'm7']] },
@@ -1202,14 +1214,14 @@ const COMMON_PROGS = [
   { id: 'marusa', genres: ['J-pop', 'City pop', 'R&B / soul'], mode: 'major', name: 'Just the Two of Us (丸サ進行)', alt: 'IVmaj7 – III7 – vi7 – v7 I7', tag: 'City pop / J-pop', hint: 'The jazzy loop from the 1981 soul hit, now everywhere in J-pop. The major III7 pulls into vi, then a minor v and I7 lead back to IV. Floating, stylish and a little melancholy. Best with 7th chords.',
     steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['III', 'III7', '3', '', '7'], ['vi', 'vi7', '6', 'm', 'm7'], ['v', 'v7', '5', 'm', 'm7'], ['I', 'I7', '1', '', '7']] },
   // C-pop (Mandopop / Cantopop)
-  { id: '4536251', genres: ['C-pop', 'J-pop', 'Ballad'], mode: 'major', name: '4536251', alt: 'IV – III – vi – ii – V – I', tag: 'C-pop', hint: 'A favourite of Chinese-language ballads, named by its scale numbers. It falls down the circle of fifths from III to I, so it sounds rich and keeps pulling forward until it lands home.',
+  { id: '4536251', genres: ['Pop'], mode: 'major', name: 'Falling fifths from III7', alt: 'IV – III7 – vi – ii – V – I', tag: 'Pop', hint: 'Like 4536251 with the V left out and iii turned into III7, the V of vi: from III7 it falls down the circle of fifths (vi – ii – V – I) all the way home. Rich, and always pulling forward.',
     steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['III', 'III7', '3', '', '7'], ['vi', 'vi7', '6', 'm', 'm7'], ['ii', 'ii7', '2', 'm', 'm7'], ['V', 'V7', '5', '', '7'], ['I', 'Imaj7', '1', '', 'maj7']] },
   { id: '4321', genres: ['C-pop', 'R&B / soul', 'Neo-soul'], mode: 'major', name: 'Stepping down 4–3–2–1', alt: 'IV – iii – ii – I', tag: 'C-pop / R&B', hint: 'Each chord is one step lower than the last, a smooth slide home. With 7th chords (IVmaj7 – iii7 – ii7 – Imaj7) it is a classic R&B and neo-soul sound.',
     steps: [['IV', 'IVmaj7', '4', '', 'maj7'], ['iii', 'iii7', '3', 'm', 'm7'], ['ii', 'ii7', '2', 'm', 'm7'], ['I', 'Imaj7', '1', '', 'maj7']] },
   { id: '1564', genres: ['C-pop', 'Pop'], mode: 'major', name: 'Canon, first half', alt: 'I – V – vi – iii – IV', tag: 'C-pop / pop', hint: 'The opening of the Canon progression, used on its own in many Mandopop and Cantopop ballads before it turns to IV – I – IV – V or IV – V – I.',
     steps: [['I', 'Imaj7', '1', '', 'maj7'], ['V', 'V7', '5', '', '7'], ['vi', 'vi7', '6', 'm', 'm7'], ['iii', 'iii7', '3', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7']] },
   // K-pop, R&B, gospel, rock
-  { id: 'kpoplift', genres: ['K-pop', 'Pop'], mode: 'major', name: 'Pre-chorus lift', alt: 'ii – iii – IV – V', tag: 'K-pop', hint: 'Climbs step by step to the V chord, building tension right before the chorus drops.',
+  { id: 'kpoplift', genres: ['Pop'], mode: 'major', name: 'Step-up climb', alt: 'ii – iii – IV – V', tag: 'Pop', hint: 'Climbs one scale step per chord up to V, building tension, for example just before a chorus.',
     steps: [['ii', 'ii7', '2', 'm', 'm7'], ['iii', 'iii7', '3', 'm', 'm7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['V', 'V7', '5', '', '7']] },
   { id: 'gospel', genres: ['Gospel', 'R&B / soul', 'Pop'], mode: 'major', name: 'Minor plagal (gospel)', alt: 'I – IV – iv – I', tag: 'Gospel / soul', hint: 'IV turns minor (iv, borrowed from the minor key) before going home. A warm, tearful "amen" sound used in gospel, soul and big ballads.',
     steps: [['I', 'Imaj7', '1', '', 'maj7'], ['IV', 'IVmaj7', '4', '', 'maj7'], ['iv', 'iv7', '4', 'm', 'm7'], ['I', 'Imaj7', '1', '', 'maj7']] },
@@ -1893,7 +1905,7 @@ function analyzeProg(slots, hint) {
     if (n < 2 || (wrap && n < 3)) break;
     const where = wrap ? ' (when it loops back to the start)' : '';
     if (isii(a) && isV(b) && isI(c) && n >= 3) add('251:' + i, `${a.name} → ${b.name} → ${c.name} is a 2–5–1 (${a.roman} – ${b.roman} – ${c.roman}): the strongest way home, and the heart of jazz.`, i);
-    if ((isV(a) || isVii(a)) && isI(b)) add('auth:' + a.name + b.name, `${a.name} → ${b.name} is an authentic cadence (${a.roman} → ${b.roman})${where}: tension resolving home. It sounds finished.`, i);
+    if ((isV(a) || isVii(a)) && isI(b)) add('auth:' + a.name + b.name, `${a.name} → ${b.name} is ${isVii(a) ? 'a leading-tone cadence' : 'an authentic cadence'} (${a.roman} → ${b.roman})${where}: tension resolving home. It sounds finished.`, i);
     if (isIV(a) && isI(b)) add('plagal:' + a.name + b.name, `${a.name} → ${b.name} is a plagal cadence (${a.roman} → ${b.roman})${where}, the soft "amen" ending.`, i);
     if (isV(a) && isvi(b)) add('decep:' + a.name + b.name, `${a.name} → ${b.name} is a deceptive cadence (${a.roman} → ${b.roman})${where}: the ear expects home, and gets a surprise.`, i);
     if (a.kind === 'secondary' && b.base && a.target && b.base.toLowerCase() === a.target.toLowerCase() && !wrap) add('sec:' + i, `${a.name} is a secondary dominant (${a.label}): it borrows a V chord to pull hard into ${b.name}.`, i);
@@ -1985,6 +1997,401 @@ function scaleMatches(weights, opts) {
   return out.slice(0, 8);
 }
 
+/* ---------- Scale map: which scales fit each chord of a progression, and how to move from one chord to the next ----------
+   Pairings follow Open Music Theory, "Chord-scale theory" (Ionian or Lydian over major 7ths; Dorian, Phrygian or Aeolian over minor
+   7ths depending on where the chord sits in the key; Mixolydian over dominant 7ths; Locrian over half-diminished chords) and Gary
+   Burton's essential jazz scales (Berklee Online: Lydian ♭7, altered and symmetrical diminished over dominant 7ths, diminished over
+   diminished chords). Pentatonic advice follows Yamaha's guide to major and minor pentatonics (relative pairs share their notes;
+   over a dominant 7th the major pentatonic sounds settled, the minor one bluesier) and Premier Guitar on mixing them in a blues.
+   Borrowed chords take the parallel minor's notes (Open Music Theory, "Modal mixture"), and a minor key's V7 takes the harmonic
+   minor, whose raised 7th makes V major (harmonic minor scale; its 5th mode is Phrygian dominant). */
+const MAJOR_MODE_AT = { 0: 'Ionian', 2: 'Dorian', 4: 'Phrygian', 5: 'Lydian', 7: 'Mixolydian', 9: 'Aeolian', 11: 'Locrian' };
+const MODE_ENTRY = { Ionian: 'Major (Ionian)', Aeolian: 'Natural minor (Aeolian)' };
+const MAP_GROUPS = ['Scales', 'Modes', 'Dominant scales'];
+function mapEntry(name) {
+  for (const g of MAP_GROUPS) { const e = ENTRIES.find((x) => x.group === g && x.name === name); if (e) return e; }
+  return null;
+}
+function scalePcsOf(name, root) {
+  const e = mapEntry(name);
+  return e ? buildPattern(e, ((root % 12) + 12) % 12, false).notes.map((n) => n.pc) : [];
+}
+// what kind of chord: maj, dom, min, m6, mmaj7, hdim, dim, dim7, aug, sus, sus7, five
+function chordQuality(root, pcs) {
+  const iv = new Set(pcs.map((p) => ((p - root) % 12 + 12) % 12));
+  const has = (x) => iv.has(x);
+  let q;
+  if (has(3) && has(6) && has(9) && !has(10) && !has(7)) q = 'dim7';
+  else if (has(3) && has(6) && has(10) && !has(7)) q = 'hdim';
+  else if (has(3) && has(6) && !has(7)) q = 'dim';
+  else if (has(4) && has(8) && !has(7)) q = has(10) ? 'dom' : 'aug';
+  else if (has(4) && has(10)) q = 'dom';
+  else if (has(3) && has(11)) q = 'mmaj7';
+  else if (has(3)) q = has(9) && !has(10) ? 'm6' : 'min';
+  else if (has(4)) q = 'maj';
+  else if (has(5)) q = has(10) ? 'sus7' : 'sus';
+  else if (has(2)) q = 'sus';
+  else q = 'five';
+  return q;
+}
+const IV_NAME = { 0: 'root', 1: '♭9', 2: '9th', 3: '♭3rd', 4: '3rd', 5: '4th', 6: '♭5th', 7: '5th', 8: '♯5th', 9: '6th', 10: '♭7th', 11: '7th' };
+function toneRole(root, pc, q) {
+  const iv = ((pc - root) % 12 + 12) % 12;
+  if (iv === 3 && (q === 'min' || q === 'm6' || q === 'mmaj7' || q === 'hdim' || q === 'dim' || q === 'dim7')) return '3rd';
+  if (iv === 9 && q === 'dim7') return '7th';
+  if (iv === 10) return '7th';
+  return IV_NAME[iv];
+}
+// chord: { root, pcs }   key: { tonic, mode: 'major' | 'minor' }   o: { names, blues, next: { root, pcs } }
+// returns scales that fit, best first: { name, root, pcs, tag: 'key' | 'easy' | 'borrowed' | 'blues' | 'color' | 'tension', why, src }
+function chordScales(chord, key, o) {
+  o = o || {};
+  const names = o.names || SHARP_NAMES;
+  const root = ((chord.root % 12) + 12) % 12, pcs = chord.pcs.map((p) => ((p % 12) + 12) % 12);
+  const q = chordQuality(root, pcs);
+  const tonic = ((key.tonic % 12) + 12) % 12, minorKey = key.mode === 'minor';
+  const keyPcs = keyScale(tonic, minorKey ? 'minor' : 'major');
+  const relMaj = minorKey ? (tonic + 3) % 12 : tonic;
+  const keyName = names[tonic] + (minorKey ? ' minor' : ' major');
+  const R = names[root];
+  const deg = (root - relMaj + 12) % 12;
+  const inSet = (set, list) => list.every((p) => set.includes(p));
+  const diatonic = inSet(keyPcs, pcs);
+  const out = [];
+  const third = pcs.find((p) => [3, 4].includes((p - root + 12) % 12));
+  const fifth = pcs.find((p) => [6, 7, 8].includes((p - root + 12) % 12));
+  const triad = [root].concat(third !== undefined ? [third] : []).concat(fifth !== undefined ? [fifth] : []);
+  const add = (name, r, tag, why, src, loose) => {
+    r = ((r % 12) + 12) % 12;
+    const sp = scalePcsOf(name, r);
+    if (!sp.length || out.some((c) => c.name === name && c.root === r)) return;
+    // a scale must hold the chord's notes (5-note scales: the chord's root, 3rd and 5th), unless it clashes on purpose (blues, tension)
+    if (!loose && !inSet(sp, sp.length <= 5 ? triad : pcs)) return;
+    out.push({ name, root: r, pcs: sp, tag, why, src });
+  };
+  const modeName = (m) => MODE_ENTRY[m] || m;
+  const ROMAN_MAJ = { Ionian: 'I', Dorian: 'ii', Phrygian: 'iii', Lydian: 'IV', Mixolydian: 'V', Aeolian: 'vi', Locrian: 'vii°' };
+  const ROMAN_MIN = { Aeolian: 'i', Locrian: 'ii°', Ionian: '♭III', Dorian: 'iv', Phrygian: 'v', Lydian: '♭VI', Mixolydian: '♭VII' };
+  // 1. the key's own notes, centred on the chord's root
+  if (diatonic && MAJOR_MODE_AT[deg]) {
+    const m = MAJOR_MODE_AT[deg];
+    const rn = (minorKey ? ROMAN_MIN : ROMAN_MAJ)[m];
+    add(modeName(m), root, 'key', `The notes of ${keyName}, played from ${R}. Here ${R} is the ${rn} chord, and chord-scale theory pairs a chord with the key's scale started on its root: ${R} ${m === 'Ionian' ? 'Ionian (major)' : m === 'Aeolian' ? 'Aeolian (natural minor)' : m}. You stay in the key, so it always fits.`, 'omt');
+  }
+  // 2. a minor key's V7 and vii°7 come from the harmonic minor (its raised 7th)
+  if (minorKey && root === (tonic + 7) % 12 && (q === 'dom' || q === 'maj')) {
+    add('Harmonic minor', tonic, 'key', `${names[tonic]} harmonic minor: ${keyName} with the 7th raised to ${names[(tonic + 11) % 12]}, which makes this V chord major. It is the scale for V in a minor key, not for the i chord. (The same notes from ${R} are ${R} Phrygian dominant.)`, 'hmin');
+  }
+  if (minorKey && root === (tonic + 11) % 12 && (q === 'dim7' || q === 'dim')) {
+    add('Harmonic minor', tonic, 'key', `${names[tonic]} harmonic minor: this diminished chord is built on its raised 7th note, ${R}, and leads up to ${names[tonic]}.`, 'hmin');
+  }
+  // 3. borrowed from the parallel key
+  const fromHmin = minorKey && (root === (tonic + 7) % 12 || root === (tonic + 11) % 12);
+  if (!diatonic && !fromHmin) {
+    const par = minorKey ? keyScale(tonic, 'major') : keyScale(tonic, 'minor');
+    const parRel = minorKey ? tonic : (tonic + 3) % 12;
+    const pd = (root - parRel + 12) % 12;
+    if (inSet(par, pcs) && MAJOR_MODE_AT[pd]) {
+      const m = MAJOR_MODE_AT[pd];
+      add(modeName(m), root, 'borrowed', `${R} is borrowed from ${names[tonic]} ${minorKey ? 'major' : 'minor'} (modal mixture): use that key's notes, played from ${R} (${R} ${m}). The notes that change are ${par.filter((p) => !keyPcs.includes(p)).map((p) => names[p]).join(', ')}.`, 'mix');
+    }
+  }
+  // 4. a dominant 7th that leads down a 5th to a minor chord: that chord's harmonic minor
+  const nx = o.next;
+  if (q === 'dom' && nx && !diatonic && ((nx.root - root + 12) % 12) === 5 && chordQuality(nx.root, nx.pcs) !== 'maj' && chordQuality(nx.root, nx.pcs) !== 'dom') {
+    add('Harmonic minor', nx.root, 'leads', `${R}7 leads to ${names[nx.root]} minor, so it works as that key's V7: ${names[nx.root]} harmonic minor fits it (the same notes from ${R} are ${R} Phrygian dominant).`, 'hmin');
+  }
+  // 5. by the kind of chord
+  if (q === 'dom') {
+    add('Mixolydian', root, 'easy', `The standard scale for a dominant 7th: a major scale with a ♭7 (${names[(root + 10) % 12]}), matching the chord.`, 'omt');
+    add('Major pentatonic', root, 'easy', `Five notes with no half steps. Over a dominant 7th it sounds settled and sweet.`, 'yamaha');
+    add('Minor pentatonic', root, 'blues', `The bluesy choice: its ♭3rd (${names[(root + 3) % 12]}) rubs against the chord's 3rd (${names[(root + 4) % 12]}) on purpose. Bend the ♭3rd up a little toward the 3rd.`, 'yamaha', true);
+    add('Blues', root, 'blues', `Minor pentatonic plus the ♭5 (${names[(root + 6) % 12]}), a passing "blue" note.`, 'yamaha', true);
+    add('Lydian dominant', root, 'tension', `Mixolydian with a raised 4th (${names[(root + 6) % 12]}): a brighter, jazzier dominant sound.`, 'burton');
+    add('Altered', root, 'tension', `Every tension a dominant can carry (♭9, ♯9, ♭5, ♯5): strong pull into the next chord. Best just before the chord resolves.`, 'burton', true);
+    add('Diminished (half-whole)', root, 'tension', `Symmetrical half-step, whole-step scale: ♭9 and ♯9 tension over the dominant.`, 'burton');
+  } else if (q === 'maj') {
+    add('Major (Ionian)', root, 'color', `${R} major scale: fits the chord, but adds notes from outside ${keyName}.`, 'omt');
+    add('Major pentatonic', root, 'easy', `Five notes with no half steps: the safest melody notes over a major chord.`, 'yamaha');
+    add('Lydian', root, 'color', `A major scale with a raised 4th (${names[(root + 6) % 12]}): a dreamy, floating major sound.`, 'burton');
+    if (pcs.includes((root + 10) % 12)) add('Mixolydian', root, 'easy', `The chord has a ♭7, so Mixolydian matches it.`, 'omt');
+  } else if (q === 'min' || q === 'm6') {
+    add('Minor pentatonic', root, 'easy', `Five notes with no half steps: root, ♭3rd, 4th, 5th and ♭7th. It fits any minor chord.`, 'yamaha');
+    add('Dorian', root, 'color', `Natural minor with a major 6th (${names[(root + 9) % 12]}): a brighter minor, the usual choice over a minor 7th in rock and jazz.`, 'yamahaDorian');
+    add('Natural minor (Aeolian)', root, 'color', `${R} natural minor: the darker minor sound, with a ♭6th (${names[(root + 8) % 12]}).`, 'omt');
+    if (q === 'm6') add('Melodic minor', root, 'color', `Minor with a major 6th and 7th: it matches a minor 6 chord.`, 'omt');
+  } else if (q === 'mmaj7') {
+    add('Melodic minor', root, 'easy', `Its 1, ♭3, 5 and 7 are this minor-major 7th chord.`, 'omt');
+    add('Harmonic minor', root, 'color', `Also holds 1, ♭3, 5 and 7, with a darker ♭6th.`, 'hmin');
+  } else if (q === 'hdim') {
+    add('Locrian', root, 'easy', `The scale chord-scale theory pairs with a half-diminished (m7♭5) chord.`, 'omt');
+    add('Minor pentatonic', (root + 3) % 12, 'easy', `${names[(root + 3) % 12]} minor pentatonic: five notes of ${R} Locrian that hold the chord's ♭3rd, ♭5th and ♭7th. An easy shortcut; its ${names[(root + 1) % 12]} sits a half step above the root, so pass through it rather than stopping on it.`, 'calc', true);
+  } else if (q === 'dim' || q === 'dim7') {
+    add('Diminished (whole-half)', root, 'easy', `Symmetrical whole-step, half-step scale: the scale for a diminished chord.`, 'burton');
+  } else if (q === 'aug') {
+    add('Whole tone', root, 'easy', `Six notes a whole step apart. It holds the augmented chord's 1, 3 and ♯5.`, 'calc');
+  } else if (q === 'sus' || q === 'sus7') {
+    add('Mixolydian', root, 'easy', `Holds the sus chord's 1, 4, 5 (and ♭7).`, 'omt');
+    add('Major pentatonic', (root + 10) % 12, 'easy', `${names[(root + 10) % 12]} major pentatonic: 1, 2, 4, 5 and ♭7 of ${R}, no 3rd, so it keeps the open sus sound.`, 'calc', true);
+  } else if (q === 'five') {
+    add('Minor pentatonic', root, 'easy', `A power chord has no 3rd, so both minor and major pentatonics fit. Minor sounds like rock.`, 'yamaha');
+    add('Major pentatonic', root, 'easy', `Major pentatonic over a power chord: a brighter, country-rock sound.`, 'yamaha');
+    add('Blues', root, 'blues', `Minor pentatonic plus the ♭5 blue note.`, 'yamaha');
+  }
+  // 6. the whole-key pentatonics: easy home bases over any chord of the key
+  if (o.blues) {
+    add('Minor pentatonic', tonic, 'blues', `The blues home base: ${names[tonic]} minor pentatonic over every chord of the blues. Players use it most away from the I chord, and switch to major pentatonic when the I chord comes back.`, 'pg', true);
+    add('Blues', tonic, 'blues', `${names[tonic]} blues: minor pentatonic plus ${names[(tonic + 6) % 12]}.`, 'pg', true);
+    if (root === tonic) add('Major pentatonic', tonic, 'easy', `${names[tonic]} major pentatonic: sweet over the I chord, because it hits the chord's major 3rd (${names[(tonic + 4) % 12]}). Coming back to it when the I chord returns sounds like coming home.`, 'pg', true);
+  }
+  const keyPent = minorKey ? 'Minor pentatonic' : 'Major pentatonic';
+  const kp = scalePcsOf(keyPent, tonic);
+  const rubs = (sp) => sp.some((p) => !pcs.includes(p) && pcs.includes((p + 11) % 12));
+  if (diatonic && !rubs(kp)) add(keyPent, tonic, 'easy', `${names[tonic]} ${minorKey ? 'minor' : 'major'} pentatonic: the key's five-note scale. None of its notes sits a half step above a note of this chord, so it is a safe home base, though it outlines the key more than this chord.`, 'yamaha', true);
+  const order = { key: 0, leads: 0.8, borrowed: 1, easy: 2, blues: 3, color: 4, tension: 5 };
+  if (o.blues) { order.blues = 0; order.key = 1; order.leads = 1.1; order.borrowed = 1.2; }
+  return out.map((c, i) => Object.assign(c, { i })).sort((a, b) => order[a.tag] - order[b.tag] || (o.blues ? (b.root === tonic) - (a.root === tonic) : 0) || a.i - b.i).map((c) => { delete c.i; return c; });
+}
+// scales that hold up over the whole progression: how many chords each one fully contains, and how many it never rubs against
+// (a scale note a half step above a chord note that is not itself in the chord)
+function progressionScales(chords, key, o) {
+  o = o || {};
+  const tonic = key.tonic, minorKey = key.mode === 'minor';
+  const rel = minorKey ? (tonic + 3) % 12 : (tonic + 9) % 12;
+  const cands = minorKey
+    ? [['Natural minor (Aeolian)', tonic], ['Minor pentatonic', tonic], ['Blues', tonic], ['Harmonic minor', tonic], ['Dorian', tonic], ['Major pentatonic', rel]]
+    : [['Major (Ionian)', tonic], ['Major pentatonic', tonic], ['Minor pentatonic', rel], ['Mixolydian', tonic], ['Minor pentatonic', tonic], ['Blues', tonic]];
+  const list = chords.filter((c) => c && c.pcs && c.pcs.length);
+  if (!list.length) return [];
+  return cands.map(([name, r]) => {
+    const sp = scalePcsOf(name, r);
+    let full = 0, calm = 0;
+    list.forEach((c) => {
+      if (c.pcs.every((p) => sp.includes(p))) full++;
+      if (!sp.some((p) => !c.pcs.includes(p) && c.pcs.includes((p + 11) % 12))) calm++;
+    });
+    return { name, root: r, pcs: sp, full, calm, n: list.length, score: full * 2 + calm };
+  }).sort((a, b) => b.score - a.score);
+}
+// moving from chord a to chord b: shared notes, the 3rd and 7th (guide tones) and where they go, and which scale notes change
+function chordTransition(a, b, scaleA, scaleB) {
+  const qa = chordQuality(a.root, a.pcs), qb = chordQuality(b.root, b.pcs);
+  const common = a.pcs.filter((p, i) => b.pcs.includes(p) && a.pcs.indexOf(p) === i);
+  const guidesOf = (c, q) => c.pcs.filter((p) => ['3rd', '7th', '♭3rd'].includes(toneRole(c.root, p, q)) || (q === 'sus' || q === 'sus7' || q === 'five') && toneRole(c.root, p, q) === '4th');
+  const ga = guidesOf(a, qa), gb = guidesOf(b, qb);
+  const moves = ga.map((p) => {
+    let best = null;
+    b.pcs.forEach((t) => {
+      let d = ((t - p) % 12 + 12) % 12; if (d > 6) d -= 12;
+      const pref = gb.includes(t) ? 0 : 0.6;
+      const cost = Math.abs(d) + pref + (d > 0 ? 0.1 : 0);
+      if (!best || cost < best.cost) best = { to: t, d, cost };
+    });
+    return { from: p, fromRole: toneRole(a.root, p, qa), to: best.to, toRole: toneRole(b.root, best.to, qb), d: best.d };
+  });
+  const change = [];
+  if (scaleA && scaleB) {
+    const gone = scaleA.filter((p) => !scaleB.includes(p)), comes = scaleB.filter((p) => !scaleA.includes(p));
+    gone.forEach((p) => {
+      const near = comes.find((x) => Math.abs(((x - p + 18) % 12) - 6) === 1);
+      change.push({ from: p, to: near === undefined ? null : near });
+    });
+    comes.forEach((p) => { if (!change.some((c) => c.to === p)) change.push({ from: null, to: p }); });
+  }
+  return { common, moves, change, qa, qb };
+}
+// turn a pitch track ({ t, f, rms, clarity } every few ms) into notes ({ t0, t1, midi, v }): a new note starts after a silence,
+// when the pitch settles on another note for a few frames, or when the level jumps (the same note picked again)
+function notesFromPitch(frames, o) {
+  o = o || {};
+  const a4 = o.a4 || 440, minDur = o.minDur || 0.06, need = o.settle || 3;
+  const lv = frames.map((f) => f.rms).sort((x, y) => x - y);
+  const floor = lv.length ? lv[Math.floor(lv.length * 0.1)] : 0;
+  const gate = Math.max(o.gate || 0.003, floor * 4);
+  const notes = [];
+  let cur = null, quiet = 0, pend = null;
+  const close = (t) => {
+    if (cur && t - cur.t0 >= minDur && cur.ms.length) {
+      const body = cur.ms.length > 4 ? cur.ms.slice(2) : cur.ms;
+      const s = body.slice().sort((x, y) => x - y);
+      const midi = s[Math.floor(s.length / 2)];
+      if (midi >= 28 && midi <= 96) notes.push({ t0: cur.t0, t1: t, midi, peak: cur.peak });
+    }
+    cur = null;
+  };
+  for (let i = 0; i < frames.length; i++) {
+    const fr = frames[i];
+    const voiced = fr.f > 0 && fr.clarity > 0.75 && fr.rms > gate;
+    if (!voiced) {
+      quiet++;
+      pend = null;
+      if (cur && (quiet >= 3 || fr.rms < gate * 0.5)) close(cur.last + 0.001);
+      continue;
+    }
+    quiet = 0;
+    const m = 69 + 12 * Math.log2(fr.f / a4), r = Math.round(m);
+    const prev = frames.slice(Math.max(0, i - 4), i).map((x) => x.rms);
+    const lowPrev = prev.length ? Math.min.apply(null, prev) : 0;
+    const jump = cur && fr.t - cur.t0 > 0.09 && fr.rms > 1.9 * lowPrev && fr.rms > 0.35 * cur.peak;
+    if (!cur) { cur = { t0: fr.t, ms: [r], peak: fr.rms, last: fr.t }; continue; }
+    if (jump) { close(fr.t); cur = { t0: fr.t, ms: [r], peak: fr.rms, last: fr.t }; pend = null; continue; }
+    const s = cur.ms.slice(-6).sort((x, y) => x - y), med = s[Math.floor(s.length / 2)];
+    if (r !== med && Math.abs(m - med) > 0.6) {
+      if (!pend || pend.r !== r) pend = { r, t: fr.t, n: 1 }; else pend.n++;
+      if (pend.n >= need) { const t = pend.t; close(t); cur = { t0: t, ms: [r, r, r], peak: fr.rms, last: fr.t }; pend = null; }
+      continue;
+    }
+    pend = null;
+    cur.ms.push(r); cur.last = fr.t; cur.peak = Math.max(cur.peak, fr.rms);
+  }
+  if (cur) close(cur.last + 0.001);
+  const top = notes.reduce((x, n) => Math.max(x, n.peak), 0) || 1;
+  return notes.map((n) => ({ t0: n.t0, t1: n.t1, midi: n.midi, v: Math.round((0.35 + 0.65 * Math.sqrt(n.peak / top)) * 100) / 100 }));
+}
+
+/* ---------- Turning a chord into its triad, 7th or 9th, the way the key would ----------
+   A chord that belongs to the key (or to its harmonic minor, or to the parallel key) gets the 7th and 9th from that scale,
+   stacking 3rds: I → Imaj7 → Imaj9, ii → ii7 → ii9, V → V7 → V9, and in a minor key V7 → V7♭9 and IV → IV7 (Dorian). Notes outside every
+   scale fall back to the usual choice: major → 7 (a secondary dominant), minor → m7, diminished → dim7. */
+const SYM_OF_7 = { '4,7,11': 'maj7', '4,7,10': '7', '3,7,10': 'm7', '3,6,10': 'm7♭5', '3,6,9': '°7', '3,7,11': 'm(maj7)', '4,8,11': null, '4,8,10': null };
+function chordFamily(root, pcs) {
+  const iv = new Set(pcs.map((p) => ((p - root) % 12 + 12) % 12));
+  if (iv.has(3) && iv.has(6) && !iv.has(7)) return 'dim';
+  if (iv.has(4) && iv.has(8) && !iv.has(7)) return 'aug';
+  if (iv.has(4)) return iv.has(10) ? 'dom' : 'maj';
+  if (iv.has(3)) return 'min';
+  return iv.has(5) ? 'sus4' : iv.has(2) ? 'sus2' : 'maj';
+}
+function chordAtLevel(root, pcs, level, key) {
+  root = ((root % 12) + 12) % 12;
+  const fam = chordFamily(root, pcs);
+  if (level === 'triad') return { maj: '', dom: '', min: 'm', dim: '°', aug: '+', sus4: 'sus4', sus2: 'sus2' }[fam];
+  if (fam === 'sus4' || fam === 'sus2') return '7sus4';
+  if (fam === 'aug') return '+';
+  const triad = [root, (root + (fam === 'min' || fam === 'dim' ? 3 : 4)) % 12, (root + (fam === 'dim' ? 6 : 7)) % 12];
+  const scales = [];
+  if (key && Number.isInteger(key.tonic)) {
+    const T = key.tonic, minor = key.mode === 'minor';
+    scales.push(keyScale(T, minor ? 'minor' : 'major'));
+    if (minor) scales.push([0, 2, 3, 5, 7, 8, 11].map((s) => (T + s) % 12));   // harmonic minor: V7, vii°7
+    if (minor) scales.push([0, 2, 3, 5, 7, 9, 10].map((s) => (T + s) % 12));  // Dorian: the major IV of a minor key (Am – D7)
+    scales.push(keyScale(T, minor ? 'major' : 'minor'));                         // the parallel key: borrowed chords
+  }
+  for (const sc of scales) {
+    if (!triad.every((p) => sc.includes(p))) continue;
+    const i = sc.indexOf(root);
+    const at = (k) => (sc[(i + k) % 7] - root + 12) % 12;
+    const s7 = SYM_OF_7[[at(2), at(4), at(6)].join()];
+    if (!s7) continue;
+    if (level === '7th') return s7;
+    const n9 = at(1);
+    if (n9 === 2) return { maj7: 'maj9', '7': '9', m7: 'm9' }[s7] || s7;
+    if (n9 === 1 && s7 === '7') return '7♭9';
+    return s7;   // a ♭9 on a minor or diminished chord is not a usual 9th chord: keep the 7th
+  }
+  if (level === '7th') return { maj: '7', dom: '7', min: 'm7', dim: '°7' }[fam];
+  return { maj: '9', dom: '9', min: 'm9', dim: '°7' }[fam];
+}
+
+/* ---------- MIDI files for a DAW ----------
+   A standard MIDI file (type 1, 480 ticks per quarter note): a first track with the name, tempo, time signature, key
+   signature and the chord names as markers, then one track per part (chords, bass, solo), each with its own channel and
+   General MIDI instrument. Any DAW opens it: Ableton, Logic, FL Studio, Cubase, Reaper, GarageBand… */
+const MIDI_PPQ = 480;
+const KEY_SHARPS = { 0: 0, 7: 1, 2: 2, 9: 3, 4: 4, 11: 5, 6: 6, 1: -5, 8: -4, 3: -3, 10: -2, 5: -1 };   // major keys on the circle
+function midiFile(song) {
+  const vlq = (n) => { n = Math.max(0, Math.round(n)); const out = [n & 0x7f]; n >>= 7; while (n > 0) { out.unshift((n & 0x7f) | 0x80); n >>= 7; } return out; };
+  const text = (s) => { const b = []; const e = unescape(encodeURIComponent(String(s || ''))); for (let i = 0; i < e.length; i++) b.push(e.charCodeAt(i)); return b.slice(0, 120); };
+  const meta = (type, data) => [0xff, type].concat(vlq(data.length), data);
+  const chunk = (events) => {   // events: [{tick, bytes, order}]
+    events.sort((a, b) => a.tick - b.tick || a.order - b.order);
+    let last = 0; const body = [];
+    events.forEach((e) => { body.push.apply(body, vlq(e.tick - last).concat(e.bytes)); last = e.tick; });
+    body.push.apply(body, [0, 0xff, 0x2f, 0]);
+    const n = body.length;
+    return [0x4d, 0x54, 0x72, 0x6b, (n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].concat(body);
+  };
+  const bpm = Math.max(20, Math.min(300, song.bpm || 120));
+  const us = Math.round(60000000 / bpm);
+  const beats = song.beatsPerBar || 4;
+  const conductor = [
+    { tick: 0, order: 0, bytes: meta(0x03, text(song.name || 'Fretboard Library')) },
+    { tick: 0, order: 1, bytes: meta(0x51, [(us >> 16) & 255, (us >> 8) & 255, us & 255]) },
+    { tick: 0, order: 2, bytes: meta(0x58, [beats, 2, 24, 8]) },
+  ];
+  if (song.key && Number.isInteger(song.key.tonic)) {
+    const major = song.key.mode === 'minor' ? (song.key.tonic + 3) % 12 : song.key.tonic;
+    const sf = KEY_SHARPS[((major % 12) + 12) % 12];
+    conductor.push({ tick: 0, order: 3, bytes: meta(0x59, [sf & 255, song.key.mode === 'minor' ? 1 : 0]) });
+  }
+  (song.markers || []).forEach((m) => conductor.push({ tick: Math.round(m.tick), order: 4, bytes: meta(0x06, text(m.text)) }));
+  const tracks = [chunk(conductor)];
+  (song.tracks || []).forEach((tr) => {
+    const ch = (tr.channel || 0) & 15;
+    const ev = [{ tick: 0, order: 0, bytes: meta(0x03, text(tr.name)) }, { tick: 0, order: 1, bytes: [0xc0 | ch, (tr.program || 0) & 127] }];
+    // the same pitch never overlaps itself: a note ends where the next one on that pitch starts (DAWs handle that cleanly)
+    const list = (tr.notes || []).map((n) => Object.assign({}, n)).sort((a, b) => a.tick - b.tick);
+    const next = {};
+    for (let i = list.length - 1; i >= 0; i--) { const n = list[i], k = Math.round(n.midi); if (next[k] !== undefined && n.tick + n.dur > next[k]) n.dur = Math.max(1, next[k] - n.tick); next[k] = n.tick; }
+    list.forEach((n) => {
+      const m = Math.max(0, Math.min(127, Math.round(n.midi)));
+      const on = Math.max(0, Math.round(n.tick)), off = Math.max(on + 1, Math.round(n.tick + n.dur));
+      const v = Math.max(1, Math.min(127, Math.round(n.vel || 90)));
+      ev.push({ tick: on, order: 3, bytes: [0x90 | ch, m, v] });
+      ev.push({ tick: off, order: 2, bytes: [0x80 | ch, m, 64] });   // at the same tick, a note ends before the next begins
+    });
+    tracks.push(chunk(ev));
+  });
+  const head = [0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 1, (tracks.length >> 8) & 255, tracks.length & 255, (MIDI_PPQ >> 8) & 255, MIDI_PPQ & 255];
+  const all = head.concat.apply(head, tracks);
+  return Uint8Array.from(all);
+}
+// chords as they are played (the strumming pattern) or held, a bass line on the roots (or the slash bass), and chord markers
+// chords: [{ name, tones, beats, frets, bass, style, at (beat it starts on) }]
+function chordParts(chords, bpm, o) {
+  o = o || {};
+  const bs = 60 / bpm, tk = (sec) => Math.round(sec / bs * MIDI_PPQ);
+  const play = [], bass = [], markers = [];
+  chords.forEach((c) => {
+    const t0 = c.at * MIDI_PPQ;
+    markers.push({ tick: t0, text: c.name });
+    const slot = { name: c.name, tones: c.tones, beats: c.beats, frets: c.frets, bass: c.bass };
+    const plan = slotPlan(slot, o.held ? 'hold' : (c.style || o.style || 'hold'), bs, c.at);
+    plan.notes.forEach((n) => {
+      const dur = Math.min(n.dur, c.beats * bs - n.t);   // nothing rings past the chord's own beats
+      play.push({ tick: t0 + tk(n.t), dur: Math.max(30, tk(dur)), midi: n.midi, vel: Math.round(Math.min(1, (n.vol || 0.18) / 0.22) * 100) });
+    });
+    if (o.held) {   // held chords end where the next chord begins, so a DAW shows tidy blocks
+      play.forEach((n) => { if (n.tick >= t0 && n.tick < t0 + c.beats * MIDI_PPQ) n.dur = Math.max(30, t0 + c.beats * MIDI_PPQ - n.tick - 10); });
+    }
+    let b = Number.isInteger(c.bass) ? c.bass : c.tones[0].pc;
+    let m = 36 + ((b - 0 + 12) % 12); if (m > 43) m -= 12;   // E1–B1 / C2–G2: the low register of a bass guitar
+    bass.push({ tick: t0, dur: Math.max(60, c.beats * MIDI_PPQ - 20), midi: m, vel: 96 });
+  });
+  return { chords: play, bass, markers };
+}
+// a .zip with files stored as they are (no compression): enough to carry a .mid where only some file types may be saved
+function zipStore(files) {
+  const crcT = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcT[n] = c >>> 0; }
+  const crc = (d) => { let c = 0xffffffff; for (let i = 0; i < d.length; i++) c = crcT[(c ^ d[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const u16 = (v) => [v & 255, (v >>> 8) & 255], u32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  const enc = (s) => { const e = unescape(encodeURIComponent(s)); const b = []; for (let i = 0; i < e.length; i++) b.push(e.charCodeAt(i)); return b; };
+  const parts = [], central = []; let off = 0;
+  files.forEach((f) => {
+    const name = enc(f.name), data = f.data instanceof Uint8Array ? f.data : Uint8Array.from(f.data), c = crc(data);
+    const local = [0x50, 0x4b, 3, 4].concat(u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(c), u32(data.length), u32(data.length), u16(name.length), u16(0), name);
+    parts.push(Uint8Array.from(local), data);
+    central.push([0x50, 0x4b, 1, 2].concat(u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(c), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(off), name));
+    off += local.length + data.length;
+  });
+  const cd = [].concat.apply([], central);
+  const end = [0x50, 0x4b, 5, 6].concat(u16(0), u16(0), u16(files.length), u16(files.length), u32(cd.length), u32(off), u16(0));
+  const total = off + cd.length + end.length, out = new Uint8Array(total); let p = 0;
+  parts.forEach((x) => { out.set(x, p); p += x.length; });
+  out.set(Uint8Array.from(cd), p); p += cd.length; out.set(Uint8Array.from(end), p);
+  return out;
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches, grooveFromHits, GROOVE_MAX_BEATS, HEAR_LOW, HEAR_7, HEAR_9, HEAR_X, HEAR_SLASH, tunerPitch, tunerRead, TUNINGS };
+  module.exports = { spell, buildPattern, dotsFor, findVoicings, patternsFor, harmonize, relatedChords, chordShapes, ENTRIES, INV, SETS, SHARP_NAMES, FLAT_NAMES, OPEN, fmtLabel, slotMidis, slotPlan, tempoFromTaps, moveItem, cleanProg, PROG_MAX, SPEEDS, chordSearch, pickerChord, QUAL, ARP_ENTRIES, RHYTHMS, rhythmOf, CUSTOM_RHYTHMS, cleanRhythm, regridSteps, regridPicks, stringNote, analyzeHits, classifyHits, estimateStep, hitsToPattern, detectPitch, stringForPitch, stringForHit, COMMON_PROGS, progChords, GUITARS, ksRender, romanBase, nextMoves, fftInPlace, chromaFrame, downTo11k, scoreChroma, hearChord, chordTrack, guessKey, HEAR_TYPES, CHROMA_N, tuneFrom, withBass, analyzeProg, chordFromRoman, chordSym, romanOf, keyScale, scaleMatches, grooveFromHits, GROOVE_MAX_BEATS, HEAR_LOW, HEAR_7, HEAR_9, HEAR_X, HEAR_SLASH, tunerPitch, tunerRead, TUNINGS, chordQuality, chordScales, progressionScales, chordTransition, notesFromPitch, scalePcsOf, toneRole, mapEntry, chordAtLevel, chordFamily, midiFile, chordParts, zipStore, MIDI_PPQ };
 }

@@ -24,7 +24,11 @@
     };
   }
 
-  /* ---------- theme: follows the system until the button is pressed, then remembers the choice ---------- */
+  // the address the page was opened with (before the tabs rewrite it)
+  let HASH0 = '';
+  try { HASH0 = (location.hash || '').slice(1); } catch (e) {}
+
+  /* ---------- theme: dark by default; the button switches to light (and back) and remembers the choice ---------- */
   const root = document.documentElement;
   try {
     const savedTheme = localStorage.getItem('fretboard-theme');
@@ -34,7 +38,7 @@
     const t = root && root.getAttribute ? root.getAttribute('data-theme') : null;
     if (t === 'dark') return true;
     if (t === 'light') return false;
-    try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) { return false; }
+    return true;   // dark unless light was chosen
   }
   // Drawn pictograms in the current text colour (black in light theme, white in dark theme), no emoji
   const SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -265,7 +269,7 @@
     if (!fxRaf) { fxLast = performance.now(); fxRaf = requestAnimationFrame(fxTick); }
   }
   // After the page redraws, the pressed button is a new element: find it again and play the press animation on it
-  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-trace', 'data-sl-mine', 'data-mine', 'data-tus', 'data-tulock', 'data-pk', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
+  const PRESS_ATTRS = ['data-circ', 'data-h', 'data-nh', 'data-nxview', 'data-gokey', 'data-sc', 'data-rk', 'data-shape', 'data-addshape', 'data-add', 'data-pq', 'data-cs', 'data-ls', 'data-lsalt', 'data-le', 'data-lefret', 'data-leopen', 'data-leq', 'data-sl', 'data-sl-show', 'data-sl-hear', 'data-ana', 'data-ana-add', 'data-ana-scale', 'data-cpg', 'data-trace', 'data-imtool', 'data-imlesson', 'data-imex', 'data-imload', 'data-imdel', 'data-fbkey', 'data-sl-mine', 'data-mine', 'data-tus', 'data-tulock', 'data-pk', 'data-lseg', 'data-lscap', 'data-lscapdel', 'data-lsegdel', 'data-libload', 'data-libdel', 'data-acct', 'data-c', 'data-k', 'data-id'];
   function pressSelector(el) {
     if (!el.getAttribute) return '';
     if (el.id) return '#' + el.id;
@@ -755,7 +759,7 @@
       }
       vm.harm = harmonize(pat.notes, entry);
       if (vm.harm && S.chord !== 'none') {
-        const list = S.chordType === 'seventh' ? vm.harm.sevenths : vm.harm.triads;
+        const list = harmList(vm.harm);
         if (list[+S.chord]) vm.chord = list[+S.chord];
         else S.chord = 'none';
       }
@@ -860,8 +864,9 @@
   // The forms of one chord, each with Hear (tap the diagram) and Add. src says which list they belong to.
   function shapeCards(ch, list, src) {
     if (!list.length) return '<p class="empty">No simple shape found for this chord. Use the notes on the neck above.</p>';
-    return list.map((sh, i) => `<div class="shapecard"><button type="button" class="shapebtn" data-shape="${i}" data-src="${src}" aria-label="Hear ${esc(ch.name)}, ${esc(shapeLabel(sh))}, tab ${esc(tabText(sh))}">${shapeSvg(sh, ch.tones, ch.name)}<small>${esc(shapeLabel(sh))}</small><span class="tabtxt">${esc(tabText(sh))}</span><span class="hearlbl">${ICON.speaker} Hear</span></button>`
-      + `<button type="button" class="shapeadd" data-addshape="${i}" data-src="${src}" aria-label="Add this ${esc(ch.name)} shape to the progression">${ICON.plus} Add</button></div>`).join('');
+    // one compact card per shape, the same size as the chord cards: tap the diagram to hear it, + to add it
+    return list.map((sh, i) => `<div class="shapecard"><button type="button" class="shapebtn" data-shape="${i}" data-src="${src}" aria-label="Hear ${esc(ch.name)}, ${esc(shapeLabel(sh))}, tab ${esc(tabText(sh))}">${shapeSvg(sh, ch.tones, ch.name)}<small>${esc(shapeLabel(sh))}</small><span class="tabtxt">${esc(tabText(sh))}</span></button>`
+      + `<div class="shapeacts"><button type="button" class="shapehear" data-shape="${i}" data-src="${src}" aria-label="Hear this ${esc(ch.name)} shape">${ICON.speaker}<span>Hear</span></button><button type="button" class="shapeadd" data-addshape="${i}" data-src="${src}" aria-label="Add this ${esc(ch.name)} shape to the progression">${ICON.plus}<span>Add</span></button></div></div>`).join('');
   }
   let shapeList = [];
   // one place for a chord's shapes: right under the chord you tapped in "Chords in this scale"; the separate panel only
@@ -929,6 +934,9 @@
   const CIRC_MIN = ['Am', 'Em', 'Bm', 'F♯m', 'C♯m', 'G♯m', 'D♯m/E♭m', 'B♭m', 'Fm', 'Cm', 'Gm', 'Dm'];
   const byName = (g, n) => ENTRIES.find((e) => e.group === g && e.name === n);
   let hubList = [], hubScales = [], hubKeys = [];
+  // the chord list for the chosen chord type: triads, 7th chords or 9th chords
+  const harmList = (h) => (S.chordType === 'ninth' ? h.ninths : S.chordType === 'seventh' ? h.sevenths : h.triads);
+  const CTYPE_OPTS = [['triad', 'Triads'], ['seventh', '7th chords'], ['ninth', '9th chords']];
 
   function setHome(pc, mode) {
     S.hk = pc;
@@ -1013,8 +1021,8 @@
     $('circle').innerHTML = c;
 
     seg('hmSeg', 'hm', [['major', 'Major'], ['minor', 'Minor']], mode);
-    const type = S.chordType === 'seventh' ? 'seventh' : 'triad';
-    seg('hubTypeSeg', 'ctype', [['triad', 'Triads'], ['seventh', '7th chords']], type);
+    const type = S.chordType === 'ninth' ? 'ninth' : S.chordType === 'seventh' ? 'seventh' : 'triad';
+    seg('hubTypeSeg', 'ctype', CTYPE_OPTS, type);
     $('keyHint').textContent = keyName + ' · ' + sig + '. Everything below belongs to this key.';
 
     // chords
@@ -1028,9 +1036,9 @@
     // the tapped chord's shapes open right under its own list, so there is no scrolling to find them
     const tray = (list) => (S.cx && list.some((ch) => ch.name === S.cx.name && ch.roman === S.cx.roman)
       ? trayHtml(S.cx, 'hub') : '');
-    const diaList = type === 'seventh' ? harm.sevenths : harm.triads;
+    const diaList = harmList(harm);
     let h = `<div><h3>Chords in ${esc(keyName)} <button type="button" class="info" data-info="keychords" aria-label="About chords in a key">i</button></h3><p class="hint">Every chord built from the notes of the key, with a playable shape under each. Tap one to hear it and see its shapes. Press + to add it to your progression.</p><div class="chordlist">${chordBtns(diaList)}</div>${tray(diaList)}</div>`;
-    relatedChords(home, mode, type).forEach((g) => {
+    relatedChords(home, mode, type === 'ninth' ? 'seventh' : type).forEach((g) => {
       const gk = /Secondary/.test(g.title) ? 'secondary' : /Borrowed/.test(g.title) ? 'borrowed' : /Substitutes/.test(g.title) ? 'subs' : 'secondary';
       h += `<div><h3>${esc(g.title)} <button type="button" class="info" data-info="${gk}" aria-label="About ${esc(g.title)}">i</button></h3><p class="hint">${esc(g.hint)}</p><div class="chordlist">${chordBtns(g.chords)}</div>${tray(g.chords)}</div>`;
     });
@@ -1156,11 +1164,69 @@
     $('keyScales').innerHTML = h;
   }
 
+  /* ---------- a small circle of fifths beside the scale's chords: where you are, and where the chosen chord can go ---------- */
+  const circIdx = (root, minor) => (minor ? ((root + 3) * 7) % 12 : (root * 7) % 12);
+  function fbCircle(vm) {
+    const box = $('fbCirc');
+    if (!box) return;
+    if (!vm.harm) { box.innerHTML = ''; return; }
+    const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
+    const isMinorScale = vm.pat.notes.some((n) => n.label === 'b3') && !vm.pat.notes.some((n) => n.label === '3');
+    const mode = isMinorScale ? 'minor' : 'major';
+    const tonic = ((S.key % 12) + 12) % 12;
+    const list = harmList(vm.harm);
+    const chordMin = (c) => /^m(?!aj)|°|ø/.test(c.sym || '');
+    const chordAt = new Map();   // circle spot -> index in the scale's chord list
+    list.forEach((c, i) => { if (/°|ø/.test(c.sym || '')) return; const k = (chordMin(c) ? 'm' : 'M') + circIdx(c.tones[0].pc, chordMin(c)); if (!chordAt.has(k)) chordAt.set(k, i); });
+    const sel = vm.chord && !S.cx ? vm.chord : null;
+    const moves = sel ? nextMoves(sel.roman, mode) : [];
+    const markOf = new Map();
+    const nexts = [];
+    moves.forEach((m) => {
+      const i = list.findIndex((c) => romanBase(c.roman) === romanBase(m.to));
+      if (i < 0) return;
+      const c = list[i];
+      nexts.push({ i, c, m });
+      if (!/°|ø/.test(c.sym || '')) { const k = (chordMin(c) ? 'm' : 'M') + circIdx(c.tones[0].pc, chordMin(c)); if (!markOf.has(k)) markOf.set(k, m.kind); }
+    });
+    const p = circIdx(tonic, mode === 'minor');
+    const selK = sel && !/°|ø/.test(sel.sym || '') ? (chordMin(sel) ? 'm' : 'M') + circIdx(sel.tones[0].pc, chordMin(sel)) : '';
+    let s = '';
+    for (let ring = 0; ring < 2; ring++) {
+      const maj = ring === 0;
+      for (let i = 0; i < 12; i++) {
+        const k = (maj ? 'M' : 'm') + i;
+        const dd = (i - p + 12) % 12;
+        const inKey = chordAt.has(k);
+        const home = dd === 0 && maj === (mode === 'major');
+        const cls = ['fseg', inKey ? 'inkey' : '', home ? 'home' : '', k === selK ? 'sel' : '', markOf.has(k) ? 'nx-' + markOf.get(k) : ''].filter(Boolean).join(' ');
+        const label = (maj ? CIRC_MAJ[i] : CIRC_MIN[i]).split('/')[0];
+        const pt = polar(maj ? 122 : 81, i * 30 - 90);
+        const act = inKey ? `data-c="${chordAt.get(k)}"` : `data-fbkey="${maj ? (i * 7) % 12 : (i * 7 + 9) % 12}:${maj ? 'major' : 'minor'}"`;
+        s += `<g class="${cls}" ${act} role="button" tabindex="0" aria-label="${esc(label)}${inKey ? ' (in this scale)' : ' (move to this key)'}"><path d="${arcPath(i, maj ? 100 : 64, maj ? 144 : 98)}"/>`
+          + `<text x="${pt[0].toFixed(1)}" y="${(pt[1] + 5).toFixed(1)}" text-anchor="middle" font-size="${label.length > 2 ? (maj ? 17 : 13) : (maj ? 22 : 16)}">${esc(label)}</text></g>`;
+      }
+    }
+    s += `<text class="fkey" x="150" y="150" text-anchor="middle" font-size="30">${esc(names[tonic])}</text><text class="fkey2" x="150" y="172" text-anchor="middle" font-size="15">${mode}</text>`;
+    const kindTxt = { strong: 'strong pull', common: 'common', colour: 'colour' };
+    const rel = mode === 'major'
+      ? [['V', (tonic + 7) % 12, 'major'], ['IV', (tonic + 5) % 12, 'major'], ['relative minor', (tonic + 9) % 12, 'minor']]
+      : [['v', (tonic + 7) % 12, 'minor'], ['iv', (tonic + 5) % 12, 'minor'], ['relative major', (tonic + 3) % 12, 'major']];
+    box.innerHTML = `<div class="fbc-head"><b>Key: ${esc(names[tonic] + ' ' + mode)}</b><button type="button" class="info" data-info="fbcirc" aria-label="About this circle">i</button></div>`
+      + `<svg class="fbcsvg" viewBox="4 4 292 292" role="group" aria-label="Circle of fifths for ${esc(names[tonic] + ' ' + mode)}">${s}</svg>`
+      + (sel
+        ? (nexts.length
+          ? `<div class="fbc-next"><span>After <b>${esc(sel.name)}</b> (${esc(sel.roman)}), try:</span>${nexts.map((n) => `<button type="button" class="fbcn nx-${n.m.kind}" data-c="${n.i}" title="${esc(n.m.why)}"><b>${esc(n.c.name)}</b><small>${esc(n.c.roman)} · ${kindTxt[n.m.kind] || n.m.kind}</small></button>`).join('')}</div>`
+          : `<p class="fbc-hint">No usual next move for ${esc(sel.roman)} here: any chord of the scale works; try going home to ${esc(list[0].name)}.</p>`)
+        : `<p class="fbc-hint">Tap a chord (here or on the circle) to see where it can go next. Tap a key outside the scale to move there.</p>`)
+      + `<div class="fbc-rel"><span>Nearby keys</span>${rel.map(([l, pc, md]) => `<button type="button" class="fbcr" data-fbkey="${pc}:${md}">${esc(names[pc] + (md === 'minor' ? 'm' : ''))}<small>${esc(l)}</small></button>`).join('')}</div>`;
+  }
   function renderChords(vm) {
     $('chordPanel').hidden = !vm.harm;
+    fbCircle(vm);
     if (!vm.harm) return;
-    const list = S.chordType === 'seventh' ? vm.harm.sevenths : vm.harm.triads;
-    seg('chordTypeSeg', 'ctype', [['triad', 'Triads'], ['seventh', '7th chords']], S.chordType);
+    const list = harmList(vm.harm);
+    seg('chordTypeSeg', 'ctype', CTYPE_OPTS, S.chordType);
     $('chordList').innerHTML = list
       .map((c, i) => chipHtml(c, 'data-c="' + i + '"', String(i) === String(S.chord) && !S.cx, '', 'c:' + i))
       .join('');
@@ -1463,12 +1529,27 @@
     if (!d) return;
     const n = P.slots.length;
     const one = typeof LAYOUT !== 'undefined' && LAYOUT === 'one';
-    const show = (one || n > 0) && !progVisible;
+    let studio = false;
+    try { studio = !one && TAB === 'improv'; } catch (e) { studio = false; }   // TAB is set up later during start-up
+    const show = studio || ((one || n > 0) && !progVisible);
     d.hidden = !show;
+    if (d.classList) d.classList.toggle('studio', studio);
+    d.setAttribute('aria-label', studio ? 'Studio player' : 'Progression player');
     if (root && root.classList) root.classList.toggle('hasdock', show);
     const act = PL.on && PL.active >= 0 ? P.slots[PL.active] : null;
     const tc = $('tabProgCount');
     if (tc) tc.textContent = n ? String(n) : '';
+    if (studio) {
+      let lbl = 'Studio · play your solo';
+      try {
+        const bars = imBars(), c = IM.cursor || 0;
+        const bi = (IMP.on || IREC.on) && IMP.lastBar >= 0 ? IMP.lastBar : bars.findIndex((b) => c >= b.start && c < b.start + b.steps);
+        if (IREC.on) lbl = 'Recording · bar ' + (Math.max(0, IREC.lastBar) + 1);
+        else if (IMP.on && bars[bi]) lbl = 'Studio · bar ' + (bi + 1) + ' · ' + bars[bi].name;
+        else if (bars[bi]) lbl = 'Studio · from bar ' + (bi + 1);
+      } catch (e) {}
+      $('dockGo').textContent = flashText || lbl;
+    } else
     $('dockGo').textContent = flashText || (act ? 'Playing ' + act.name : 'Progression · ' + n + (n === 1 ? ' chord' : ' chords'));
     const strip = $('dockStrip');
     if (strip) {
@@ -1485,6 +1566,7 @@
       }
     }
     const dp = $('dockPlay');
+    if (studio) { dp.innerHTML = IMP.on || IREC.on ? STOP_HTML : PLAY_HTML; dp.disabled = false; return; }
     dp.innerHTML = PL.on ? STOP_HTML : PLAY_HTML;
     dp.disabled = !PL.on && busy;
   }
@@ -1495,6 +1577,417 @@
     flashTimer = setTimeout(() => { flashText = ''; syncDock(); }, 1800);
   }
 
+
+  /* ==================== MIDI for your DAW: sketch an idea here, finish it in Ableton, Logic, FL Studio… ==================== */
+  const MX = { held: false, bass: true, reps: 1, solo: true, chords: true, open: '' };
+  try { const sv = JSON.parse(localStorage.getItem('fretboard-midi') || 'null'); if (sv) Object.assign(MX, { held: !!sv.held, bass: sv.bass !== false, reps: [1, 2, 4].includes(sv.reps) ? sv.reps : 1, solo: sv.solo !== false, chords: sv.chords !== false }); } catch (e) {}
+  const mxSave = () => { try { localStorage.setItem('fretboard-midi', JSON.stringify({ held: MX.held, bass: MX.bass, reps: MX.reps, solo: MX.solo, chords: MX.chords })); } catch (e) {} };
+  const inClaudeView = () => !!(window.claude && window.claude.use);
+  const midiName = (s) => String(s || 'idea').replace(/♯/g, '#').replace(/♭/g, 'b').replace(/°/g, 'dim').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 60) || 'idea';
+  function renderMidiBox(kind) {
+    const box = $(kind === 'im' ? 'midiIm' : 'midiProg');
+    const btn = $(kind === 'im' ? 'midiImBtn' : 'midiProgBtn');
+    if (btn) btn.setAttribute('aria-expanded', String(MX.open === kind));
+    if (!box) return;
+    box.hidden = MX.open !== kind;
+    if (box.hidden) { box.innerHTML = ''; return; }
+    const ck = (id, on, label) => `<label class="check"><input type="checkbox" data-mx="${id}"${on ? ' checked' : ''}> ${label}</label>`;
+    const seg2 = `<div class="field"><span>Chords</span><div class="seg">${[['played', 'As played (strumming pattern)'], ['held', 'Held, one block per chord']].map(([v, l]) => `<button type="button" data-mxheld="${v}" aria-pressed="${(v === 'held') === MX.held}">${l}</button>`).join('')}</div></div>`;
+    const bpm = kind === 'im' ? IM.bpm : P.bpm;
+    const parts = kind === 'im' ? 'solo, chords and bass' : 'chords and bass';
+    box.innerHTML = `<h3>MIDI for your DAW</h3>`
+      + `<div class="row">${kind === 'im' ? ck('solo', MX.solo, 'Solo') + ck('chords', MX.chords, 'Chords') : ''}${seg2}${ck('bass', MX.bass, 'Bass line (the roots)')}`
+      + (kind === 'prog' ? `<label class="field"><span>Times through</span><select data-mxreps>${[1, 2, 4].map((n) => `<option value="${n}"${MX.reps === n ? ' selected' : ''}>${n === 1 ? 'Once' : n === 2 ? 'Twice' : '4 times'}</option>`).join('')}</select></label>` : '') + `</div>`
+      + `<div class="midigo"><button type="button" class="tapbtn strong" data-mxgo="${kind}">Download the MIDI file</button><button type="button" class="tapbtn" data-mxclose>Close</button></div>`
+      + `<p>A standard MIDI file with your ${parts}: drag it into Ableton, Logic, FL Studio, Cubase, Reaper, GarageBand or any other DAW. Inside: the tempo (${bpm} BPM), the time signature, the key, every chord name as a marker on the timeline, and one track per part with guitar and bass sounds you can swap for your own instruments.</p>`
+      + (inClaudeView() ? `<p>In this preview the file comes inside a .zip, because the Claude app only saves some kinds of file: unzip it, then drag the .mid into your DAW. On your own hosted site it downloads as a .mid straight away.</p>` : '');
+  }
+  function progSong() {
+    if (!P.slots.length) return null;
+    const chords = []; let at = 0;
+    for (let r = 0; r < MX.reps; r++) P.slots.forEach((s) => { chords.push({ name: s.name, tones: s.tones, beats: s.beats, frets: s.frets, bass: s.bass, style: s.style || P.style, at }); at += s.beats; });
+    const parts = chordParts(chords, P.bpm, { held: MX.held, style: P.style });
+    const key = AN && AN.key ? { tonic: AN.key.tonic, mode: AN.key.mode } : null;
+    const tracks = [{ name: 'Chords', channel: 0, program: 25, notes: parts.chords }];
+    if (MX.bass) tracks.push({ name: 'Bass', channel: 2, program: 33, notes: parts.bass });
+    const nm = P.slots.slice(0, 8).map((s) => s.name).join(' ') + (P.slots.length > 8 ? ' etc' : '');
+    return { file: midiName(nm + ' ' + P.bpm + 'bpm') + '.mid', song: { name: nm, bpm: P.bpm, key, beatsPerBar: P.slots.every((s) => s.beats === 3 || s.beats === 6) ? 3 : 4, markers: parts.markers, tracks } };
+  }
+  function studioSong() {
+    const bars = imBars();
+    if (!bars.length) return null;
+    const style = IM.style === 'off' ? 'hold' : IM.style === 'hold' ? 'hold' : null;
+    const chords = bars.map((b) => ({ name: b.name, tones: b.tones, beats: b.beats, frets: b.frets, bass: b.bass, style: style || (IM.style === 'mine' ? (b.style || P.style) : 'strum'), at: b.start / IM.grid }));
+    const parts = chordParts(chords, IM.bpm, { held: MX.held });
+    const k = imKeyMode();
+    const tracks = [];
+    if (MX.solo && IM.notes.length) tracks.push({ name: 'Solo', channel: 1, program: 27, notes: IM.notes.map((n) => ({ tick: n.step * MIDI_PPQ / IM.grid, dur: Math.max(30, n.len * MIDI_PPQ / IM.grid - 12), midi: n.midi, vel: Math.round((n.v || 0.8) * 120) })) });
+    if (MX.chords) tracks.push({ name: 'Chords', channel: 0, program: 25, notes: parts.chords });
+    if (MX.bass) tracks.push({ name: 'Bass', channel: 2, program: 33, notes: parts.bass });
+    if (!tracks.length) return null;
+    const nm = (IM.name || '').trim() || 'Studio solo';
+    return { file: midiName(nm + ' ' + IM.bpm + 'bpm') + '.mid', song: { name: nm, bpm: IM.bpm, key: { tonic: k.tonic, mode: k.mode }, markers: parts.markers, tracks } };
+  }
+  // in the Claude app: the page may only offer some file types, so the .mid travels in a .zip; anywhere else: a plain download
+  async function saveMidi(file, bytes, msg) {
+    if (inClaudeView()) {
+      let dl = null;
+      try { dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+      if (dl) {
+        try { await dl.save({ filename: file.replace(/\.mid$/, '') + '.zip', data: zipStore([{ name: file, data: bytes }]) }); msg('Saved ' + file + ' (inside a .zip). Unzip it and drag the .mid into your DAW.'); }
+        catch (e) { const c = e && e.code; msg(c === 'declined' ? 'Download cancelled.' : c === 'rate_limited' ? 'One moment: a download is already waiting for your answer.' : c === 'host_unavailable' ? 'This app cannot save files. Open the page in a browser or on a computer to download it.' : 'Downloads are not available in this view. On your own hosted site the button downloads the .mid directly.'); }
+        return;
+      }
+    }
+    try {
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/midi' }));
+      const a = document.createElement('a'); a.href = url; a.download = file; a.addEventListener('click', (ev) => ev.stopPropagation()); document.body.appendChild(a); a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+      msg('Downloaded ' + file + '. Drag it into your DAW.');
+    } catch (e) { msg('This browser could not save the file.'); }
+  }
+  function midiClick(t) {
+    const ob = t.closest('#midiProgBtn, #midiImBtn');
+    if (ob) { const k = ob.id === 'midiImBtn' ? 'im' : 'prog'; MX.open = MX.open === k ? '' : k; renderMidiBox('prog'); renderMidiBox('im'); return true; }
+    if (t.closest('[data-mxclose]')) { MX.open = ''; renderMidiBox('prog'); renderMidiBox('im'); return true; }
+    const hb = t.closest('[data-mxheld]');
+    if (hb) { MX.held = hb.getAttribute('data-mxheld') === 'held'; mxSave(); renderMidiBox(MX.open); return true; }
+    const go = t.closest('[data-mxgo]');
+    if (go) {
+      const kind = go.getAttribute('data-mxgo');
+      const s = kind === 'im' ? studioSong() : progSong();
+      const msg = kind === 'im' ? (m) => { say(m); irSay(m); } : (m) => say(m);
+      if (!s) { msg(kind === 'im' ? 'Nothing to export yet: add notes, or tick Chords or Bass.' : 'Add some chords first.'); return true; }
+      saveMidi(s.file, midiFile(s.song), msg);
+      return true;
+    }
+    return false;
+  }
+
+
+  /* ==================== Welcome page: typing headline, a neck you can strum, the five areas ==================== */
+  const HERO = { on: false, timer: 0, dots: 0, raf: 0, strings: [], last: null, typeT: 0 };
+  const HERO_LINES = ['Where ideas collide.', 'Find the scale.', 'Hear the chord.', 'Build the progression.', 'Tune your guitar.', 'Write the solo.', 'Finish it in your DAW.', 'Where ideas collide.'];
+  function heroType() {
+    const el = $('heroType');
+    if (!el) return;
+    if (calmMotion()) { el.textContent = HERO_LINES[0]; return; }
+    let li = 0, ci = 0, del = false;
+    const step = () => {
+      if (!HERO.on) return;
+      const line = HERO_LINES[li];
+      if (!del) {
+        ci++; el.textContent = line.slice(0, ci);
+        if (ci >= line.length) { if (li === HERO_LINES.length - 1) return; del = true; HERO.typeT = setTimeout(step, li === 0 ? 1800 : 1100); return; }
+        HERO.typeT = setTimeout(step, 45 + Math.random() * 55);
+      } else {
+        ci--; el.textContent = line.slice(0, ci);
+        if (ci <= 0) { del = false; li++; HERO.typeT = setTimeout(step, 260); return; }
+        HERO.typeT = setTimeout(step, 22);
+      }
+    };
+    el.textContent = ''; HERO.typeT = setTimeout(step, 500);
+  }
+  // the neck: 12 frets, six strings you can strum, and a pentatonic box that lights up note by note
+  const HN = { x0: 70, x1: 975, top: 34, gap: 32 };
+  const hnFx = (n) => HN.x0 + (HN.x1 - HN.x0) * (1 - Math.pow(2, -n / 12)) / (1 - Math.pow(2, -12 / 12));
+  const hnY = (s) => HN.top + (5 - s) * HN.gap;
+  const HERO_BOX = [[0, 5], [0, 8], [1, 5], [1, 7], [2, 5], [2, 7], [3, 5], [3, 7], [4, 5], [4, 8], [5, 5], [5, 8]];   // A minor pentatonic, 5th position
+  function heroNeck() {
+    const svg = $('heroNeck');
+    if (!svg) return;
+    let g = `<defs><linearGradient id="hnWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a271c"/><stop offset="1" stop-color="#22160f"/></linearGradient></defs>`;
+    g += `<rect x="${HN.x0}" y="${HN.top - 20}" width="${HN.x1 - HN.x0}" height="${5 * HN.gap + 40}" rx="6" fill="url(#hnWood)"/>`;
+    g += `<rect x="${HN.x0 - 7}" y="${HN.top - 20}" width="7" height="${5 * HN.gap + 40}" fill="#e6dfc8"/>`;
+    [3, 5, 7, 9].forEach((n) => { g += `<circle cx="${((hnFx(n - 1) + hnFx(n)) / 2).toFixed(1)}" cy="${HN.top + 2.5 * HN.gap}" r="7" fill="#cfc7ae" opacity="0.35"/>`; });
+    [1.5, 3.5].forEach((k) => { g += `<circle cx="${((hnFx(11) + hnFx(12)) / 2).toFixed(1)}" cy="${HN.top + k * HN.gap}" r="7" fill="#cfc7ae" opacity="0.35"/>`; });
+    for (let n = 1; n <= 12; n++) g += `<line x1="${hnFx(n).toFixed(1)}" x2="${hnFx(n).toFixed(1)}" y1="${HN.top - 20}" y2="${HN.top + 5 * HN.gap + 20}" stroke="#b9bec4" stroke-width="2"/>`;
+    const W = [3.4, 2.9, 2.4, 1.9, 1.5, 1.2], NM = ['E', 'A', 'D', 'G', 'B', 'E'];
+    for (let s = 0; s < 6; s++) {
+      g += `<text x="${HN.x0 - 26}" y="${hnY(s) + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--muted)">${NM[s]}</text>`;
+      g += `<path class="hstr" data-hs="${s}" d="M${HN.x0} ${hnY(s)} L${HN.x1} ${hnY(s)}" stroke="#d6d0be" stroke-width="${W[s]}" fill="none"/>`;
+    }
+    HERO_BOX.forEach(([s, f], i) => {
+      const x = (hnFx(f - 1) + hnFx(f)) / 2, y = hnY(s), root = (OPEN[s] + f) % 12 === 9;
+      g += `<g class="hdot${root ? ' root' : ''}" data-hd="${i}"><circle cx="${x.toFixed(1)}" cy="${y}" r="12" fill="var(--dot)" stroke="#22160f" stroke-width="2"/><text x="${x.toFixed(1)}" y="${y + 4.5}" text-anchor="middle" font-size="12" font-weight="800" fill="${root ? 'var(--root-fg)' : 'var(--dot-fg)'}">${SHARP_NAMES[(OPEN[s] + f) % 12]}</text></g>`;
+    });
+    svg.innerHTML = g;
+    HERO.strings = [0, 1, 2, 3, 4, 5].map((s) => ({ amp: 0, t: 0, el: svg.querySelector('[data-hs="' + s + '"]') }));
+  }
+  function heroPluck(s, vel) {
+    const st = HERO.strings[s];
+    if (!st) return;
+    st.amp = Math.min(9, 5 + vel * 6); st.t = performance.now();
+    if (st.el) { st.el.classList.add('hit'); clearTimeout(st.hitT); st.hitT = setTimeout(() => st.el && st.el.classList.remove('hit'), 380); }
+    try { const c = audio(); if (c && c.state === 'running') pluckAt(OPEN[s], c.currentTime + 0.005, 2.2, { vol: 0.22 }); } catch (e) {}
+    if (!HERO.raf) HERO.raf = requestAnimationFrame(heroVibrate);
+  }
+  function heroVibrate(now) {
+    HERO.raf = 0;
+    let alive = false;
+    HERO.strings.forEach((st, s) => {
+      if (!st.el) return;
+      const age = (now - st.t) / 1000;
+      const a = st.amp * Math.exp(-age * 3.2);
+      if (a < 0.15) { st.el.setAttribute('d', `M${HN.x0} ${hnY(s)} L${HN.x1} ${hnY(s)}`); return; }
+      alive = true;
+      const w = Math.sin(age * (52 - s * 4)) * a;   // lower strings wobble slower
+      const mx = (HN.x0 + HN.x1) / 2;
+      st.el.setAttribute('d', `M${HN.x0} ${hnY(s)} Q${mx} ${(hnY(s) + w * 2).toFixed(1)} ${HN.x1} ${hnY(s)}`);
+    });
+    if (alive) HERO.raf = requestAnimationFrame(heroVibrate);
+  }
+  function heroPointer(e) {
+    const svg = $('heroNeck');
+    if (!svg || !svg.getBoundingClientRect) return;
+    const r = svg.getBoundingClientRect();
+    const y = (e.clientY - r.top) / r.height * 230;
+    const prev = HERO.last;
+    HERO.last = y;
+    if (e.type === 'pointerdown') {
+      let s = Math.round(5 - (y - HN.top) / HN.gap); s = Math.max(0, Math.min(5, s));
+      try { audio(); } catch (err) {}
+      heroPluck(s, 0.8);
+      return;
+    }
+    if (prev === null) return;
+    for (let s = 0; s < 6; s++) { const sy2 = hnY(s); if ((prev - sy2) * (y - sy2) < 0) heroPluck(s, Math.min(1, Math.abs(y - prev) / 40)); }   // crossed a string: it sounds
+  }
+  function heroDots() {
+    clearInterval(HERO.dots);
+    const svg = $('heroNeck');
+    if (!svg) return;
+    if (calmMotion()) { qsa(svg, '.hdot').forEach((d) => d.classList.add('on')); return; }
+    let i = 0;
+    HERO.dots = setInterval(() => {
+      if (!HERO.on || document.hidden) return;
+      const n = HERO_BOX.length, k = i % (n * 2);
+      const idx = k < n ? k : 2 * n - 1 - k;   // up the box and back down
+      qsa(svg, '.hdot').forEach((d) => d.classList.toggle('on', +d.getAttribute('data-hd') <= idx || k >= n && +d.getAttribute('data-hd') <= idx));
+      i++;
+    }, 230);
+  }
+  function heroStats() {
+    const el = $('heroStats');
+    if (!el) return;
+    const scales = ENTRIES.filter((e) => ['Scales', 'Modes', 'Dominant scales'].includes(e.group)).length;
+    const items = [[scales, 'scales and modes'], [ARP_ENTRIES.length, 'chord types'], [COMMON_PROGS.length, 'famous progressions'], [IM_LESSONS.length, 'improvisation lessons']];
+    el.innerHTML = items.map(([n, l]) => `<b data-count="${n}">${calmMotion() ? n : 0}</b> ${l}`).join(' · ');
+    if (calmMotion()) return;
+    const t0 = performance.now();
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / 1100), e2 = 1 - Math.pow(1 - k, 3);
+      qsa(el, '[data-count]').forEach((b) => { b.textContent = Math.round(+b.getAttribute('data-count') * e2); });
+      if (k < 1 && HERO.on) requestAnimationFrame(tick);
+    };
+    setTimeout(() => requestAnimationFrame(tick), 900);
+  }
+  function showHero(on) {
+    const el = $('hero');
+    if (!el) return;
+    HERO.on = !!on;
+    clearTimeout(HERO.typeT); clearInterval(HERO.dots);
+    if (root && root.classList) root.classList.toggle('heroon', HERO.on);
+    el.hidden = !HERO.on;
+    el.classList.remove('leaving');
+    if (HERO.on) {
+      heroNeck(); heroType(); heroDots(); heroStats();
+      try { window.scrollTo(0, 0); } catch (e) {}
+      try { if (location.hash !== '#home') history.replaceState(null, '', location.href.split('#')[0] + '#home'); } catch (e) {}
+    }
+    try { syncDock(); } catch (e) {}
+  }
+  function leaveHero(then) {
+    const el = $('hero');
+    try { localStorage.setItem('fretboard-hero-seen', '1'); } catch (e) {}
+    const done = () => { showHero(false); then(); };
+    if (!el || calmMotion()) { done(); return; }
+    el.classList.add('leaving');
+    setTimeout(done, 330);
+  }
+  function heroClick(t) {
+    if (t.closest('#homeLink')) { showHero(true); return true; }
+    const b = t.closest('[data-hero]');
+    if (!b) return false;
+    const v = b.getAttribute('data-hero');
+    leaveHero(() => {
+      if (v === 'tour') { setTab('fretboard'); startTour('welcome'); return; }
+      setTab(v);
+      try { window.scrollTo(0, 0); } catch (e) {}
+      // a first visit still gets the Guide (once), now that the welcome page is closed
+      if (GUIDE.firstVisit && !GUIDE.heroGuide) { GUIDE.heroGuide = true; setTimeout(() => { const gp = $('guidePanel'); if (gp && gp.hidden && !TOUR.name) { GUIDE.intro = true; openGuide(true); } }, 500); }
+    });
+    return true;
+  }
+  ['pointerdown', 'pointermove'].forEach((ev) => document.addEventListener(ev, (e) => { if (HERO.on && e.target && e.target.closest && e.target.closest('#heroNeck')) heroPointer(e); }));
+  document.addEventListener('pointerleave', () => { HERO.last = null; });
+  /* ==================== Share and export: a link that carries the idea, MIDI for a DAW, a chord chart and tab ==================== */
+  const b64u = (s) => { const b = unescape(encodeURIComponent(s)); return btoa(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const unb64u = (s) => decodeURIComponent(escape(atob(String(s).replace(/-/g, '+').replace(/_/g, '/'))));
+  function ideaPack() {
+    const used = new Set([P.style].concat(P.slots.map((s) => s.style)));
+    const o = { v: 1, p: { b: P.bpm, st: P.style, c: (P.customs || []).filter((r) => used.has(r.id)), s: P.slots.map((s) => [s.name, s.beats, s.frets, Number.isInteger(s.bass) ? s.bass : -1, s.style || '', s.tones.map((t) => [t.name, t.pc, t.label])]) } };
+    if (IM.notes.length) o.im = { k: IM.key, sc: IM.scale, bk: IM.backing, bpm: IM.bpm, g: IM.grid, sty: IM.style, r: IM.reps, nm: IM.name || '', n: IM.notes.map((n) => [n.step, n.len, n.midi, Math.round((n.v || 0.8) * 100)]) };
+    return b64u(JSON.stringify(o));
+  }
+  function ideaUnpack(s) {
+    try {
+      const o = JSON.parse(unb64u(s));
+      if (!o || o.v !== 1 || !o.p) return null;
+      const prog = cleanProg({ bpm: o.p.b, style: o.p.st, customs: o.p.c || [], slots: (o.p.s || []).map((a) => ({ name: a[0], beats: a[1], frets: a[2], bass: a[3] >= 0 ? a[3] : undefined, style: a[4], tones: (a[5] || []).map((t) => ({ name: t[0], pc: t[1], label: t[2] })) })) });
+      let im = null;
+      if (o.im && Array.isArray(o.im.n)) {
+        im = { key: ((o.im.k | 0) % 12 + 12) % 12, scale: IM_SCALES.some((x) => x[0] === o.im.sc) ? o.im.sc : 'Minor pentatonic', backing: typeof o.im.bk === 'string' ? o.im.bk : 'mine', bpm: Math.max(40, Math.min(220, o.im.bpm | 0 || 92)), grid: o.im.g === 4 ? 4 : 2, style: ['strum', 'hold', 'mine', 'off'].includes(o.im.sty) ? o.im.sty : 'strum', reps: [1, 2, 3, 4].includes(o.im.r) ? o.im.r : 1, name: String(o.im.nm || '').slice(0, 40),
+          notes: o.im.n.slice(0, 2000).filter((n) => Array.isArray(n) && n.every((x) => Number.isInteger(x))).map((n) => ({ step: Math.max(0, n[0]), len: Math.max(1, Math.min(64, n[1])), midi: Math.max(24, Math.min(100, n[2])), v: Math.max(0.1, Math.min(1, n[3] / 100)) })) };
+      }
+      return { prog, im };
+    } catch (e) { return null; }
+  }
+  function ideaLink() {
+    let base = '';
+    try { base = location.href.split('#')[0].split('?')[0]; } catch (e) {}
+    return base + '?idea=' + ideaPack() + '#' + (TAB === 'improv' ? 'studio' : 'progression');
+  }
+  function chordChart() {
+    if (!P.slots.length) return '';
+    const key = AN && AN.key ? (S.flats ? FLAT_NAMES : SHARP_NAMES)[AN.key.tonic] + ' ' + AN.key.mode : '';
+    const lines = [`${P.slots.map((s) => s.name).join(' – ')}`, `${P.bpm} BPM${key ? ' · key of ' + key : ''} · strumming: ${rhythmOf(P.style).name}`, ''];
+    P.slots.forEach((s, i) => {
+      const sh = s.frets ? shapeOf(s) : null;
+      const rn = AN && AN.chords && AN.chords[i] ? AN.chords[i].label : '';
+      lines.push(`${String(i + 1).padStart(2)}. ${s.name.padEnd(9)} ${String(rn).padEnd(8)} ${s.beats} beat${s.beats === 1 ? ' ' : 's'}   ${sh ? 'tab ' + tabText(sh) : ''}`);
+    });
+    lines.push('', 'Made with Fretboard Theory Library');
+    return lines.join('\n');
+  }
+  async function copyText(txt, okMsg) {
+    try { await navigator.clipboard.writeText(txt); flash(okMsg); return true; } catch (e) {}
+    const out = $('spOut');
+    if (out) { out.hidden = false; out.value = txt; out.focus(); out.select(); }
+    say('Copying is blocked here: the text is selected below, press Ctrl+C (⌘C on a Mac) to copy it.');
+    return false;
+  }
+  function renderShare() {
+    const p = $('sharePanel');
+    if (!p) return;
+    const n = P.slots.length, nn = IM.notes.length;
+    const inClaude = inClaudeView();
+    const canShare = !!(navigator.share) && !inClaude;
+    p.innerHTML = `<div class="gp-head"><b>Share and export</b><button type="button" class="ib" id="shareClose" aria-label="Close">${ICON.x}</button></div>`
+      + `<p class="sp-sum">${n ? `<b>Your progression:</b> ${esc(P.slots.slice(0, 10).map((s) => s.name).join(' '))}${n > 10 ? ' …' : ''} · ${P.bpm} BPM` : 'No progression yet.'}${nn ? `<br><b>Your Studio solo:</b> ${nn} notes over ${esc(IM.backing === 'mine' ? 'your progression' : (COMMON_PROGS.find((d) => d.id === IM.backing) || { name: 'a backing' }).name)}` : ''}</p>`
+      + `<div class="sp-sec"><h4>Share the idea</h4><div class="sp-btns"><button type="button" class="tapbtn strong" data-sp="link"${n || nn ? '' : ' disabled'}>Copy a link to it</button>${canShare ? `<button type="button" class="tapbtn" data-sp="native"${n || nn ? '' : ' disabled'}>Share…</button>` : ''}</div>`
+      + `<p class="sp-note">${inClaude ? 'Links that carry an idea work on your own hosted site. In this preview, export the MIDI or copy the chord chart instead.' : 'Whoever opens the link sees your chords, tempo, strumming and Studio solo, and can open them in their own copy of the site.'}</p></div>`
+      + `<div class="sp-sec"><h4>Take it to your DAW</h4><div class="sp-btns"><button type="button" class="tapbtn" data-sp="midiprog"${n ? '' : ' disabled'}>MIDI: progression</button><button type="button" class="tapbtn" data-sp="midiim"${nn || n ? '' : ' disabled'}>MIDI: Studio solo</button></div><p class="sp-note">Chords, bass${nn ? ', solo' : ''}, tempo, key and chord names as markers. Choose more options with the <b>MIDI for your DAW</b> buttons on the Progression and Studio tabs.</p></div>`
+      + `<div class="sp-sec"><h4>Copy as text</h4><div class="sp-btns"><button type="button" class="tapbtn" data-sp="chart"${n ? '' : ' disabled'}>Chord chart</button><button type="button" class="tapbtn" data-sp="tab"${nn ? '' : ' disabled'}>Solo as tab</button></div><p class="sp-note">For a message, a lyric sheet or a lesson: chord names, numbers, beats and shapes, or your solo as guitar tab.</p><textarea class="sp-out" id="spOut" hidden readonly aria-label="Text to copy"></textarea></div>`;
+  }
+  function openShare(open) {
+    const p = $('sharePanel');
+    if (!p) return;
+    p.hidden = !open;
+    $('shareBtn').setAttribute('aria-expanded', String(!!open));
+    if (open) { closeInfo(); openGuide(false); renderShare(); }
+  }
+  function shareClick(t) {
+    if (t.closest('#shareBtn')) { openShare($('sharePanel').hidden); return true; }
+    if (t.closest('#shareClose')) { openShare(false); return true; }
+    const sp = t.closest('[data-sp]');
+    if (sp) {
+      const a = sp.getAttribute('data-sp');
+      if (a === 'link') { const url = ideaLink(); copyText(url, 'Link copied'); if (url.length > 7000) say('That link is very long (a big progression or solo); some apps may cut it. The MIDI file always works.'); }
+      if (a === 'native') { try { navigator.share({ title: 'My idea · Fretboard Theory Library', text: P.slots.map((s) => s.name).join(' ') + ' · ' + P.bpm + ' BPM', url: ideaLink() }).catch(() => {}); } catch (e) {} }
+      if (a === 'midiprog' || a === 'midiim') {
+        const s = a === 'midiim' ? studioSong() : progSong();
+        if (!s) { say(a === 'midiim' ? 'The Studio has nothing to export yet.' : 'Add some chords first.'); return true; }
+        saveMidi(s.file, midiFile(s.song), (m) => say(m));
+      }
+      if (a === 'chart') copyText(chordChart(), 'Chord chart copied');
+      if (a === 'tab') copyText((IM.name ? IM.name + '\n' : '') + imTab(), 'Tab copied');
+      return true;
+    }
+    if (!$('sharePanel').hidden && !t.closest('#sharePanel')) openShare(false);
+    return false;
+  }
+  // an idea that arrives by link: show what it is, and open it only when asked
+  let IDEA = null;
+  function renderIdeaBar() {
+    const bar = $('ideaBar');
+    if (!bar) return;
+    bar.hidden = !IDEA;
+    if (!IDEA) { bar.innerHTML = ''; return; }
+    const pr = IDEA.prog, n = pr.slots.length, nn = IDEA.im ? IDEA.im.notes.length : 0;
+    bar.innerHTML = `<p><b>Someone shared an idea with you:</b> ${n ? esc(pr.slots.slice(0, 10).map((s) => s.name).join(' ')) + (n > 10 ? ' …' : '') + ' at ' + pr.bpm + ' BPM' : ''}${nn ? (n ? ', and ' : '') + 'a solo of ' + nn + ' notes' : ''}.${P.slots.length ? ' Opening it replaces your current progression (save yours first if you want to keep it).' : ''}</p>`
+      + `<button type="button" class="tapbtn strong" data-idea="open">Open it</button><button type="button" class="tapbtn" data-idea="no">No thanks</button>`;
+  }
+  function ideaClick(t) {
+    const b = t.closest('[data-idea]');
+    if (!b) return false;
+    if (b.getAttribute('data-idea') === 'open' && IDEA) {
+      const pr = IDEA.prog;
+      if (pr.slots.length) {
+        P.slots = pr.slots; P.bpm = pr.bpm; P.style = pr.style;
+        (pr.customs || []).forEach((c) => { if (!P.customs.some((x) => x.id === c.id)) P.customs.push(c); });
+        try { syncCustoms(); } catch (e) {}
+        saveProg(); renderProg();
+      }
+      if (IDEA.im) { imApply(Object.assign({}, IDEA.im)); }
+      say('Opened the shared idea.');
+      setTab(IDEA.im && IDEA.im.notes.length && !pr.slots.length ? 'improv' : (location.hash || '').indexOf('studio') >= 0 ? 'improv' : 'progression');
+    }
+    IDEA = null;
+    try { history.replaceState(null, '', location.href.replace(/\?idea=[^#]*/, '')); } catch (e) {}
+    renderIdeaBar();
+    return true;
+  }
+  /* ---------- Change a chord's type (triad, 7th, 9th, sus, 6…) without changing its root or bass ---------- */
+  const SLOT_TYPES = [
+    ['Triads', ['', 'm', '°', '+', 'sus2', 'sus4']],
+    ['7ths and 6ths', ['maj7', '7', 'm7', 'm7♭5', '°7', 'm(maj7)', '6', 'm6', '7sus4']],
+    ['9ths and altered', ['maj9', '9', 'm9', '7♭9', '7♯9']],
+  ];
+  const slotRootName = (sl) => sl.tones[0].name;
+  function slotTypeHtml(sl, i) {
+    if (!sl.tones || !sl.tones.length) return '';
+    const root = sl.tones[0].pc;
+    const cur = chordSym(root, sl.tones.map((t) => t.pc));
+    const rn = slotRootName(sl);
+    const opts = SLOT_TYPES.map(([g, list]) => `<optgroup label="${g}">${list.map((s) => `<option value="${esc(s)}"${cur === s ? ' selected' : ''}>${esc(rn + s)}</option>`).join('')}</optgroup>`).join('');
+    return `<label class="slot-type"><span class="sr">Chord type for ${esc(sl.name)}</span><select data-slottype="${i}" title="Change the chord type: triad, 7th, 9th…">${cur === null ? `<option value="" selected disabled>${esc(sl.name)}</option>` : ''}${opts}</select></label>`;
+  }
+  // rebuild the chord with another type, keeping its root, its spelling, its bass note and a shape near the old one
+  function slotRetype(sl, sym) {
+    const qi = ARP_ENTRIES.findIndex((e) => e.sym === sym);
+    if (qi < 0 || !sl.tones || !sl.tones.length) return false;
+    const root = sl.tones[0].pc, rn = sl.tones[0].name;
+    const forced = rn.indexOf('♭') >= 0 ? true : rn.indexOf('♯') >= 0 ? false : undefined;
+    let ch = pickerChord(qi, root, S.flats, forced);
+    if (Number.isInteger(sl.bass) && sl.bass !== root) ch = withBass(ch, sl.bass, ch.flats);
+    const old = sl.frets ? shapeOf(sl) : null;
+    const forms = chordShapes(ch.tones, 4, ch.bass).list;
+    let fr = null;
+    if (forms.length) {
+      const target = old ? old.min : forms[0].min;
+      fr = forms.reduce((a, f) => (Math.abs(f.min - target) < Math.abs(a.min - target) ? f : a), forms[0]).frets.slice();
+    }
+    sl.name = ch.name;
+    sl.tones = ch.tones.map((t) => ({ name: t.name, pc: t.pc, label: t.label, semis: t.semis || 0 }));
+    sl.frets = fr;
+    return true;
+  }
+  // every chord at once: triads, 7ths or 9ths, the way the key would build them (I → Imaj7 → Imaj9, V → V7 → V9…)
+  function progLevel(level) {
+    if (!P.slots.length) return;
+    const key = AN && AN.key ? { tonic: AN.key.tonic, mode: AN.key.mode } : null;
+    let n = 0;
+    P.slots.forEach((sl) => {
+      const root = sl.tones[0].pc;
+      const sym = chordAtLevel(root, sl.tones.map((t) => t.pc), level, key);
+      if (sym !== undefined && sym !== null && chordSym(root, sl.tones.map((t) => t.pc)) !== sym && slotRetype(sl, sym)) n++;
+    });
+    saveProg();
+    renderProg();
+    const nm = { triad: 'triads', '7th': '7th chords', '9th': '9th chords' }[level];
+    say(n ? `Changed ${n} chord${n === 1 ? '' : 's'} to ${nm}${key ? ', built from the notes of ' + (S.flats ? FLAT_NAMES : SHARP_NAMES)[key.tonic] + ' ' + key.mode : ''}: ${P.slots.map((s) => s.name).join(' ')}.` : `Already ${nm}.`);
+  }
   function slotHtml(sl, i) {
     const sh = shapeOf(sl);
     const forms = chordShapes(sl.tones, 4, sl.bass).list;
@@ -1511,6 +2004,7 @@
       + `<div class="slot-row">${ib('fprev', ICON.prev, 'Previous shape for ' + sl.name, forms.length < 2)}<span class="slot-lbl" title="Shape">${esc(formTxt)}</span>${ib('fnext', ICON.next, 'Next shape for ' + sl.name, forms.length < 2)}</div>`
       + `<div class="slot-row">${ib('bminus', ICON.minus, 'Fewer beats for ' + sl.name, sl.beats <= 1)}<span class="slot-lbl">${sl.beats} ${sl.beats === 1 ? 'beat' : 'beats'}</span>${ib('bplus', ICON.plus, 'More beats for ' + sl.name, sl.beats >= 8)}</div>`
       + `<div class="slot-row">${ib('left', ICON.earlier, 'Move ' + sl.name + ' earlier', i === 0)}${ib('dup', ICON.copy, 'Duplicate ' + sl.name)}${ib('right', ICON.later, 'Move ' + sl.name + ' later', last)}</div>`
+      + slotTypeHtml(sl, i)
       + `<label class="slot-style"><span class="sr">Pattern for ${esc(sl.name)}</span><select data-slotstyle="${i}">`
       + `<option value=""${sl.style ? '' : ' selected'}>Pattern: same as all</option>`
       + allRhythms().map((r) => `<option value="${r.id}"${sl.style === r.id ? ' selected' : ''}>${esc(r.name)}</option>`).join('')
@@ -1584,6 +2078,7 @@
 
   function renderProg() {
     const n = P.slots.length;
+    try { if (IM.backing === 'mine' && !IMP.on) renderImprov(); } catch (e) {}
     try { AN = n ? analyzeProg(P.slots, { hk: S.hk, hm: S.hm }) : null; } catch (e) { AN = null; }
     $('progSlots').innerHTML = n
       ? P.slots.map(slotHtml).join('')
@@ -1603,9 +2098,18 @@
     $('loop').checked = P.loop;
     $('click').checked = P.click;
     $('progClear').disabled = !n;
+    qsa(document, '[data-proglevel]').forEach((b) => { b.disabled = !n; });
     $('progClear').textContent = clearArmed ? 'Click again to clear' : 'Clear all';
     // one-line summaries on the folded section headings
     $('secChordsSum').textContent = n ? n + (n === 1 ? ' chord' : ' chords') + ' · ' + P.slots.map((s) => s.name).slice(0, 8).join(' ') + (n > 8 ? ' …' : '') : 'empty';
+    try {
+      const ps = $('playStyle');
+      if (ps) {
+        const groups = [];
+        allRhythms().forEach((r) => { const g = CUSTOM_RHYTHMS.includes(r) ? 'Your patterns' : r.group || 'Patterns'; let x = groups.find((y) => y[0] === g); if (!x) groups.push(x = [g, []]); x[1].push(r); });
+        ps.innerHTML = groups.map(([g, list]) => `<optgroup label="${esc(g)}">${list.map((r) => `<option value="${esc(r.id)}"${r.id === P.style ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</optgroup>`).join('');
+      }
+    } catch (e) {}
     $('secPlaySum').textContent = P.bpm + ' BPM · ' + SPEED_LABEL[P.speed] + (P.loop ? ' · loop' : '') + (P.click ? ' · click' : '');
     $('secRhythmSum').textContent = rhythmOf(P.style).name;
     if (typeof LIB !== 'undefined' && LIB.mode !== 'loading') renderLib();
@@ -1781,6 +2285,7 @@
   async function gtrStart() {
     if (!(window.AudioContext || window.webkitAudioContext) || GTR.on) return;
     if (REC.on) stopRec();
+    if (IREC.on) irStop(false);
     if (PL.on) stopProg();
     if (LS.live) lsStop();
     if (SL.live) slStop();
@@ -2160,8 +2665,8 @@
       e.preventDefault();
       return;
     }
-    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); }
-    if (!ED.open || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); const sp = $('sharePanel'); if (sp && !sp.hidden) openShare(false); }
+    if (!ED.open || e.ctrlKey || e.metaKey || e.altKey || (LAYOUT === "tabs" && TAB !== "progression")) return;
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     let kind = null;
@@ -2604,6 +3109,7 @@
     if (GTR.on) gtrStop(false);
     if (SL.live) slStop();
     if (TU.live) tuStop();
+    if (IREC.on) irStop(false);
     lsSay('Asking to use the microphone…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
@@ -2826,6 +3332,7 @@
     if (LS.live) lsStop();
     if (GTR.on) gtrStop(false);
     if (TU.live) tuStop();
+    if (IREC.on) irStop(false);
     slSay('Asking to use the microphone…');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
@@ -3219,6 +3726,7 @@
     if (LS.live) lsStop();
     if (SL.live) slStop();
     if (GTR.on) gtrStop(false);
+    if (IREC.on) irStop(false);
     if (PL.on) stopProg();
     tuSay('Asking to use the microphone…');
     try {
@@ -3279,7 +3787,17 @@
     const jump = !TU.read || TU.read.string !== r.string || Math.abs(r.toTarget - (TU.cents || 0)) > 40;
     TU.cents = jump ? r.toTarget : 0.6 * TU.cents + 0.4 * r.toTarget;
     TU.read = Object.assign(r, { f: med });
-    if (Math.abs(TU.cents) <= 3) { TU.good++; if (TU.good === 8) { TU.done[r.string] = true; renderTunerStrings(); tuChime(); } } else TU.good = 0;
+    if (Math.abs(TU.cents) <= 3) {
+      TU.good++;
+      if (TU.good === 8) {
+        TU.done[r.string] = true; renderTunerStrings();
+        const allDone = tuTuning().notes.every((_, i) => TU.done[i]);
+        tuChime(allDone);
+        // a burst of light on the string that is now in tune
+        try { const b = document.querySelector('[data-tus="' + r.string + '"]'); if (b && b.getBoundingClientRect) { const q = b.getBoundingClientRect(); fxBurst(q.left + q.width / 2, q.top + q.height / 2, { n: allDone ? 26 : 12 }); b.classList.remove('tujust'); void b.offsetWidth; b.classList.add('tujust'); } } catch (e) {}
+        if (allDone) { tuSay('All six strings are in tune. Time to play!'); flash('Guitar in tune'); }
+      }
+    } else TU.good = 0;
     tuPaint();
   }
   // the gauge: -50 to +50 cents, green in the middle
@@ -3343,22 +3861,31 @@
     tuPaint();
   }
   // a short bright 'ding' when a string reaches the note (high bell tones, far above any guitar string, so the tuner does not hear them)
-  function tuChime() {
+  // a bright two-note bell, like the "correct answer" sound of a quiz: a ding, then a higher ding
+  function tuBell(c, out, f, t0, vol, len) {
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.006);
+    g.gain.exponentialRampToValueAtTime(vol * 0.35, t0 + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+    g.connect(out);
+    // a bell: the note, its octave, a twelfth and a slightly sharp upper partial for the shimmer
+    [[1, 1], [2, 0.32], [3, 0.12], [4.17, 0.07]].forEach(([m, a]) => {
+      const o = c.createOscillator(), og = c.createGain();
+      o.type = 'sine'; o.frequency.value = f * m;
+      og.gain.value = a;
+      o.connect(og); og.connect(g);
+      o.start(t0); o.stop(t0 + len + 0.05);
+    });
+  }
+  function tuChime(all) {
     if (!TU.ding) return;
     const c = audio();
     if (!c) return;
-    selfSoundUntil = Math.max(selfSoundUntil, Date.now() + 600);
+    const notes = all ? [[1318.5, 0], [1568, 0.11], [2093, 0.22], [2637, 0.36]] : [[1318.5, 0], [1760, 0.13]];   // E6 → A6; all six strings: E6 G6 C7 E7
+    selfSoundUntil = Math.max(selfSoundUntil, Date.now() + (all ? 1400 : 900));   // the tuner does not tune to its own ding
     const out = busNode(c);
-    [[1568, 0], [2349.3, 0.09]].forEach(([f, d]) => {
-      const t0 = c.currentTime + 0.01 + d;
-      const o = c.createOscillator(), g = c.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
-      o.connect(g); g.connect(out);
-      o.start(t0); o.stop(t0 + 0.5);
-    });
+    notes.forEach(([f, d], k) => tuBell(c, out, f, c.currentTime + 0.01 + d, all && k === notes.length - 1 ? 0.2 : 0.16, all && k === notes.length - 1 ? 1.3 : 0.75));
   }
   function tuClick(t) {
     if (t.closest('#tuLive')) { if (TU.live) tuStop('Stopped.'); else tuStart(); return true; }
@@ -3376,6 +3903,1473 @@
     }
     if (t.closest('#tuReset')) { TU.done = {}; renderTunerStrings(); return true; }
     return false;
+  }
+
+  /* ==================== Studio: Studio (a small melody DAW), lessons and example solos ==================== */
+  // Backings: your progression, or a familiar one in any key. Notes: a list of {step, len, midi} on an 8th or 16th grid.
+  const IM_SCALES = [['Minor pentatonic', 'Scales'], ['Blues', 'Scales'], ['Major pentatonic', 'Scales'], ['Major (Ionian)', 'Scales'], ['Natural minor (Aeolian)', 'Scales'], ['Dorian', 'Modes'], ['Mixolydian', 'Modes'], ['Harmonic minor', 'Scales'], ['Melodic minor', 'Scales'], ['Phrygian dominant', 'Dominant scales'], ['Bebop dominant', 'Dominant scales']];
+  const imScaleEntry = (name) => { const p = IM_SCALES.find((x) => x[0] === name) || IM_SCALES[0]; return byName(p[1], p[0]) || ENTRIES[0]; };
+  const IM = { reps: 1, key: 9, scale: 'Minor pentatonic', backing: 'blues', seventh: true, style: 'strum', grid: 2, len: 2, tool: 'draw', snap: true, chromatic: false, notes: [], bpm: 92, loop: true, limit: null, lesson: null, name: '', undo: [], sel: -1, labels: 'note', map: {}, myBlock: [], mapBlock: 'all', mapDir: 'up', mapAll: false, mapLabels: 'note' };
+  const IMP = { on: false, out: null, timer: 0, raf: 0, start: 0, next: 0, loopDur: 0, lastNote: -1 };
+  const IREC = { on: false, mc: null, stream: null, src: null, proc: null, sink: null, data: null, n: 0, sr: 48000, frames: [], hopAt: 0, timer: 0, raf: 0, mcAt: null, songMc: 0, from: 0, endStep: 0, take: [], out: null, count: 1, hear: 'click', replace: true, noise: null };
+  try { const sv = JSON.parse(localStorage.getItem('fretboard-irec') || 'null'); if (sv) { IREC.count = [0, 1, 2].includes(sv.count) ? sv.count : 1; IREC.hear = ['click', 'backing', 'none'].includes(sv.hear) ? sv.hear : 'click'; IREC.replace = sv.replace !== false; } } catch (e) {}
+  try {
+    const sv = JSON.parse(localStorage.getItem('fretboard-improv') || 'null');
+    if (sv && Array.isArray(sv.notes)) Object.assign(IM, { key: sv.key | 0, scale: sv.scale || IM.scale, backing: sv.backing || IM.backing, seventh: sv.seventh !== false, style: sv.style || 'strum', grid: sv.grid === 4 ? 4 : 2, bpm: sv.bpm || 92, notes: sv.notes.filter((n) => Number.isInteger(n.step) && Number.isInteger(n.len) && Number.isInteger(n.midi)), name: sv.name || '', reps: sv.reps || 1, map: sv.map && typeof sv.map === 'object' ? sv.map : {} });
+  } catch (e) {}
+  const IM_FRESH = (() => { try { return !localStorage.getItem('fretboard-improv'); } catch (e) { return false; } })();
+  const imSave = () => { try { localStorage.setItem('fretboard-improv', JSON.stringify({ key: IM.key, scale: IM.scale, backing: IM.backing, seventh: IM.seventh, style: IM.style, grid: IM.grid, bpm: IM.bpm, notes: IM.notes, name: IM.name, reps: IM.reps, map: IM.map || {} })); } catch (e) {} };
+  // note names spelled for the Studio's key (A major: C♯, not D♭; F major: B♭, not A♯)
+  const IM_MINORISH = ['Minor pentatonic', 'Blues', 'Natural minor (Aeolian)', 'Dorian', 'Harmonic minor', 'Melodic minor', 'Phrygian'];
+  const imNames = () => {
+    const minor = IM.backing !== 'blues' && IM_MINORISH.includes(IM.scale);
+    const flat = minor ? [0, 2, 3, 5, 7, 10].includes(IM.key) : [1, 3, 5, 6, 8, 10].includes(IM.key);
+    return flat ? FLAT_NAMES : SHARP_NAMES;
+  };
+  const IM_KEYNAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+  const imNoteName = (m) => imNames()[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+
+  // the 12-bar blues needs 7th chords; the other backings come from the common progressions, in the key you pick
+  function imChords() {
+    const times = (list) => { let out = []; for (let k = 0; k < Math.max(1, IM.reps || 1); k++) out = out.concat(list); return out; };
+    if (IM.backing === 'mine') {
+      return times(P.slots.map((s) => ({ name: s.name, tones: s.tones, beats: s.beats || 4, frets: s.frets, bass: s.bass, style: s.style || P.style })));
+    }
+    const d = COMMON_PROGS.find((x) => x.id === IM.backing) || COMMON_PROGS.find((x) => x.id === 'blues');
+    const list = progChords(d, imNames()[IM.key], IM.seventh || d.id === 'blues');
+    const out = list.map((c) => { let sh = null; try { sh = chordShapes(c.tones, 4).best; } catch (e) {} return { name: c.name, roman: c.roman, tones: c.tones, beats: 4, frets: sh ? sh.frets.slice() : null }; });
+    return times(out);
+  }
+  function imBars() {
+    const ch = imChords();
+    let at = 0;
+    return ch.map((c) => { const b = Object.assign({}, c, { start: at * IM.grid, steps: c.beats * IM.grid }); at += c.beats; return b; });
+  }
+  const imTotal = (bars) => bars.reduce((s, b) => s + b.steps, 0);
+  const imChordAt = (bars, step) => bars.find((b) => step >= b.start && step < b.start + b.steps) || bars[bars.length - 1];
+  function imScalePcs() {
+    const e = imScaleEntry(IM.scale);
+    return buildPattern(e, IM.key, S.flats).notes;
+  }
+  // the rows of the piano roll: every note of the scale over two octaves (plus any other note already used), high at the top
+  function imRows() {
+    const sp = imScalePcs();
+    const pcs = new Set(sp.map((n) => n.pc));
+    imBarScales().forEach((x) => x && x.forEach((pc) => pcs.add(pc)));
+    const used = new Set(IM.notes.map((n) => n.midi));
+    (IREC.take || []).forEach((n) => used.add(n.midi));
+    let lo = 52, hi = 79;
+    IM.notes.forEach((n) => { lo = Math.min(lo, n.midi); hi = Math.max(hi, n.midi); });
+    const rows = [];
+    for (let m = hi; m >= lo; m--) {
+      const pc = m % 12;
+      const inScale = pcs.has(pc);
+      if (IM.limit && !IM.limit.includes(pc) && !used.has(m)) continue;
+      if (inScale || IM.chromatic || used.has(m)) {
+        const n = sp.find((x) => x.pc === pc);
+        rows.push({ midi: m, pc, inScale, label: n ? fmtLabel(n.label) : '' });
+      }
+    }
+    return rows;
+  }
+  // the scale picked on the scale map for each bar (null where nothing was picked)
+  function imBarScales(bars) {
+    bars = bars || imBars();
+    return bars.map((b, i) => { const c = IM.map && IM.map[i] && IM.map[i].n === b.name ? IM.map[i] : null; return c ? scalePcsOf(c.s, c.r) : null; });
+  }
+  /* ----- the roll, DAW style: pencil and pointer tools, drag to draw, move, resize, select, velocity lane ----- */
+  const IM_CW = { 2: 26, 4: 18 }, IM_RH = 18, IM_LW = 64, IM_TOP = 24, IM_VEL = 46;
+  let imUid = 1;
+  const imId = (n) => { if (!n.id) n.id = imUid++; else imUid = Math.max(imUid, n.id + 1); return n.id; };
+  const imCw = () => IM_CW[IM.grid] * (IM.zoom || 1);
+  function renderImRoll() {
+    const box = $('imRoll');
+    if (!box) return;
+    const bars = imBars();
+    if (!bars.length) { box.innerHTML = '<p class="hint">Add chords to your progression first, or pick a backing above.</p>'; return; }
+    IM.notes.forEach(imId);
+    const rows = imRows();
+    const total = imTotal(bars);
+    const cw = imCw(), W = IM_LW + total * cw, RH = IM_TOP + rows.length * IM_RH, H = RH + IM_VEL + 6;
+    let g = '';
+    // ruler with the chords: tap it to set where Play starts
+    bars.forEach((b, i) => {
+      const x = IM_LW + b.start * cw;
+      g += `<rect class="imbar${i % 2 ? ' alt' : ''}" x="${x}" y="0" width="${b.steps * cw}" height="${RH}"/>`;
+      g += `<text class="imch" x="${x + 6}" y="16">${esc(b.name)}</text>`;
+    });
+    g += `<rect class="imruler" x="${IM_LW}" y="0" width="${total * cw}" height="${IM_TOP}"/>`;
+    rows.forEach((r, ri) => {
+      const y = IM_TOP + ri * IM_RH;
+      g += `<rect class="imrow${r.inScale ? '' : ' out'}${r.pc === IM.key ? ' tonic' : ''}" x="${IM_LW}" y="${y}" width="${total * cw}" height="${IM_RH}"/>`;
+      bars.forEach((b) => {
+        const k = b.tones.findIndex((t) => t.pc === r.pc);
+        if (k >= 0) g += `<rect class="imtone${k === 0 ? ' root' : ''}" x="${IM_LW + b.start * cw}" y="${y + 1}" width="${b.steps * cw}" height="${IM_RH - 2}"/>`;
+      });
+      g += `<rect class="imkey" data-imkey="${r.midi}" x="0" y="${y}" width="${IM_LW}" height="${IM_RH}"/><text class="imlab${r.inScale ? '' : ' out'}" x="6" y="${y + 13}">${esc(imNoteName(r.midi))}</text><text class="imdeg" x="${IM_LW - 6}" y="${y + 13}" text-anchor="end">${esc(r.label)}</text>`;
+    });
+    // bars with their own scale (from the scale map): dim the rows that are not in it
+    const bsc = imBarScales(bars);
+    bars.forEach((b, i) => { if (!bsc[i]) return; rows.forEach((r, ri) => { if (!bsc[i].includes(r.pc)) g += `<rect class="imoff" x="${IM_LW + b.start * cw}" y="${IM_TOP + ri * IM_RH}" width="${b.steps * cw}" height="${IM_RH}"/>`; }); });
+    for (let s = 0; s <= total; s++) {
+      const x = IM_LW + s * cw;
+      const bar = bars.some((b) => b.start === s) || s === total;
+      g += `<line class="imgl${bar ? ' bar' : s % IM.grid === 0 ? ' beat' : ''}" x1="${x}" y1="${bar ? 0 : IM_TOP}" x2="${x}" y2="${RH}"/>`;
+    }
+    // velocity lane
+    g += `<rect class="imvlane" x="${IM_LW}" y="${RH + 4}" width="${total * cw}" height="${IM_VEL}"/><text class="imdeg" x="${IM_LW - 6}" y="${RH + 28}" text-anchor="end">Velocity</text>`;
+    const rowOf = new Map(rows.map((r, i) => [r.midi, i]));
+    const sel = IM.selIds || new Set();
+    IM.notes.forEach((n, i) => {
+      const ri = rowOf.get(n.midi);
+      if (ri === undefined) return;
+      const b = imChordAt(bars, n.step);
+      const tone = b && b.tones.some((t) => t.pc === n.midi % 12);
+      const v = n.v || 0.8;
+      const x = IM_LW + n.step * cw, w = Math.max(6, n.len * cw - 2);
+      g += `<g class="imnote${tone ? ' tone' : ''}${sel.has(n.id) ? ' sel' : ''}" data-imn="${i}" data-id="${n.id}"><rect x="${x + 1}" y="${IM_TOP + ri * IM_RH + 2}" width="${w}" height="${IM_RH - 4}" rx="4" style="opacity:${(0.45 + 0.55 * v).toFixed(2)}"/><rect class="imedge" x="${x + w - 5}" y="${IM_TOP + ri * IM_RH + 2}" width="6" height="${IM_RH - 4}"/></g>`;
+      const vh = Math.round((IM_VEL - 6) * v);
+      g += `<line class="imvel${sel.has(n.id) ? ' sel' : ''}" x1="${x + 3}" y1="${RH + 4 + IM_VEL - 2}" x2="${x + 3}" y2="${RH + 4 + IM_VEL - 2 - vh}"/><circle class="imvel${sel.has(n.id) ? ' sel' : ''}" cx="${x + 3}" cy="${RH + 4 + IM_VEL - 2 - vh}" r="3.5"/>`;
+    });
+    (IREC.take || []).forEach((n) => { const ri = rowOf.get(n.midi); if (ri === undefined) return; g += `<rect class="imtake" x="${IM_LW + n.step * cw + 1}" y="${IM_TOP + ri * IM_RH + 2}" width="${Math.max(6, n.len * cw - 2)}" height="${IM_RH - 4}" rx="4"/>`; });
+    const cx = IM_LW + (IM.cursor || 0) * cw;
+    g += `<path class="imcursor" d="M${cx - 6} 0 L${cx + 6} 0 L${cx} 9 Z"/><line class="imcursorl" x1="${cx}" y1="0" x2="${cx}" y2="${RH}"/>`;
+    g += `<rect class="immarq" id="imMarq" x="0" y="0" width="0" height="0" style="display:none"/>`;
+    g += `<line class="imhead" id="imHead" x1="${IM_LW}" y1="0" x2="${IM_LW}" y2="${RH}" style="display:none"/>`;
+    box.innerHTML = `<svg id="imSvg" class="tool-${IM.tool === 'draw' ? 'pencil' : IM.tool}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="application" aria-label="Piano roll: ${rows.length} notes high by ${total} steps. Pencil draws, pointer selects; drag notes to move, drag their right edge to resize.">${g}</svg>`;
+    IM.view = { rows: rows.map((r) => r.midi), total, cw, RH };
+    if (!IMP.on && !IREC.on) imFormsMark();
+    // the scale map follows the bar the cursor is in
+    const cb = bars.findIndex((b) => (IM.cursor || 0) >= b.start && (IM.cursor || 0) < b.start + b.steps);
+    if (cb !== IM.mapI && $('mapBars')) { try { renderMap(); } catch (e) {} }
+  }
+  function imPush() { IM.undo.push(JSON.stringify(IM.notes)); if (IM.undo.length > 60) IM.undo.shift(); IM.redo = []; }
+  function imHit(e) {
+    const svg = $('imSvg');
+    if (!svg || !svg.getBoundingClientRect || !IM.view) return null;
+    const r = svg.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const { rows, cw, RH, total } = IM.view;
+    const fstep = (x - IM_LW) / cw;
+    return { x, y, fstep, step: Math.max(0, Math.min(total - 1, Math.floor(fstep))), ri: Math.floor((y - IM_TOP) / IM_RH), inRows: y >= IM_TOP && y < RH && x >= IM_LW, ruler: y < IM_TOP && x >= IM_LW, vel: y > RH + 2 && x >= IM_LW, keys: x < IM_LW && y >= IM_TOP && y < RH, rows, total };
+  }
+  /* pointer editing */
+  let IMD = null;   // the drag in progress
+  const imSelected = () => IM.notes.filter((n) => IM.selIds && IM.selIds.has(n.id));
+  function imPointerDown(e) {
+    const t = e.target;
+    if (!t || !t.closest || !t.closest('#imSvg') || e.button > 0) return;
+    const h = imHit(e);
+    if (!h) return;
+    e.preventDefault();
+    try { $('imRoll').setPointerCapture(e.pointerId); } catch (err) {}
+    IM.selIds = IM.selIds || new Set();
+    if (h.keys) { const m = h.rows[h.ri]; if (m !== undefined) pluck(m, 0, 0.7); return; }   // the note names are a keyboard
+    if (h.ruler) { IM.cursor = Math.max(0, Math.min(h.total - 1, Math.round(h.fstep))); renderImRoll(); IMD = { mode: 'cursor' }; return; }
+    if (h.vel) { IMD = { mode: 'vel', before: JSON.stringify(IM.notes) }; imVelAt(h); return; }
+    const g = t.closest('[data-id]');
+    const note = g ? IM.notes.find((n) => n.id === +g.getAttribute('data-id')) : null;
+    const before = JSON.stringify(IM.notes);
+    if (IM.tool === 'erase') { IMD = { mode: 'erase', before }; if (note) { IM.notes = IM.notes.filter((n) => n !== note); renderImRoll(); } return; }
+    const mo = IM_MOTIFS.find((m) => m.id === IM.tool);
+    if (mo && !note) {
+      if (!h.inRows || h.rows[h.ri] === undefined) return;
+      const placed = imPlaceMotif(mo, h.step, h.rows[h.ri]);
+      IM.selIds = new Set(placed.map((n) => imId(n)));
+      placed.forEach((n, k) => pluck(n.midi, k * 0.13, 0.4));
+      imCommit();
+      return;
+    }
+    if (note) {
+      // click a note: select it (Shift adds); Alt/Option-drag copies; the right edge resizes
+      if (e.shiftKey) { if (IM.selIds.has(note.id)) IM.selIds.delete(note.id); else IM.selIds.add(note.id); }
+      else if (!IM.selIds.has(note.id)) IM.selIds = new Set([note.id]);
+      if (e.altKey) {
+        const copies = imSelected().map((n) => Object.assign({}, n, { id: 0 }));
+        copies.forEach(imId);
+        IM.notes = IM.notes.concat(copies);
+        IM.selIds = new Set(copies.map((n) => n.id));
+      }
+      const edge = t.classList && t.classList.contains('imedge');
+      IMD = { mode: edge ? 'resize' : 'move', x0: h.x, y0: h.y, ri0: h.ri, before, moved: false, orig: imSelected().map((n) => ({ n, step: n.step, len: n.len, midi: n.midi })), lastPitch: note.midi, dbl: note.id };
+      if (!edge) pluck(note.midi, 0, 0.35);
+      renderImRoll();
+      return;
+    }
+    // empty space: the pointer tool (or Shift with the pencil) draws a selection box; the pencil draws a note
+    if (IM.tool === 'select' || e.shiftKey) {
+      if (!e.shiftKey) IM.selIds = new Set();
+      IMD = { mode: 'marq', x0: h.x, y0: h.y, keep: new Set(IM.selIds) };
+      renderImRoll();
+      return;
+    }
+    if (!h.inRows || h.rows[h.ri] === undefined) return;
+    const len = Math.min(IM.len, h.total - h.step);
+    const n = { step: h.step, len, midi: h.rows[h.ri], v: IM.vel || 0.8 };
+    imId(n);
+    IM.notes.push(n);
+    IM.selIds = new Set([n.id]);
+    IM.cursor = h.step;
+    pluck(n.midi, 0, 0.5);
+    IMD = { mode: 'draw', n, start: h.step, before, x0: h.x };
+    renderImRoll();
+  }
+  function imVelAt(h) {
+    const { cw, RH } = IM.view;
+    const v = Math.max(0.1, Math.min(1, (RH + 4 + IM_VEL - 2 - h.y) / (IM_VEL - 6)));
+    // the selected notes under the pointer's step, or the note starting nearest it
+    const at = IM.notes.filter((n) => Math.abs(IM_LW + n.step * cw + 3 - h.x) <= Math.max(6, cw / 2));
+    const list = at.length ? at : [];
+    list.forEach((n) => { n.v = +v.toFixed(2); });
+    if (list.length) renderImRoll();
+  }
+  function imPointerMove(e) {
+    if (!IMD) { imHover(e); return; }
+    const h = imHit(e);
+    if (!h) return;
+    const { cw, rows, total } = IM.view;
+    if (IMD.mode === 'cursor') { IM.cursor = Math.max(0, Math.min(total - 1, Math.round(h.fstep))); renderImRoll(); return; }
+    if (IMD.mode === 'vel') { imVelAt(h); return; }
+    if (IMD.mode === 'erase') { const t = document.elementFromPoint && document.elementFromPoint(e.clientX, e.clientY); const g = t && t.closest && t.closest('#imSvg [data-id]'); if (g) { IM.notes = IM.notes.filter((n) => n.id !== +g.getAttribute('data-id')); renderImRoll(); } return; }
+    if (IMD.mode === 'draw') { IMD.n.len = Math.max(1, Math.min(total - IMD.start, Math.floor(h.fstep) - IMD.start + 1)); IMD.moved = true; renderImRoll(); return; }
+    if (IMD.mode === 'marq') {
+      const m = $('imMarq');
+      const x = Math.min(IMD.x0, h.x), y = Math.min(IMD.y0, h.y), w = Math.abs(h.x - IMD.x0), hh = Math.abs(h.y - IMD.y0);
+      if (m) { m.setAttribute('x', x); m.setAttribute('y', y); m.setAttribute('width', w); m.setAttribute('height', hh); m.style.display = ''; }
+      const s0 = (x - IM_LW) / cw, s1 = (x + w - IM_LW) / cw, r0 = (y - IM_TOP) / IM_RH, r1 = (y + hh - IM_TOP) / IM_RH;
+      const ids = new Set(IMD.keep);
+      IM.notes.forEach((n) => { const ri = rows.indexOf(n.midi); if (n.step < s1 && n.step + n.len > s0 && ri + 1 > r0 && ri < r1) ids.add(n.id); });
+      IM.selIds = ids;
+      qsa(document, '#imSvg [data-id]').forEach((el) => el.classList.toggle('sel', ids.has(+el.getAttribute('data-id'))));
+      return;
+    }
+    const dStep = Math.round((h.x - IMD.x0) / cw);
+    if (IMD.mode === 'resize') {
+      IMD.orig.forEach((o) => { o.n.len = Math.max(1, Math.min(total - o.step, o.len + dStep)); });
+      IMD.moved = IMD.moved || dStep !== 0;
+      renderImRoll();
+      return;
+    }
+    if (IMD.mode === 'move') {
+      const dRow = Math.round((h.y - IMD.y0) / IM_RH);
+      const minStep = Math.min(...IMD.orig.map((o) => o.step)), maxEnd = Math.max(...IMD.orig.map((o) => o.step + o.len));
+      const ds = Math.max(-minStep, Math.min(total - maxEnd, dStep));
+      IMD.orig.forEach((o) => {
+        o.n.step = o.step + ds;
+        const ri = rows.indexOf(o.midi);
+        o.n.midi = ri < 0 ? o.midi : rows[Math.max(0, Math.min(rows.length - 1, ri + dRow))];
+      });
+      if (ds || dRow) IMD.moved = true;
+      const lead = IMD.orig[0] && IMD.orig[0].n.midi;
+      if (lead !== IMD.lastPitch) { IMD.lastPitch = lead; pluck(lead, 0, 0.3); }
+      renderImRoll();
+    }
+  }
+  function imHover(e) {
+    const svg = $('imSvg');
+    if (!svg || !e.target || !e.target.closest || !e.target.closest('#imSvg')) return;
+    const edge = e.target.classList && e.target.classList.contains('imedge');
+    const onNote = e.target.closest('[data-id]');
+    svg.style.cursor = edge ? 'ew-resize' : onNote ? (IM.tool === 'erase' ? 'not-allowed' : 'grab') : '';
+  }
+  function imPointerUp(e) {
+    if (!IMD) return;
+    const d = IMD;
+    IMD = null;
+    const m = $('imMarq'); if (m) m.style.display = 'none';
+    if (d.mode === 'marq' || d.mode === 'cursor') { renderImprov(); return; }
+    if (d.before !== undefined && d.before !== JSON.stringify(IM.notes)) { IM.undo.push(d.before); if (IM.undo.length > 60) IM.undo.shift(); IM.redo = []; }
+    // a quick second click on the same note (without moving it) deletes it, as in most DAWs
+    if (d.mode === 'move' && !d.moved) {
+      const now = Date.now();
+      if (IM.lastClick && IM.lastClick.id === d.dbl && now - IM.lastClick.t < 380) { IM.notes = IM.notes.filter((n) => n.id !== d.dbl); IM.selIds.delete(d.dbl); IM.lastClick = null; if (d.before !== JSON.stringify(IM.notes)) IM.undo.push(d.before); }
+      else IM.lastClick = { id: d.dbl, t: now };
+    }
+    IM.notes.sort((a, b) => a.step - b.step || b.midi - a.midi);
+    imCommit();
+  }
+  function imCommit() { IM.notes.sort((a, b) => a.step - b.step || b.midi - a.midi); imSave(); renderImprov(); }
+  document.addEventListener('pointerdown', imPointerDown);
+  document.addEventListener('pointermove', imPointerMove);
+  document.addEventListener('pointerup', imPointerUp);
+  document.addEventListener('pointercancel', () => { IMD = null; });
+  /* keyboard, like a DAW: Delete, arrows, Ctrl/Cmd+C/V/D/A/Z, Space, B for the pencil */
+  function imKey(e) {
+    if (TAB !== 'improv' && LAYOUT === 'tabs') return false;
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return false;
+    const mod = e.ctrlKey || e.metaKey;
+    const sel = imSelected();
+    const k = e.key;
+    const bars = imBars(), total = imTotal(bars);
+    const done = () => { e.preventDefault(); imCommit(); return true; };
+    if (k === ' ' && LAYOUT === 'tabs') { e.preventDefault(); imPlay(); return true; }
+    // single keys only while the Studio is on screen (Studio tab, or scrolled to it in the one-page layout), never with a button focused
+    const inStudio = LAYOUT === 'tabs' || (() => { const p = $('imPanel'); if (!p || !p.getBoundingClientRect) return false; const r = p.getBoundingClientRect(); return r.top < window.innerHeight * 0.6 && r.bottom > window.innerHeight * 0.3; })();
+    if (!mod && !e.altKey && inStudio && !(tag === 'BUTTON' && (k === ' ' || k === 'Enter'))) {
+      if (k === '?') { e.preventDefault(); const b = $('imKeysBtn'); if (b) showInfo('imkeys', b); return true; }
+      if (k === 'r' || k === 'R') { e.preventDefault(); irStart(); return true; }
+      if (k === 'Home') { e.preventDefault(); IM.cursor = 0; renderImRoll(); return true; }
+      if (k === 'l' || k === 'L') { e.preventDefault(); IM.loop = !IM.loop; const c = $('imLoop'); if (c) c.checked = IM.loop; flash(IM.loop ? 'Loop on' : 'Loop off'); return true; }
+      if (k === 'e' || k === 'E') { e.preventDefault(); IM.tool = IM.tool === 'erase' ? 'draw' : 'erase'; renderImprov(); return true; }
+      if (['1', '2', '3', '4'].includes(k)) { e.preventDefault(); IM.len = [1, 2, 4, 8][+k - 1]; imSave(); renderImprov(); return true; }
+      if (k === '+' || k === '=' || k === '-' || k === '_') { e.preventDefault(); IM.zoom = Math.max(0.5, Math.min(2.5, (IM.zoom || 1) * (k === '+' || k === '=' ? 1.25 : 0.8))); renderImRoll(); return true; }
+    }
+    if (mod && (k === 'z' || k === 'Z')) {
+      e.preventDefault();
+      IM.redo = IM.redo || [];
+      if (e.shiftKey) { if (IM.redo.length) { IM.undo.push(JSON.stringify(IM.notes)); IM.notes = JSON.parse(IM.redo.pop()); } }
+      else if (IM.undo.length) { IM.redo.push(JSON.stringify(IM.notes)); IM.notes = JSON.parse(IM.undo.pop()); }
+      return done();
+    }
+    if (mod && (k === 'y' || k === 'Y')) { e.preventDefault(); if (IM.redo && IM.redo.length) { IM.undo.push(JSON.stringify(IM.notes)); IM.notes = JSON.parse(IM.redo.pop()); } return done(); }
+    if (mod && (k === 'a' || k === 'A')) { IM.notes.forEach(imId); IM.selIds = new Set(IM.notes.map((n) => n.id)); return done(); }
+    if (mod && (k === 'c' || k === 'C') && sel.length) { const s0 = Math.min(...sel.map((n) => n.step)); IM.clip = sel.map((n) => ({ step: n.step - s0, len: n.len, midi: n.midi, v: n.v })); flash('Copied ' + sel.length + (sel.length === 1 ? ' note' : ' notes')); e.preventDefault(); return true; }
+    if (mod && (k === 'x' || k === 'X') && sel.length) { const s0 = Math.min(...sel.map((n) => n.step)); IM.clip = sel.map((n) => ({ step: n.step - s0, len: n.len, midi: n.midi, v: n.v })); imPush(); IM.notes = IM.notes.filter((n) => !IM.selIds.has(n.id)); IM.selIds = new Set(); return done(); }
+    if (mod && (k === 'v' || k === 'V') && IM.clip && IM.clip.length) {
+      imPush();
+      const at = IM.cursor || 0;
+      const add = IM.clip.map((c) => ({ step: at + c.step, len: c.len, midi: c.midi, v: c.v })).filter((n) => n.step < total).map((n) => Object.assign(n, { len: Math.min(n.len, total - n.step) }));
+      add.forEach(imId);
+      IM.notes = IM.notes.concat(add);
+      IM.selIds = new Set(add.map((n) => n.id));
+      IM.cursor = Math.min(total - 1, at + Math.max(...IM.clip.map((c) => c.step + c.len)));
+      return done();
+    }
+    if (mod && (k === 'd' || k === 'D') && sel.length) {
+      imPush();
+      const s0 = Math.min(...sel.map((n) => n.step)), s1 = Math.max(...sel.map((n) => n.step + n.len));
+      const add = sel.map((n) => ({ step: n.step + (s1 - s0), len: n.len, midi: n.midi, v: n.v })).filter((n) => n.step + n.len <= total);
+      add.forEach(imId);
+      IM.notes = IM.notes.concat(add);
+      IM.selIds = new Set(add.map((n) => n.id));
+      return done();
+    }
+    if ((k === 'Delete' || k === 'Backspace') && sel.length) { imPush(); IM.notes = IM.notes.filter((n) => !IM.selIds.has(n.id)); IM.selIds = new Set(); return done(); }
+    if (k === 'Escape' && sel.length) { IM.selIds = new Set(); return done(); }
+    if ((k === 'b' || k === 'B') && !mod) { IM.tool = IM.tool === 'draw' ? 'select' : 'draw'; renderImprov(); e.preventDefault(); return true; }
+    if (sel.length && (k === 'ArrowLeft' || k === 'ArrowRight')) {
+      const d = (k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? IM.grid * 4 : 1);
+      const min = Math.min(...sel.map((n) => n.step)), max = Math.max(...sel.map((n) => n.step + n.len));
+      if (min + d < 0 || max + d > total) { e.preventDefault(); return true; }
+      imPush(); sel.forEach((n) => { n.step += d; }); return done();
+    }
+    if (sel.length && (k === 'ArrowUp' || k === 'ArrowDown')) {
+      imPush();
+      const rows = imRows().map((r) => r.midi);
+      sel.forEach((n) => {
+        if (e.shiftKey) n.midi += k === 'ArrowUp' ? 12 : -12;
+        else { const ri = rows.indexOf(n.midi); n.midi = ri < 0 ? n.midi + (k === 'ArrowUp' ? 1 : -1) : rows[Math.max(0, Math.min(rows.length - 1, ri + (k === 'ArrowUp' ? -1 : 1)))]; }
+      });
+      if (sel.length === 1) pluck(sel[0].midi, 0, 0.35);
+      return done();
+    }
+    return false;
+  }
+  document.addEventListener('keydown', (e) => { try { imKey(e); } catch (err) {} });
+  /* ----- motifs: little parts of a scale to drop in and combine ----- */
+  // s: steps along the scale from where you click; c: semitones from the next note (an approach note); d: length in grid steps (8ths)
+  const IM_MOTIFS = [
+    { id: 'up3', name: 'Three up', hint: 'Three notes up the scale, the last one held.', notes: [{ s: 0, d: 1 }, { s: 1, d: 1 }, { s: 2, d: 2 }] },
+    { id: 'down4', name: 'Run down', hint: 'Four notes down the scale in even 8ths.', notes: [{ s: 0, d: 1 }, { s: -1, d: 1 }, { s: -2, d: 1 }, { s: -3, d: 1 }] },
+    { id: 'turn', name: 'Turn', hint: 'Above and below a note, then back to it.', notes: [{ s: 0, d: 1 }, { s: 1, d: 1 }, { s: 0, d: 1 }, { s: -1, d: 1 }, { s: 0, d: 2 }] },
+    { id: 'skip', name: 'Skip up', hint: 'Up a third, down a step, up a third: a classic sequence.', notes: [{ s: 0, d: 1 }, { s: 2, d: 1 }, { s: 1, d: 1 }, { s: 3, d: 1 }] },
+    { id: 'call', name: 'Question', hint: 'Rises and stops on a high note: it asks for an answer.', notes: [{ s: 0, d: 1 }, { s: 1, d: 1 }, { s: 2, d: 1 }, { s: 4, d: 3 }] },
+    { id: 'answer', name: 'Answer', hint: 'Falls back home: the reply to a question.', notes: [{ s: 0, d: 1 }, { s: -2, d: 1 }, { s: -3, d: 1 }, { s: -4, d: 3 }] },
+    { id: 'rhythm', name: 'One-note groove', hint: 'One note, a catchy rhythm: rhythm is half of a solo.', notes: [{ s: 0, d: 1 }, { s: 0, d: 2 }, { s: 0, d: 1 }, { s: 0, d: 2 }] },
+    { id: 'arp', name: 'Chord arpeggio', hint: 'The notes of the chord sounding there, going up.', chord: true, notes: [{ k: 0, d: 1 }, { k: 1, d: 1 }, { k: 2, d: 1 }, { k: 3, d: 1 }] },
+    { id: 'approach', name: 'Approach note', hint: 'A half step below a chord tone, sliding into it.', approach: true, notes: [{ c: -1, d: 1 }, { c: 0, d: 3 }] },
+    { id: 'long', name: 'Long note', hint: 'Hold one note for a whole bar. Let it sing (bend or vibrato on guitar).', notes: [{ s: 0, d: 8 }] },
+    { id: 'box', name: 'Five-note run', hint: 'Up five scale notes and back: a whole position in a breath.', notes: [{ s: 0, d: 1 }, { s: 1, d: 1 }, { s: 2, d: 1 }, { s: 3, d: 1 }, { s: 4, d: 1 }, { s: 3, d: 1 }, { s: 2, d: 2 }] },
+  ];
+  function imScaleMidis() {
+    const pcs = imScalePcs().map((n) => n.pc);
+    const out = [];
+    for (let m = 40; m <= 88; m++) if (pcs.includes(m % 12)) out.push(m);
+    return out;
+  }
+  function imPlaceMotif(mo, step, midi) {
+    const bars = imBars();
+    const total = imTotal(bars);
+    const sc = imScaleMidis();
+    const near = (m) => sc.reduce((a, b) => (Math.abs(b - m) < Math.abs(a - m) ? b : a), sc[0]);
+    let base = sc.indexOf(near(midi));
+    let t = step;
+    const placed = [];
+    const scale = IM.grid / 2;   // motifs are written in 8ths; on a 16th grid each note takes twice the steps
+    mo.notes.forEach((n, i) => {
+      if (t >= total) return;
+      const b = imChordAt(bars, t);
+      let m;
+      if (mo.chord) {
+        const tones = b.tones.map((x) => x.pc);
+        let r = midi - 12; while (r % 12 !== tones[0]) r++;
+        const up = []; let cur = r; tones.forEach((pc) => { while (cur % 12 !== pc) cur++; up.push(cur); });
+        while (up[0] < midi - 2) up.forEach((x, j) => { up[j] = x + 12; });
+        m = up[n.k % up.length] + (n.k >= up.length ? 12 : 0);
+      } else if (mo.approach) {
+        // the chord tone nearest the click, approached from a half step below
+        const tones = b.tones.map((x) => x.pc);
+        let tg = midi; for (let d = 0; d < 7; d++) { if (tones.includes((midi + d) % 12)) { tg = midi + d; break; } if (tones.includes((((midi - d) % 12) + 12) % 12)) { tg = midi - d; break; } }
+        m = tg + n.c;
+      } else {
+        m = sc[Math.max(0, Math.min(sc.length - 1, base + n.s))];
+      }
+      const len = Math.max(1, Math.round(n.d * scale));
+      placed.push({ step: t, len: Math.min(len, total - t), midi: m });
+      t += len;
+    });
+    // land well: the last note snaps to the nearest chord tone of its chord (if that is on)
+    if (IM.snap && placed.length && !mo.approach) {
+      const last = placed[placed.length - 1];
+      const b = imChordAt(bars, last.step);
+      const tones = b.tones.map((x) => x.pc);
+      if (!tones.includes(last.midi % 12)) {
+        for (let d = 1; d < 7; d++) { if (tones.includes((last.midi + d) % 12) && sc.includes(last.midi + d)) { last.midi += d; break; } if (tones.includes((((last.midi - d) % 12) + 12) % 12) && sc.includes(last.midi - d)) { last.midi -= d; break; } }
+      }
+    }
+    imPush();
+    // a new idea replaces whatever was under it
+    const s0 = placed.length ? placed[0].step : step, s1 = placed.length ? placed[placed.length - 1].step + placed[placed.length - 1].len : step;
+    IM.notes = IM.notes.filter((n) => n.step + n.len <= s0 || n.step >= s1).concat(placed).sort((a, b) => a.step - b.step);
+    return placed;
+  }
+  /* ----- a starter idea: question and answer over every two bars that are still empty ----- */
+  function imSuggest() {
+    const bars = imBars();
+    if (!bars.length) return 0;
+    const sc = imScaleMidis();
+    let seed = IM.notes.length * 7 + bars.length * 13 + 5;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const calls = IM_MOTIFS.filter((m) => ['up3', 'call', 'skip', 'turn', 'rhythm', 'box'].includes(m.id));
+    let made = 0;
+    imPush();
+    for (let i = 0; i + 1 < bars.length; i += 2) {
+      const a = bars[i], b = bars[i + 1];
+      if (IM.notes.some((n) => n.step >= a.start && n.step < b.start + b.steps)) continue;
+      // question in the first bar, starting on a chord tone in the middle of the range
+      const tones = a.tones.map((t) => t.pc);
+      const start = sc.filter((m) => m >= 60 && m <= 69 && tones.includes(m % 12));
+      const s0 = start[Math.floor(rnd() * start.length)] || 64;
+      const mo = calls[Math.floor(rnd() * calls.length)];
+      imPlaceMotif(mo, a.start, s0); IM.undo.pop();
+      // answer in the second bar, ending on the chord's root or 3rd
+      const ansId = rnd() < 0.5 ? 'answer' : 'down4';
+      const ans = IM_MOTIFS.find((m) => m.id === ansId);
+      const bt = b.tones.map((t) => t.pc);
+      const hi = sc.filter((m) => m >= 62 && m <= 72 && bt.includes(m % 12));
+      imPlaceMotif(ans, b.start + Math.round(rnd() * 2) * (IM.grid / 2) * 1, (hi[hi.length - 1] || 67)); IM.undo.pop();
+      made++;
+    }
+    return made;
+  }
+  /* ----- the solo on the neck, and as tab ----- */
+  function imPositions() {
+    let hand = 5, prev = null;
+    return IM.notes.map((n) => {
+      if (Number.isInteger(n.s) && Number.isInteger(n.f) && OPEN[n.s] + n.f === n.midi) { if (n.f > 0) hand = hand * 0.5 + n.f * 0.5; prev = { s: n.s, f: n.f }; return prev; }
+      let best = null, bs = Infinity;
+      for (let s = 0; s < 6; s++) {
+        const f = n.midi - OPEN[s];
+        if (f < 0 || f > MAX_FRET) continue;
+        const dist = f === 0 ? Math.max(0, hand - 3) * 0.8 + 0.4 : Math.abs(f - hand);
+        const sc = dist + (prev ? Math.abs(s - prev.s) * 0.35 : 0);
+        if (sc < bs) { bs = sc; best = { s, f }; }
+      }
+      if (best && best.f > 0) hand = hand * 0.7 + best.f * 0.3;
+      prev = best;
+      return best;
+    });
+  }
+  function imTab() {
+    const bars = imBars();
+    if (!bars.length || !IM.notes.length) return '';
+    const pos = imPositions();
+    const total = imTotal(bars);
+    const cols = new Array(total).fill(null).map(() => new Array(6).fill(''));
+    IM.notes.forEach((n, i) => { const p = pos[i]; if (p && n.step < total) cols[n.step][p.s] = String(p.f); });
+    const lines = [];
+    for (let b0 = 0; b0 < bars.length; b0 += 4) {
+      const group = bars.slice(b0, b0 + 4);
+      lines.push(group.map((b) => b.name.padEnd(b.steps * 3 + 1)).join(''));
+      for (let s = 5; s >= 0; s--) {
+        let row = STR_NAMES[s] + (s === 5 ? ' ' : ' ') + '|';
+        group.forEach((b) => { for (let k = b.start; k < b.start + b.steps; k++) { const v = cols[k][s]; row += (v ? v : '-').padEnd(3, '-'); } row += '|'; });
+        lines.push(row);
+      }
+      lines.push('');
+    }
+    return lines.join('\n');
+  }
+  function renderImNeck(lit) {
+    const svg = $('imNeck');
+    if (!svg) return;
+    const pos = imPositions();
+    const names = imNames();
+    const seen = new Map();
+    pos.forEach((p, i) => { if (!p) return; const k = p.s + ':' + p.f; if (!seen.has(k)) seen.set(k, { s: p.s, f: p.f, midi: IM.notes[i].midi, first: i }); });
+    const places = Array.from(seen.values());
+    const sp = imScalePcs();
+    const fr = places.map((p) => p.f);
+    let rf = fr.length ? Math.max(0, Math.min.apply(null, fr) - 1) : 0, rt = fr.length ? Math.min(MAX_FRET, Math.max.apply(null, fr) + 1) : 12;
+    if (rt - rf < 6) { rt = Math.min(MAX_FRET, rf + 6); rf = Math.max(0, rt - 6); }
+    const dots = places.map((p) => { const pc = p.midi % 12; const n = sp.find((x) => x.pc === pc); return { s: p.s, f: p.f, note: { pc, name: IM.labels === 'interval' && n ? fmtLabel(n.label) : names[pc], label: n ? n.label : '' }, chordRoot: pc === IM.key }; });
+    const x0 = rf <= 0 ? 0 : Math.max(0, fx(rf - 1) - 6), x1 = rt >= MAX_FRET ? VBW : fx(rt) + 8;
+    svg.setAttribute('viewBox', x0.toFixed(1) + ' 0 ' + (x1 - x0).toFixed(1) + ' ' + VBH);
+    svg.style.minWidth = Math.round((x1 - x0) * 0.6) + 'px';
+    const keep = S.labels; S.labels = 'note';
+    svg.innerHTML = boardSvg(dots, []);
+    S.labels = keep;
+    if (lit !== undefined && lit >= 0 && pos[lit]) qsa(svg, '.dot').forEach((el) => el.classList.toggle('lit', el.getAttribute('data-s') === String(pos[lit].s) && el.getAttribute('data-f') === String(pos[lit].f)));
+  }
+  /* ----- playing: the backing, the solo, and a playhead ----- */
+  function imStop() {
+    if (!IMP.on) return;
+    IMP.on = false;
+    clearInterval(IMP.timer);
+    cancelAnimationFrame(IMP.raf);
+    const c = ac;
+    if (IMP.out && c) { const o = IMP.out; o.gain.setTargetAtTime(0.0001, c.currentTime, 0.03); setTimeout(() => { try { o.disconnect(); } catch (e) {} }, 400); }
+    IMP.out = null;
+    const hh = $('imHead'); if (hh) hh.style.display = 'none';
+    renderImNeck();
+    renderImTransport();
+    imFormsMark();
+    try { renderMap(); } catch (e) {}
+  }
+  function imPlay() {
+    if (IREC.on) { irStop(true); return; }
+    if (IMP.on) { imStop(); return; }
+    if (PL.on) stopProg();
+    const c = audio();
+    if (!c) return;
+    const bars = imBars();
+    if (!bars.length) { say('Pick a backing first.'); return; }
+    IMP.out = c.createGain(); IMP.out.gain.value = 1; IMP.out.connect(busNode(c));
+    const bs = 60 / IM.bpm;
+    IMP.stepDur = bs / IM.grid;
+    IMP.loopDur = imTotal(bars) * IMP.stepDur;
+    const from = Math.max(0, Math.min(imTotal(bars) - 1, IM.cursor || 0));
+    IMP.start = c.currentTime + 0.12 - from * IMP.stepDur;   // starts at the cursor (set it by clicking the chord ruler)
+    IMP.next = IMP.start;
+    IMP.on = true;
+    IMP.lastNote = -1;
+    IMP.lastBar = -2;
+    const now0 = c.currentTime + 0.1;
+    const schedule = () => {
+      const t0 = IMP.next;
+      const ok = (t) => t >= now0;
+      if (IM.style !== 'off') {
+        let beat = 0;
+        bars.forEach((b) => {
+          const slot = { name: b.name, tones: b.tones, beats: b.beats, frets: b.frets, bass: b.bass };
+          const plan = slotPlan(slot, IM.style === 'mine' ? (b.style || P.style) : IM.style === 'hold' ? 'hold' : 'strum', bs, beat);
+          plan.notes.forEach((n) => { const t = t0 + (b.start / IM.grid) * bs + n.t; if (ok(t)) pluckAt(n.midi, t, n.dur, { vol: n.vol * 0.5, sustain: true, dest: IMP.out, cut: n.cut }); });
+          beat += b.beats;
+        });
+      }
+      IM.notes.forEach((n) => { const t = t0 + n.step * IMP.stepDur; if (ok(t)) pluckAt(n.midi, t, Math.max(0.25, n.len * IMP.stepDur + 0.15), { vol: 0.3 * (n.v || 0.8), dest: IMP.out }); });
+      IMP.next = t0 + IMP.loopDur;
+    };
+    schedule();
+    IMP.timer = setInterval(() => {
+      if (!IMP.on || !ac) return;
+      if (ac.currentTime > IMP.next - 0.4) { if (IM.loop) schedule(); else if (ac.currentTime > IMP.next) imStop(); }
+    }, 60);
+    const draw = () => {
+      if (!IMP.on || !ac) return;
+      const el = (ac.currentTime - IMP.start) % IMP.loopDur;
+      const step = el / IMP.stepDur;
+      const h = $('imHead');
+      if (h && el >= 0) { const x = IM_LW + step * imCw(); h.setAttribute('x1', x); h.setAttribute('x2', x); h.style.display = ''; }
+      const bi = bars.findIndex((b) => step >= b.start && step < b.start + b.steps);
+      if (bi !== IMP.lastBar) { IMP.lastBar = bi; imFormsMark(bi); syncDock(); if (bi >= 0) { try { renderMap(); } catch (e) {} } }
+      const k = IM.notes.findIndex((n) => step >= n.step && step < n.step + n.len);
+      if (k !== IMP.lastNote && !IMD) { IMP.lastNote = k; renderImNeck(k); qsa(document, '#imSvg .imnote').forEach((r) => r.classList.toggle('on', +r.getAttribute('data-imn') === k)); }
+      IMP.raf = requestAnimationFrame(draw);
+    };
+    IMP.raf = requestAnimationFrame(draw);
+    renderImTransport();
+  }
+  /* ----- the chord shapes of the backing, small, bar by bar: the one playing lights up ----- */
+  function renderImForms() {
+    const box = $('imForms');
+    if (!box) return;
+    const bars = imBars();
+    if (!bars.length) { box.innerHTML = ''; return; }
+    box.innerHTML = bars.map((b, i) => {
+      let sh = null;
+      try { sh = shapeOf(b) || (b.tones ? chordShapes(b.tones, 4, b.bass).best : null); } catch (e) { sh = null; }
+      return `<button type="button" class="imform" data-imform="${i}" aria-label="Bar ${i + 1}: ${esc(b.name)}${sh ? ', tab ' + esc(tabText(sh)) : ''}. Tap to hear it and start there." title="${sh ? esc(tabText(sh)) : ''}"><small>${i + 1}</small><b>${esc(b.name)}</b>${sh ? shapeSvg(sh, b.tones, b.name) : '<span class="nf">notes only</span>'}</button>`;
+    }).join('');
+    imFormsMark();
+  }
+  // which card is under the cursor, and which one is sounding now (during play or recording)
+  function imFormsMark(now) {
+    const box = $('imForms');
+    if (!box || !box.querySelectorAll) return;
+    const bars = imBars();
+    const c = IM.cursor || 0;
+    const cur = bars.findIndex((b) => c >= b.start && c < b.start + b.steps);
+    qsa(box, '.imform').forEach((el) => {
+      const i = +el.getAttribute('data-imform');
+      el.classList.toggle('cur', i === cur && now === undefined);
+      el.classList.toggle('sounding', now !== undefined && i === now);
+    });
+    if (now !== undefined && now >= 0) {
+      const el = box.querySelector('[data-imform="' + now + '"]');
+      if (el && el.offsetLeft !== undefined) {
+        const l = el.offsetLeft - box.offsetLeft, w = el.offsetWidth;
+        if (l < box.scrollLeft || l + w > box.scrollLeft + box.clientWidth) box.scrollLeft = Math.max(0, l - 8);
+      }
+    }
+  }
+  function renderImTransport() {
+    try { syncDock(); } catch (e) {}
+    const b = $('imPlay');
+    if (b) { b.innerHTML = (IMP.on ? ICON.stopf + ' Stop' : ICON.playf + ' Play'); b.setAttribute('aria-pressed', String(IMP.on)); }
+  }
+  /* ----- the whole panel ----- */
+  function renderImprov() {
+    const box = $('imCtl');
+    if (!box) return;
+    const names = imNames();
+    const bk = [['mine', 'My progression' + (P.slots.length ? ' (' + P.slots.length + ' chords)' : ' (empty)')], ['blues', '12-bar blues']].concat(COMMON_PROGS.filter((d) => d.id !== 'blues').map((d) => [d.id, d.name + ' · ' + d.alt + (d.mode === 'minor' ? ' (minor)' : '')]));
+    $('imKey').innerHTML = options(IM_KEYNAMES.map((n, i) => [i, n]), IM.key);
+    $('imScale').innerHTML = options(IM_SCALES.map((s) => [s[0], s[0]]), IM.scale);
+    $('imBacking').innerHTML = options(bk, IM.backing);
+    $('imBpm').value = IM.bpm;
+    seg('imGrid', 'imgrid', [['2', '8ths'], ['4', '16ths']], String(IM.grid));
+    seg('imStyle', 'imstyle', [['strum', 'Strum'], ['hold', 'Pad']].concat(IM.backing === 'mine' ? [['mine', 'My pattern']] : []).concat([['off', 'Off']]), IM.style === 'mine' && IM.backing !== 'mine' ? 'strum' : IM.style);
+    const mb = $('imMine');
+    if (mb) { mb.hidden = !P.slots.length; mb.setAttribute('aria-pressed', String(IM.backing === 'mine')); }
+    seg('imLen', 'imlen', [['1', IM.grid === 4 ? '1/16' : '1/8'], ['2', IM.grid === 4 ? '1/8' : '1/4'], ['4', IM.grid === 4 ? '1/4' : '1/2'], ['8', IM.grid === 4 ? '1/2' : 'Whole']], String(IM.len));
+    $('imTools').innerHTML = [['draw', '✎ Pencil'], ['select', '➚ Pointer'], ['erase', '⌫ Erase']].map(([v, l]) => `<button type="button" class="qbtn tool" data-imtool="${v}" aria-pressed="${IM.tool === v}">${l}</button>`).join('')
+      + IM_MOTIFS.map((m) => `<button type="button" class="qbtn tool motif" data-imtool="${m.id}" aria-pressed="${IM.tool === m.id}" title="${esc(m.hint)}">${esc(m.name)}</button>`).join('');
+    const mo = IM_MOTIFS.find((m) => m.id === IM.tool);
+    $('imToolHint').textContent = mo ? mo.hint + ' Click the roll where it should start.'
+      : IM.tool === 'erase' ? 'Click or drag across notes to remove them.'
+      : IM.tool === 'select' ? 'Drag on empty space to select a group. Drag notes to move them, drag a note\'s right edge to change its length, Alt/Option-drag to copy.'
+      : 'Click to add a note, drag right for a longer one. Drag a note to move it, drag its right edge to resize, double-click to delete.';
+    $('imToolHint').innerHTML = esc($('imToolHint').textContent) + ' <span class="kbonly">Press <kbd>?</kbd> for all keyboard shortcuts.</span>';
+    $('imSnap').checked = IM.snap;
+    $('imChrom').checked = IM.chromatic;
+    $('imLoop').checked = IM.loop;
+    const lb = $('imLesson');
+    if (lb) { lb.hidden = !IM.lesson; lb.innerHTML = IM.lesson ? `<div><b>${esc(IM.lesson.t)}</b> ${esc(IM.lesson.task)}</div>${IM.limit ? '<button type="button" class="tapbtn" data-imlesson="all">Show all notes</button>' : ''}<button type="button" class="tapbtn" data-imlesson="close">Done</button>` : ''; }
+    const rp = $('imReps'); if (rp) rp.innerHTML = options([[1, 'Once'], [2, 'Twice'], [3, '3 times'], [4, '4 times']], IM.reps || 1);
+    renderImForms();
+    renderImRoll();
+    renderImNeck();
+    const tab = $('imTab');
+    if (tab) tab.textContent = imTab() || 'Your solo will appear here as tab once it has notes.';
+    const sum = $('imSum');
+    if (sum) {
+      const bars = imBars();
+      const tones = IM.notes.filter((n) => { const b = imChordAt(bars, n.step); return b && b.tones.some((t) => t.pc === n.midi % 12); }).length;
+      const pcs = new Set(imScalePcs().map((n) => n.pc));
+      const outs = IM.notes.filter((n) => !pcs.has(n.midi % 12)).length;
+      const filled = new Set(); IM.notes.forEach((n) => { for (let k = n.step; k < n.step + n.len; k++) filled.add(k); });
+      const total = imTotal(bars) || 1;
+      sum.innerHTML = IM.notes.length
+        ? `<b>${IM.notes.length}</b> notes · <b>${Math.round(100 * tones / IM.notes.length)}%</b> on chord tones · ${outs ? outs + ' outside the scale (passing or approach notes) · ' : ''}<b>${Math.round(100 * (1 - filled.size / total))}%</b> space (rests)`
+        : 'Empty. Draw notes, drop in an idea from the list, or press <b>Suggest a start</b>.';
+    }
+    renderImTransport();
+    renderImSaved();
+    renderIrec();
+    try { const ub = $('imUndo'); if (ub) ub.title = /Mac|iPhone|iPad/.test((navigator.platform || '') + ' ' + (navigator.userAgent || '')) ? 'Undo (⌘Z)' : 'Undo (Ctrl+Z)'; } catch (e) {}
+    try { renderMap(); } catch (e) { console.error(e); }
+  }
+  function renderImSaved() {
+    const box = $('imSaved');
+    if (!box) return;
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem('fretboard-solos') || '[]'); } catch (e) {}
+    box.innerHTML = list.length ? list.map((s, i) => `<span class="imsv"><button type="button" class="tapbtn" data-imload="${i}">${esc(s.name)}</button><button type="button" class="ib" data-imdel="${i}" aria-label="Delete ${esc(s.name)}">${ICON.x}</button></span>`).join('') : '<small>No saved solos yet.</small>';
+  }
+  function imUseMine(quiet) {
+    if (!P.slots.length) { say('Your progression is empty. Add chords on the Progression tab first.'); return false; }
+    let a = null;
+    try { a = analyzeProg(P.slots, { hk: S.hk, hm: S.hm }); } catch (e) { a = null; }
+    const k = a && a.key ? a.key : { tonic: S.hk, mode: S.hm === 'minor' ? 'minor' : 'major' };
+    imStop();
+    const keepNotes = IM.backing === 'mine';
+    Object.assign(IM, { backing: 'mine', reps: 1, key: k.tonic, scale: k.mode === 'minor' ? 'Natural minor (Aeolian)' : 'Major (Ionian)', bpm: Math.round(P.bpm * P.speed), style: 'mine', limit: null, lesson: null });
+    if (!keepNotes) { IM.undo.push(JSON.stringify(IM.notes)); IM.notes = []; IM.selIds = new Set(); IM.cursor = 0; }
+    imSave();
+    renderImprov();
+    if (!quiet) say('The Studio now plays your progression (' + P.slots.map((s) => s.name).join(' ') + ') in ' + imNames()[k.tonic] + ' ' + k.mode + ', at ' + IM.bpm + ' BPM with your strumming pattern.');
+    return true;
+  }
+  function imLoad(s) {
+    imStop();
+    Object.assign(IM, { key: s.key, scale: s.scale, backing: s.backing, seventh: s.seventh !== false, style: s.style || 'strum', grid: s.grid === 4 ? 4 : 2, bpm: s.bpm || 92, notes: (s.notes || []).map((n) => Object.assign({}, n)), name: s.name || '', limit: s.limit || null, chromatic: !!s.chromatic, sel: -1 });
+    if (IM.len > 8) IM.len = 2;
+    imSave();
+    renderImprov();
+  }
+  /* ----- lessons: a path from three notes to a whole solo (after Berklee's Basic Improvisation order, with the
+     restriction and call-and-response games music teachers use, and guide tones for chord changes) ----- */
+  const N8 = (bar, st, len, midi) => ({ step: bar * 8 + st, len, midi });
+  const IM_LESSONS = [
+    { t: '1. Three notes are enough', b: '<p>Too many choices freeze beginners, so teachers start with a <b>restriction</b>: just a few notes. Over a 12-bar blues in A, the notes <b>A, C and E</b> already sound good everywhere.</p><p>Play a short idea, stop, and play it again. That is already a solo.</p>',
+      task: 'Use only A, C and E (the only rows shown). Put a short idea in bar 1, leave bar 2 empty, and play the same idea in bar 3.',
+      setup: () => ({ key: 9, scale: 'Minor pentatonic', backing: 'blues', reps: 1, limit: [9, 0, 4], notes: [], tool: 'draw' }) },
+    { t: '2. Question and answer', b: '<p><b>Call and response</b> is how blues, jazz and folk musicians talk. A <b>question</b> rises or stops on an unsettled note; the <b>answer</b> comes back down and lands on the root.</p><p>Think in pairs of bars: bar 1 asks, bar 2 answers.</p>',
+      task: 'Bar 1 already asks a question. Answer it in bar 2 and land on A (the amber row). Then ask a new question in bar 3 and answer in bar 4.',
+      setup: () => ({ key: 9, scale: 'Minor pentatonic', backing: 'blues', reps: 1, limit: null, notes: [N8(0, 0, 1, 64), N8(0, 1, 1, 67), N8(0, 2, 1, 69), N8(0, 3, 3, 72)], tool: 'answer' }) },
+    { t: '3. Rhythm first', b: '<p>Half of what makes a solo memorable is <b>rhythm</b>. Great players can make one note groove. Try a rhythm, repeat it, then vary it a little.</p>',
+      task: 'Only the note A is shown. Make bars 2 to 4 with A alone, changing just the rhythm (short notes, long notes, off the beat). Then press Show all notes and play your favourite rhythm on other notes.',
+      setup: () => ({ key: 9, scale: 'Minor pentatonic', backing: 'blues', reps: 1, limit: [9], notes: [N8(0, 0, 1, 69), N8(0, 1, 2, 69), N8(0, 3, 1, 69), N8(0, 4, 2, 69)], tool: 'draw' }) },
+    { t: '4. Leave space', b: '<p>Beginners often play non-stop. <b>Rests</b> give the listener time to hear what you played and make the next idea land harder. A good start: play two bars, rest two bars.</p>',
+      task: 'Keep the space under your solo at 30–50% (shown under the roll). Play in bars 1–2, rest in 3–4, play in 5–6, rest in 7–8.',
+      setup: () => ({ key: 9, scale: 'Blues', backing: 'blues', reps: 1, limit: null, notes: [], tool: 'up3' }) },
+    { t: '5. Land on chord tones', b: '<p>The notes of the chord playing at that moment are the strongest notes to <b>land on</b>, especially on beat 1 of a bar. In the roll they are tinted, and the amber tint is the chord\'s root.</p><p>Scale notes between them are the road; chord tones are the stops.</p>',
+      task: 'Over I–V–vi–IV in C, start every bar on a tinted row, then wander through the scale and end the bar on another tinted row. Keep "Land on a chord tone" ticked when you drop in ideas.',
+      setup: () => ({ key: 0, scale: 'Major pentatonic', backing: 'axis', reps: 2, limit: null, notes: [], tool: 'up3', snap: true }) },
+    { t: '6. Guide tones: 3rds and 7ths', b: '<p>When the chords change fast, the <b>3rd and 7th</b> of each chord (the <b>guide tones</b>) say the most: the 3rd says major or minor, the 7th says what kind of 7th chord. They often move by just a step from chord to chord.</p><p>In a 2–5–1 in C: F (3rd of Dm7) stays as the 7th of G7, then falls to E (3rd of Cmaj7).</p>',
+      task: 'The long notes are guide tones: F, F, E. Add a few notes before each one that lead into it, so your line arrives on F, F, E on beat 1.',
+      setup: () => ({ key: 0, scale: 'Major (Ionian)', backing: '251', reps: 2, limit: null, seventh: true, notes: [N8(0, 0, 8, 65), N8(1, 0, 8, 65), N8(2, 0, 8, 64), N8(3, 0, 8, 72), N8(4, 0, 8, 71), N8(5, 0, 8, 71)], tool: 'draw' }) },
+    { t: '7. Approach notes', b: '<p>A note a <b>half step below</b> (or above) a chord tone, played just before it, slides into it with a little tension. It is how a solo starts to sound like jazz or soul, even with simple notes.</p>',
+      task: 'Use the Approach note idea at the start of each bar (it finds the nearest chord tone for you). Show all notes is on, so the in-between notes appear.',
+      setup: () => ({ key: 0, scale: 'Major (Ionian)', backing: 'axis', reps: 1, limit: null, chromatic: true, notes: [], tool: 'approach' }) },
+    { t: '8. Develop one idea', b: '<p>Strong solos repeat and change one <b>motif</b> instead of always playing new things. Four simple ways: <b>repeat</b> it, <b>sequence</b> it (same shape, one step higher), <b>displace</b> it (start it half a beat later) and <b>change the ending</b>.</p>',
+      task: 'Bar 1 has a motif. Copy it to bar 3 (repeat), one scale step higher in bar 5 (sequence), half a beat later in bar 7 (displace), and change its last note in bar 9.',
+      setup: () => ({ key: 9, scale: 'Minor pentatonic', backing: 'blues', reps: 1, limit: null, notes: [N8(0, 0, 1, 69), N8(0, 1, 1, 72), N8(0, 2, 2, 74), N8(0, 4, 4, 72)], tool: 'draw' }) },
+    { t: '9. Shape a whole solo', b: '<p>Like a story, a solo has a <b>shape</b>: start low and sparse, climb in pitch and get busier, reach a peak (often about two thirds of the way through), then come back home. Change <b>register</b>, <b>density</b> and <b>expression</b> (on guitar: bends, slides, vibrato) as you go.</p>',
+      task: 'Over the whole blues: bars 1–4 low and sparse, 5–8 higher, a peak around bars 9–10, and a calm ending on A in bar 11. Compare with the example solos below.',
+      setup: () => ({ key: 9, scale: 'Blues', backing: 'blues', reps: 1, limit: null, notes: [], tool: 'draw' }) },
+  ];
+  /* ----- example solos (written for this site), with what each bar does ----- */
+  const IM_EXAMPLES = [
+    { id: 'blues', t: 'Minor-pentatonic blues in A', sub: '12-bar blues · A blues scale · 88 BPM',
+      set: { key: 9, scale: 'Blues', backing: 'blues', reps: 1, bpm: 88, grid: 2, seventh: true },
+      notes: [N8(0, 0, 1, 72), N8(0, 1, 1, 69), N8(0, 2, 2, 67), N8(0, 4, 4, 69),
+        N8(1, 6, 1, 64), N8(1, 7, 1, 67),
+        N8(2, 0, 1, 72), N8(2, 1, 1, 69), N8(2, 2, 2, 67), N8(2, 4, 2, 64), N8(2, 6, 1, 62), N8(2, 7, 1, 63),
+        N8(3, 0, 2, 60), N8(3, 2, 6, 57),
+        N8(4, 0, 2, 72), N8(4, 2, 1, 69), N8(4, 3, 1, 67), N8(4, 4, 4, 69),
+        N8(5, 4, 1, 62), N8(5, 5, 1, 64), N8(5, 6, 2, 67),
+        N8(6, 0, 2, 69), N8(6, 2, 1, 67), N8(6, 3, 1, 64), N8(6, 4, 4, 64),
+        N8(7, 6, 1, 64), N8(7, 7, 1, 67),
+        N8(8, 0, 1, 69), N8(8, 1, 1, 67), N8(8, 2, 2, 64), N8(8, 4, 4, 62),
+        N8(9, 0, 4, 60), N8(9, 4, 2, 57), N8(9, 6, 1, 60), N8(9, 7, 1, 63),
+        N8(10, 0, 2, 64), N8(10, 2, 1, 60), N8(10, 3, 5, 57),
+        N8(11, 2, 1, 67), N8(11, 3, 1, 64), N8(11, 4, 2, 62), N8(11, 6, 2, 64)],
+      bars: ['A7: the question. C over A7 is the "blue" minor 3rd against the chord\'s major 3rd (bend it a little on guitar); it settles on A, the root.',
+        'Space. A two-note pickup leads into the next phrase.',
+        'Repeat the opening (repetition makes it memorable), then a new ending: down through E and D, then up to E♭, the blue note.',
+        'The answer: down to A, held. Question (bars 1–2) and answer (3–4).',
+        'D7 arrives: C is the 7th of D7, a guide tone, and A is its 5th. The same notes as bar 1 in a new rhythm: the chord under them changed, so they sound different.',
+        'Space, then a short climb from D (the root of D7).',
+        'Back on A7: down to E, the 5th of A, held so the chord change is heard.',
+        'Space and pickup again: breathing is part of the phrase.',
+        'E7: the line falls to D, the 7th of E7 (a guide tone).',
+        'D7: C is the 7th of D7, so the guide tone steps D → C. The blue note E♭ leads up again.',
+        'Home: E down to A, the root, held for the end of the phrase.',
+        'Turnaround on E7: a little phrase that ends on E, the root of E7, pointing back to bar 1.'] },
+    { id: 'pop', t: 'Pop melody over I–V–vi–IV', sub: 'C major · major pentatonic plus B · 96 BPM, twice through',
+      set: { key: 0, scale: 'Major pentatonic', backing: 'axis', reps: 2, bpm: 96, grid: 2, seventh: false },
+      notes: [N8(0, 0, 2, 64), N8(0, 2, 2, 67), N8(0, 4, 1, 64), N8(0, 5, 1, 62), N8(0, 6, 2, 60),
+        N8(1, 0, 3, 62), N8(1, 3, 1, 64), N8(1, 4, 2, 62),
+        N8(2, 0, 2, 60), N8(2, 2, 2, 64), N8(2, 4, 4, 69),
+        N8(3, 0, 2, 69), N8(3, 2, 1, 67), N8(3, 3, 1, 69), N8(3, 4, 4, 72),
+        N8(4, 0, 2, 67), N8(4, 2, 1, 64), N8(4, 3, 1, 67), N8(4, 4, 4, 72),
+        N8(5, 0, 2, 74), N8(5, 2, 2, 71), N8(5, 4, 4, 67),
+        N8(6, 0, 1, 69), N8(6, 1, 1, 67), N8(6, 2, 2, 64), N8(6, 4, 2, 60), N8(6, 6, 2, 62),
+        N8(7, 0, 2, 69), N8(7, 2, 2, 65), N8(7, 4, 1, 64), N8(7, 5, 1, 62), N8(7, 6, 2, 60)],
+      bars: ['C: E and G, the 3rd and 5th of C, then down to the root. Every beat 1 in this melody is a chord tone.',
+        'G: D is the 5th of G. A small neighbour-note wiggle (D–E–D), then space.',
+        'Am: C (the 3rd of Am) climbs to A, the root, high and held: the emotional peak of the first half.',
+        'F: A is the 3rd of F; the line reaches C, the 5th, held so the loop can start again.',
+        'C again, second time: G and E (the 5th and 3rd of C), then up to the high C, an octave above where bar 1 ended. The melody lifts for the second half.',
+        'G: D on top (5th of G), B (its 3rd, and the key’s leading note, which wants to rise to C) and G, the root. B is not in the pentatonic scale but it is in C major.',
+        'Am: down the scale from A to C, then D: a long, falling phrase.',
+        'F: A and F (3rd and root of F), then down E–D–C to finish on C, the home note of the key.'] },
+    { id: 'jazz', t: 'Guide-tone line over a 2–5–1', sub: 'C major · Dm7 – G7 – Cmaj7, twice · 104 BPM',
+      set: { key: 0, scale: 'Major (Ionian)', backing: '251', reps: 2, bpm: 104, grid: 2, seventh: true, chromatic: true },
+      notes: [N8(0, 0, 1, 62), N8(0, 1, 1, 65), N8(0, 2, 1, 69), N8(0, 3, 1, 72), N8(0, 4, 1, 69), N8(0, 5, 1, 67), N8(0, 6, 2, 65),
+        N8(1, 0, 2, 65), N8(1, 2, 1, 67), N8(1, 3, 1, 69), N8(1, 4, 2, 71), N8(1, 6, 1, 74), N8(1, 7, 1, 75),
+        N8(2, 0, 3, 76), N8(2, 3, 1, 74), N8(2, 4, 1, 72), N8(2, 5, 3, 71),
+        N8(3, 2, 1, 72), N8(3, 3, 1, 69), N8(3, 4, 4, 65),
+        N8(4, 0, 2, 65), N8(4, 2, 1, 64), N8(4, 3, 1, 62), N8(4, 4, 2, 59), N8(4, 6, 1, 62), N8(4, 7, 1, 63),
+        N8(5, 0, 4, 64), N8(5, 4, 1, 67), N8(5, 5, 3, 71)],
+      bars: ['Dm7: straight up the chord (D F A C), then down the scale to F, its 3rd.',
+        'G7: F stays (now the 7th of G7: a guide tone held over the change), climbs to B, the 3rd, then D and D♯, a chromatic approach.',
+        'Cmaj7: D♯ resolves up to E, the 3rd of C. Down to B, the major 7th, for that soft jazz colour.',
+        'Dm7 again: a rest first (space), then C (the 7th) down to F, the 3rd, held.',
+        'G7: F again on beat 1 (the guide tone), down to B (3rd of G7), then D–D♯ approaching E.',
+        'Cmaj7: E, the 3rd, held, then G and B. Guide tones in the whole line: F → F → E, twice.'] },
+    { id: 'jpop', t: 'J-pop melody over the royal road', sub: 'C major · IV – V – iii – vi (F G Em Am) · 100 BPM',
+      set: { key: 0, scale: 'Major (Ionian)', backing: 'royal', reps: 1, bpm: 100, grid: 2, seventh: false, chromatic: true },
+      notes: [N8(0, 0, 2, 69), N8(0, 2, 2, 72), N8(0, 4, 1, 69), N8(0, 5, 1, 67), N8(0, 6, 2, 65),
+        N8(1, 0, 2, 67), N8(1, 2, 2, 71), N8(1, 4, 2, 74), N8(1, 6, 1, 72), N8(1, 7, 1, 71),
+        N8(2, 0, 2, 71), N8(2, 2, 2, 67), N8(2, 4, 2, 64), N8(2, 6, 1, 67), N8(2, 7, 1, 68),
+        N8(3, 0, 6, 69)],
+      bars: ['F (IV): A and C, the 3rd and 5th of F, then down to F. Starting away from home gives J-pop its "lifting" feel.',
+        'G (V): G, B (the 3rd, the leading note) and D climb, then fall back to B, which wants to rise to C… but the progression does not go home.',
+        'Em (iii): B, G and E outline Em. G♯ at the end is a chromatic approach that pulls hard into A.',
+        'Am (vi): A held, the root of the minor chord. Landing on vi instead of I gives the bittersweet, "not finished" sound of the royal road.'] },
+  ];
+  function imApply(cfg) {
+    imStop();
+    Object.assign(IM, { limit: null, chromatic: false, snap: true, reps: 1 }, cfg);
+    IM.notes = (cfg.notes || []).map((n) => Object.assign({}, n));
+    if (cfg.grid === 4) IM.grid = 4; else IM.grid = 2;
+    IM.sel = -1;
+    IM.selIds = new Set();
+    IM.cursor = 0;
+    IM.undo = [];
+    imSave();
+    renderImprov();
+  }
+  function renderImLearn() {
+    const g = $('imGuide');
+    if (g) {
+      g.innerHTML = IM_LESSONS.map((l, i) => `<details class="imles"${i === 0 ? ' open' : ''}><summary>${esc(l.t)}</summary><div class="imlesb">${l.b}<p class="imtask"><b>Try it:</b> ${esc(l.task)}</p><button type="button" class="tapbtn strong" data-imlesson="${i}">Try it in the Studio</button></div></details>`).join('');
+    }
+    const ex = $('imExamples');
+    if (ex) {
+      ex.innerHTML = IM_EXAMPLES.map((e) => `<details class="imex"><summary><b>${esc(e.t)}</b><small>${esc(e.sub)}</small></summary><div class="imexb"><ol class="imbars">${e.bars.map((t, i) => `<li><span>Bar ${i + 1}</span>${esc(t)}</li>`).join('')}</ol><div class="lsbtns"><button type="button" class="tapbtn strong" data-imex="${e.id}">Open in the Studio</button></div></div></details>`).join('');
+    }
+  }
+  function imClick(t, e) {
+    if (t.closest('#imRoll')) return true;   // the roll is edited with the pointer (pointerdown/move/up)
+    if (t.closest('#mapNeck') && !t.closest('[data-mapdot]')) return true;
+    const zm = t.closest('[data-imzoom]');
+    if (zm) { IM.zoom = Math.max(0.5, Math.min(2.5, (IM.zoom || 1) * (zm.getAttribute('data-imzoom') === 'in' ? 1.25 : 0.8))); renderImRoll(); return true; }
+    const tool = t.closest('[data-imtool]');
+    if (tool) { IM.tool = tool.getAttribute('data-imtool'); renderImprov(); return true; }
+    const sg = t.closest('[data-seg^="im"]');
+    if (sg) {
+      const k = sg.getAttribute('data-seg'), v = sg.getAttribute('data-v');
+      if (k === 'imgrid' && +v !== IM.grid) { const f = +v / IM.grid; IM.notes = IM.notes.map((n) => Object.assign({}, n, { step: Math.round(n.step * f), len: Math.max(1, Math.round(n.len * f)) })); IM.cursor = Math.round((IM.cursor || 0) * f); IM.grid = +v; }
+      if (k === 'imstyle') IM.style = v;
+      if (k === 'imlen') IM.len = +v;
+      imSave(); renderImprov();
+      return true;
+    }
+    if (t.closest('#imPlay')) { imPlay(); return true; }
+    if (t.closest('#imRec')) { irStart(); return true; }
+    const fm = t.closest('[data-imform]');
+    if (fm) {
+      const b = imBars()[+fm.getAttribute('data-imform')];
+      if (b) { if (!IMP.on) { try { auditionSlot(b); } catch (err) {} } IM.cursor = b.start; renderImRoll(); }
+      return true;
+    }
+    if (mapClick(t)) return true;
+    if (t.closest('#imMine')) { imUseMine(); return true; }
+    if (t.closest('#imUndo')) { if (IM.undo.length) { IM.redo = IM.redo || []; IM.redo.push(JSON.stringify(IM.notes)); IM.notes = JSON.parse(IM.undo.pop()); imSave(); renderImprov(); } return true; }
+    if (t.closest('#imClear')) { if (IM.notes.length) { imPush(); IM.notes = []; imSave(); renderImprov(); } return true; }
+    if (t.closest('#imSuggest')) { const n = imSuggest(); imSave(); renderImprov(); say(n ? 'Added a question and an answer to ' + n * 2 + ' empty bars. Change any note you like.' : 'No empty pair of bars left. Clear some bars first.'); return true; }
+    if (t.closest('#imCopy')) {
+      const txt = imTab();
+      try { navigator.clipboard.writeText(txt).then(() => flash('Tab copied'), () => flash('Select the tab and copy it')); } catch (err) { flash('Select the tab and copy it'); }
+      return true;
+    }
+    if (t.closest('#imSaveBtn')) {
+      if (!IM.notes.length) { say('Put some notes in first.'); return true; }
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem('fretboard-solos') || '[]'); } catch (err) {}
+      const name = (IM.name || '').trim() || 'My solo ' + (list.length + 1);
+      list = list.filter((s) => s.name !== name);
+      list.push({ name, key: IM.key, scale: IM.scale, backing: IM.backing, seventh: IM.seventh, style: IM.style, grid: IM.grid, bpm: IM.bpm, reps: IM.reps, chromatic: IM.chromatic, notes: IM.notes });
+      try { localStorage.setItem('fretboard-solos', JSON.stringify(list.slice(-30))); } catch (err) {}
+      IM.name = name; renderImSaved(); flash('Saved “' + name + '”');
+      return true;
+    }
+    const ld = t.closest('[data-imload]');
+    if (ld) { let list = []; try { list = JSON.parse(localStorage.getItem('fretboard-solos') || '[]'); } catch (err) {} const s = list[+ld.getAttribute('data-imload')]; if (s) imApply(Object.assign({}, s)); return true; }
+    const dl = t.closest('[data-imdel]');
+    if (dl) { let list = []; try { list = JSON.parse(localStorage.getItem('fretboard-solos') || '[]'); } catch (err) {} list.splice(+dl.getAttribute('data-imdel'), 1); try { localStorage.setItem('fretboard-solos', JSON.stringify(list)); } catch (err) {} renderImSaved(); return true; }
+    const ls = t.closest('[data-imlesson]');
+    if (ls) {
+      const v = ls.getAttribute('data-imlesson');
+      if (v === 'close') { IM.lesson = null; IM.limit = null; renderImprov(); return true; }
+      if (v === 'all') { IM.limit = null; renderImprov(); return true; }
+      const l = IM_LESSONS[+v];
+      imApply(Object.assign(l.setup(), { bpm: 88, grid: 2 }));
+      IM.lesson = l;
+      renderImprov();
+      focusIn('#imPanel');
+      return true;
+    }
+    const ex = t.closest('[data-imex]');
+    if (ex) {
+      const e2 = IM_EXAMPLES.find((x) => x.id === ex.getAttribute('data-imex'));
+      if (e2) { imApply(Object.assign({}, e2.set, { notes: e2.notes, name: e2.t })); IM.lesson = { t: e2.t, task: 'Press Play to hear it. Then change it: move a note, delete a bar, or add your own answer.' }; renderImprov(); focusIn('#imPanel'); }
+      return true;
+    }
+    return false;
+  }
+  function imChange(id, v, el) {
+    if (id === 'imKey') { IM.key = +v; }
+    else if (id === 'imScale') IM.scale = v;
+    else if (id === 'imBacking') { if (v === 'mine') { imUseMine(); return true; } IM.backing = v; if (IM.style === 'mine') IM.style = 'strum'; }
+    else if (id === 'imBpm') IM.bpm = Math.max(40, Math.min(220, +v || 92));
+    else if (id === 'imSnap') IM.snap = !!el.checked;
+    else if (id === 'imChrom') IM.chromatic = !!el.checked;
+    else if (id === 'imLoop') IM.loop = !!el.checked;
+    else if (id === 'imReps') IM.reps = +v || 1;
+    else if (id === 'imName') { IM.name = v; return true; }
+    else if (id === 'imRecCount') { IREC.count = +v || 0; irSave(); return true; }
+    else if (id === 'imRecHear') { IREC.hear = v; irSave(); return true; }
+    else if (id === 'imRecReplace') { IREC.replace = !!el.checked; irSave(); return true; }
+    else if (id === 'imMapOther') { if (v) { const plan = mapPlan(); const i = mapBarAt(plan); const [n, r] = v.split('|'); mapSet(i, { s: n, r: +r, pos: null, k: null }, plan[i].bar); imSave(); renderImRoll(); renderMap(); } return true; }
+    else return false;
+    if (IMP.on && id !== 'imLoop') imStop();
+    imSave();
+    renderImprov();
+    return true;
+  }
+
+  /* ==================== Scale map: the scales that fit every chord, on the neck; building blocks; moving between chords ==================== */
+  // IM.map[bar] = { n: chord name, s: scale name, r: scale root, k: pattern, pos: lowest fret of the position } (only what you picked)
+  const MAP_TAG = { key: 'In the key', leads: 'Leads on', borrowed: 'Borrowed', easy: 'Easy', blues: 'Blues', color: 'Colour', tension: 'Tension', mine: 'Your pick' };
+  const MAP_SRC = {
+    omt: ['Open Music Theory: chord-scale theory', 'https://viva.pressbooks.pub/openmusictheory/chapter/chord-scale-theory/'],
+    burton: ['Gary Burton (Berklee Online): essential jazz scales', 'https://online.berklee.edu/takenote/?p=14876'],
+    yamaha: ['Yamaha: major and minor pentatonic scales', 'https://hub.yamaha.com/guitars/g-how-to/a-guitarists-guide-to-major-and-minor-pentatonic-scales'],
+    yamahaDorian: ['Yamaha: the Dorian mode', 'https://hub.yamaha.com/guitars/g-how-to/major-scale-modes-part-2-dorian-mode'],
+    pg: ['Premier Guitar: mixing major and minor pentatonics', 'https://www.premierguitar.com/lessons/blue-horizons-how-to-mix-major-and-minor-pentatonics'],
+    mix: ['Open Music Theory: modal mixture', 'https://viva.pressbooks.pub/openmusictheory/chapter/modal-mixture/'],
+    hmin: ['Harmonic minor scale', 'https://en.wikipedia.org/wiki/Harmonic_minor_scale'],
+    guide: ['Berklee Online: voice leading (guide tones)', 'https://online.berklee.edu/takenote/voice-leading-for-guitar/'],
+  };
+  const mapSrc = (id) => { const s = MAP_SRC[id]; return s ? `<a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a>` : 'worked out from the notes themselves'; };
+  const MAP_LIST = ['Major pentatonic', 'Minor pentatonic', 'Blues', 'Major (Ionian)', 'Natural minor (Aeolian)', 'Dorian', 'Phrygian', 'Lydian', 'Mixolydian', 'Locrian', 'Harmonic minor', 'Melodic minor', 'Lydian dominant', 'Altered', 'Phrygian dominant', 'Diminished (half-whole)', 'Diminished (whole-half)', 'Whole tone'];
+  const mapShort = (name) => name.replace('Major (Ionian)', 'major').replace('Natural minor (Aeolian)', 'natural minor').replace(' pentatonic', ' pent.').replace('Major', 'major').replace('Minor', 'minor').replace('Harmonic', 'harmonic').replace('Melodic', 'melodic');
+  const mapLabel = (c) => imNames()[c.root] + ' ' + mapShort(c.name);
+  const mapFull = (c) => imNames()[c.root] + ' ' + c.name.replace('Major (Ionian)', 'major (Ionian)').replace('Natural minor (Aeolian)', 'natural minor (Aeolian)');
+  // the key and mode the backing is in (a blues counts as major, with the blues choices first)
+  function imKeyMode() {
+    const minorish = ['Minor pentatonic', 'Blues', 'Natural minor (Aeolian)', 'Dorian', 'Harmonic minor', 'Melodic minor', 'Phrygian'];
+    if (IM.backing === 'blues') return { tonic: IM.key, mode: 'major', blues: true };
+    if (IM.backing === 'mine') {
+      let a = null;
+      try { a = analyzeProg(P.slots, { hk: S.hk, hm: S.hm }); } catch (e) { a = null; }
+      const doms = new Set(P.slots.filter((s) => s.tones && s.tones.length && chordQuality(s.tones[0].pc, s.tones.map((t) => t.pc)) === 'dom').map((s) => s.tones[0].pc));
+      const blues = doms.has(IM.key) && (doms.has((IM.key + 5) % 12) || doms.has((IM.key + 7) % 12));
+      if (a && a.key && a.key.tonic === IM.key) return { tonic: IM.key, mode: blues ? 'major' : a.key.mode, blues };
+      return { tonic: IM.key, mode: !blues && minorish.includes(IM.scale) ? 'minor' : 'major', blues };
+    }
+    const d = COMMON_PROGS.find((x) => x.id === IM.backing);
+    return { tonic: IM.key, mode: d && d.mode === 'minor' ? 'minor' : 'major', blues: false };
+  }
+  const mapChord = (b) => ({ root: b.tones[0].pc, pcs: Array.from(new Set(b.tones.map((t) => t.pc))) });
+  // every position (box) of a scale on the neck, low to high
+  function mapWindows(name, root) {
+    const e = mapEntry(name);
+    if (!e) return [];
+    const notes = buildPattern(e, root, S.flats).notes;
+    const out = [];
+    patternsFor(e, notes).forEach((p, k) => p.occurrences.forEach((o) => {
+      if (o.max - o.min > 6 || o.min > 17) return;
+      if (!out.some((w) => w.min === o.min && w.max === o.max)) out.push({ k, n: p.occurrences.length > 0 ? k + 1 : 0, label: p.label, min: o.min, max: o.max, dots: o.dots });
+    }));
+    out.sort((a, b) => a.min - b.min || a.k - b.k);
+    return out;
+  }
+  // the plan for every bar: its chord, the scales that fit, the scale in use and the position on the neck
+  function mapPlan() {
+    const bars = imBars();
+    if (!bars.length) return [];
+    const key = imKeyMode();
+    const names = imNames();
+    let anchor = null;
+    return bars.map((b, i) => {
+      const nb = bars[(i + 1) % bars.length];
+      const recs = chordScales(mapChord(b), key, { names, blues: key.blues, next: mapChord(nb) });
+      const pick = IM.map && IM.map[i] && IM.map[i].n === b.name ? IM.map[i] : null;
+      let choice = recs[0] || { name: IM.scale, root: IM.key, pcs: imScalePcs().map((n) => n.pc), tag: 'mine', why: '', src: '' };
+      if (pick) {
+        const r = recs.find((c) => c.name === pick.s && c.root === pick.r);
+        choice = r || { name: pick.s, root: pick.r, pcs: scalePcsOf(pick.s, pick.r), tag: 'mine', why: 'A scale you picked. Amber dots show which of its notes are in the chord.', src: '' };
+      }
+      const wins = mapWindows(choice.name, choice.root);
+      if (anchor === null) {
+        const fr = (b.frets || []).filter((f) => f > 0);
+        anchor = fr.length ? Math.min.apply(null, fr) : 5;
+      }
+      let win = null;
+      if (pick && pick.pos !== undefined && pick.pos !== null) win = wins.find((w) => w.min === pick.pos && w.k === pick.k) || wins.find((w) => w.min === pick.pos) || null;
+      if (!win && wins.length) win = wins.reduce((a, w) => (Math.abs(w.min - anchor) < Math.abs(a.min - anchor) ? w : a), wins[0]);
+      if (win) anchor = win.min;
+      return { i, bar: b, recs, choice, wins, win, picked: !!pick };
+    });
+  }
+  // while the Studio plays, the map follows the bar that is sounding: a live guide to what fits right now
+  const mapBarAt = (plan) => { if (IMP.on && IMP.lastBar >= 0 && plan[IMP.lastBar]) return IMP.lastBar; const c = IM.cursor || 0; const p = plan.find((x) => c >= x.bar.start && c < x.bar.start + x.bar.steps); return p ? p.i : 0; };
+  function mapSet(i, patch, bar) {
+    IM.map = IM.map || {};
+    const prev = IM.map[i] && IM.map[i].n === bar.name ? IM.map[i] : {};
+    IM.map[i] = Object.assign({}, prev, { n: bar.name }, patch);
+  }
+  // building blocks: pieces of the position you are in, low to high
+  function mapBlocks(p) {
+    const blocks = [];
+    if (p.win) {
+      const cells = p.win.dots.map((d) => ({ s: d.s, f: d.f, midi: OPEN[d.s] + d.f, pc: d.note.pc })).sort((a, b) => a.midi - b.midi || a.s - b.s)
+        .filter((c, k, arr) => !k || c.midi !== arr[k - 1].midi);
+      const tones = p.bar.tones.map((t) => t.pc);
+      blocks.push({ id: 'all', name: 'Whole position', cells });
+      blocks.push({ id: 'low', name: 'Low strings (6–4)', cells: cells.filter((c) => c.s <= 2) });
+      blocks.push({ id: 'high', name: 'High strings (3–1)', cells: cells.filter((c) => c.s >= 3) });
+      for (let a = 0; a < 5; a++) blocks.push({ id: 'p' + a, name: 'Strings ' + (6 - a) + '–' + (5 - a), cells: cells.filter((c) => c.s === a || c.s === a + 1) });
+      blocks.push({ id: 'arp', name: 'Only chord notes', cells: cells.filter((c) => tones.includes(c.pc)) });
+      blocks.push({ id: 'top', name: 'Top 4 notes', cells: cells.slice(-4) });
+    }
+    blocks.push({ id: 'mine', name: 'My block', cells: (IM.myBlock || []).map((c) => Object.assign({ midi: OPEN[c.s] + c.f, pc: (OPEN[c.s] + c.f) % 12 }, c)) });
+    return blocks.filter((b) => b.id === 'mine' || b.cells.length);
+  }
+  function mapOrder(cells, dir, keepOrder) {
+    let c = keepOrder ? cells.slice() : cells.slice().sort((a, b) => a.midi - b.midi);
+    if (dir === 'down') c.reverse();
+    if (dir === 'updown') c = c.concat(c.slice(0, -1).reverse());
+    return c;
+  }
+  // put notes into the solo at the cursor, one after another, each as long as the note length you picked
+  function mapInsert(cells, lens) {
+    const bars = imBars(), total = imTotal(bars);
+    if (!cells.length || !total) return 0;
+    let t = Math.max(0, Math.min(total - 1, IM.cursor || 0));
+    const placed = [];
+    cells.forEach((c, k) => {
+      if (t >= total) return;
+      const L = lens ? lens[k] : IM.len;
+      placed.push({ step: t, len: Math.min(L, total - t), midi: c.midi, s: c.s, f: c.f, v: 0.8 });
+      t += L;
+    });
+    imPush();
+    const s0 = placed[0].step, s1 = placed[placed.length - 1].step + placed[placed.length - 1].len;
+    IM.notes = IM.notes.filter((n) => n.step + n.len <= s0 || n.step >= s1).concat(placed).sort((a, b) => a.step - b.step);
+    IM.cursor = Math.min(total - 1, t);
+    IM.selIds = new Set();
+    imSave();
+    return placed.length;
+  }
+  // a short run that leaves this chord through its scale and lands on a note of the next chord right on the change
+  function mapBridge(plan, i) {
+    const p = plan[i], q = plan[(i + 1) % plan.length];
+    if (!p || !q) return 0;
+    const bars = imBars(), total = imTotal(bars);
+    const u = IM.grid / 2;   // an 8th
+    const land = q.bar.start;
+    const from = land - 3 * u;
+    if (from < p.bar.start) return 0;
+    const before = IM.notes.filter((n) => n.step < from).sort((a, b) => b.step - a.step)[0];
+    const anchor = before ? before.midi : 64;
+    const qc = mapChord(q.bar), qq = chordQuality(qc.root, qc.pcs);
+    const rank = (pc) => { const r = toneRole(qc.root, pc, qq); return r === '3rd' ? 0 : r === 'root' ? 1 : r === '7th' ? 1.5 : 2; };
+    let target = null, best = Infinity;
+    for (let m = 52; m <= 79; m++) { if (!qc.pcs.includes(m % 12)) continue; const sc = Math.abs(m - anchor) + rank(m % 12) * 2.5; if (sc < best) { best = sc; target = m; } }
+    if (target === null) return 0;
+    const sp = p.choice.pcs;
+    const down = anchor >= target;   // come from where you are
+    const run = [];
+    for (let m = target + (down ? 1 : -1); run.length < 3 && m > 30 && m < 100; m += down ? 1 : -1) if (sp.includes(((m % 12) + 12) % 12)) run.push(m);
+    run.reverse();
+    const notes = run.map((m, k) => ({ step: from + k * u, len: u, midi: m, v: 0.75 }));
+    notes.push({ step: land, len: Math.min(2 * u, total - land), midi: target, v: 0.9 });
+    imPush();
+    const s0 = from, s1 = land + 2 * u;
+    const wrap = land === 0;   // the last bar leads back to the first
+    IM.notes = IM.notes.filter((n) => (n.step + n.len <= s0 || n.step >= (wrap ? total : s1)) && !(wrap && n.step < 2 * u)).concat(notes).sort((a, b) => a.step - b.step);
+    imSave();
+    return target;
+  }
+  function renderMap() {
+    const box = $('mapBars');
+    if (!box) return;
+    const plan = mapPlan();
+    const names = imNames();
+    if (!plan.length) { box.innerHTML = '<p class="hint">Pick a backing in the Studio first.</p>'; ['mapScales', 'mapWhy', 'mapPos', 'mapBlocks', 'mapMove', 'mapTogether'].forEach((id) => { const el = $(id); if (el) el.innerHTML = ''; }); const sv = $('mapNeck'); if (sv) sv.innerHTML = ''; return; }
+    const i = mapBarAt(plan);
+    const p = plan[i];
+    IM.mapI = i;
+    // the bars, with the scale each one uses
+    box.innerHTML = plan.map((x) => `<button type="button" class="mapbar${x.i === i ? ' on' : ''}${x.picked ? ' picked' : ''}" data-map="bar:${x.i}" aria-pressed="${x.i === i}"><b>${esc(x.bar.name)}</b><small>${esc(mapLabel(x.choice))}</small></button>`).join('');
+    // the scales for this chord
+    const recs = p.recs.slice();
+    if (!recs.some((c) => c.name === p.choice.name && c.root === p.choice.root)) recs.unshift(p.choice);
+    const others = [];
+    [p.bar.tones[0].pc, IM.key].forEach((r) => MAP_LIST.forEach((n) => { if (!recs.some((c) => c.name === n && c.root === r) && !others.some((o) => o[0] === n + '|' + r)) others.push([n + '|' + r, names[r] + ' ' + n]); }));
+    $('mapScales').innerHTML = `<div class="maprecs">${recs.map((c) => `<button type="button" class="maprec t-${c.tag}${c.name === p.choice.name && c.root === p.choice.root ? ' on' : ''}" data-map="scale:${esc(c.name)}|${c.root}" aria-pressed="${c.name === p.choice.name && c.root === p.choice.root}"><span class="maptag">${esc(MAP_TAG[c.tag] || '')}</span>${esc(mapFull(c))}</button>`).join('')}</div>`
+      + `<div class="mapmore"><label class="field"><span>Any other scale</span><select id="imMapOther"><option value="">Choose…</option>${options(others, '')}</select></label>`
+      + `<button type="button" class="tapbtn" data-map="same">Use for every ${esc(p.bar.name)}</button><button type="button" class="tapbtn" data-map="hear">Hear the scale</button></div>`;
+    const chosen = p.choice;
+    const inChord = chosen.pcs.filter((pc) => p.bar.tones.some((t) => t.pc === pc));
+    $('mapWhy').innerHTML = `<b>${esc(mapFull(chosen))}</b> over <b>${esc(p.bar.name)}</b> (bar ${i + 1}). ${esc(chosen.why || '')} <span class="mapnotes">Notes: ${chosen.pcs.map((pc) => `<i class="${inChord.includes(pc) ? 'ct' : ''}">${esc(names[pc])}</i>`).join(' ')}</span>${chosen.src ? ` <small class="mapsrc">Source: ${mapSrc(chosen.src)}</small>` : chosen.tag !== 'mine' ? ' <small class="mapsrc">Worked out from the notes themselves.</small>' : ''}`;
+    // positions
+    $('mapPos').innerHTML = `<span class="maplab">Position</span>` + p.wins.map((w) => `<button type="button" class="mappos${!IM.mapAll && p.win === w ? ' on' : ''}" data-map="pos:${w.min}:${w.k}" aria-pressed="${!IM.mapAll && p.win === w}" title="${esc(w.label)}">${w.min === 0 ? 'Open' : 'Fret ' + w.min}<small>${w.min}–${w.max}</small></button>`).join('')
+      + `<button type="button" class="mappos${IM.mapAll ? ' on' : ''}" data-map="all" aria-pressed="${!!IM.mapAll}">Whole neck</button>`
+      + `<span class="maplabs"><button type="button" class="tapbtn lssmall" data-map="labels" aria-pressed="${IM.mapLabels === 'deg'}">${IM.mapLabels === 'deg' ? 'Labels: degrees (R 3 5)' : 'Labels: note names'}</button></span>`;
+    renderMapNeck(plan, i);
+    renderMapLegend(p, plan[(i + 1) % plan.length]);
+    // building blocks
+    const blocks = mapBlocks(IM.mapAll ? Object.assign({}, p, { win: null }) : p);
+    if (!blocks.some((b) => b.id === IM.mapBlock)) IM.mapBlock = blocks[0] ? blocks[0].id : null;
+    const dir = IM.mapDir || 'up';
+    const blk = blocks.find((b) => b.id === IM.mapBlock);
+    const lenName = { 1: IM.grid === 4 ? '16ths' : '8ths', 2: IM.grid === 4 ? '8ths' : 'quarter notes', 4: IM.grid === 4 ? 'quarter notes' : 'half notes', 8: IM.grid === 4 ? 'half notes' : 'whole notes' }[IM.len] || '';
+    const cur = imBars().find((b) => (IM.cursor || 0) >= b.start && (IM.cursor || 0) < b.start + b.steps);
+    const beat = cur ? Math.floor(((IM.cursor || 0) - cur.start) / IM.grid) + 1 : 1;
+    $('mapBlocks').innerHTML = `<div class="mapblist">${blocks.map((b) => `<button type="button" class="mapblk${b.id === IM.mapBlock ? ' on' : ''}" data-map="blk:${b.id}" aria-pressed="${b.id === IM.mapBlock}">${esc(b.name)}<small>${b.id === 'mine' && !b.cells.length ? 'tap dots' : b.cells.length + ' notes'}</small></button>`).join('')}</div>`
+      + `<div class="mapbctl"><div class="seg" id="mapDir">${[['up', '↑ Up'], ['down', '↓ Down'], ['updown', '↑↓ Up and back']].concat(IM.mapBlock === 'mine' ? [['tap', 'As tapped']] : []).map(([v, l]) => `<button type="button" data-map="dir:${v}" aria-pressed="${v === dir}">${l}</button>`).join('')}</div>`
+      + `<button type="button" class="shapeadd" data-map="add"${blk && blk.cells.length ? '' : ' disabled'}>Add to solo at bar ${i + 1}, beat ${beat}</button>`
+      + `<button type="button" class="tapbtn" data-map="audition"${blk && blk.cells.length ? '' : ' disabled'}>Hear block</button>`
+      + (IM.mapBlock === 'mine' && blk && blk.cells.length ? `<button type="button" class="tapbtn" data-map="clearmine">Clear my block</button>` : '') + `</div>`
+      + `<p class="imhint">${IM.mapBlock === 'mine' ? 'Tap dots on the neck in the order you want them, then add them. Tap a dot again to take it out.' : `Each note is one ${esc(lenName.replace(/s$/, ''))} (change <b>Note length</b> in the Studio). After adding, the cursor moves on, so the next block follows straight after: snap blocks together, changing scale whenever the chord changes.`}</p>`;
+    // moving to the next chord
+    const q = plan[(i + 1) % plan.length];
+    const tr = chordTransition(mapChord(p.bar), mapChord(q.bar), p.choice.pcs, q.choice.pcs);
+    const nm = (pc) => names[pc];
+    const moves = tr.moves.map((m) => `<li><b>${esc(nm(m.from))}</b> (${esc(m.fromRole)} of ${esc(p.bar.name)}) ${m.d === 0 ? `stays: it is the <b>${esc(m.toRole)}</b> of ${esc(q.bar.name)}` : `→ <b>${esc(nm(m.to))}</b> (${esc(m.toRole)} of ${esc(q.bar.name)}), ${Math.abs(m.d) === 1 ? 'a half step' : Math.abs(m.d) === 2 ? 'a whole step' : Math.abs(m.d) + ' half steps'} ${m.d < 0 ? 'down' : 'up'}`}</li>`).join('');
+    const same = tr.change.length === 0;
+    const chg = tr.change.map((c) => c.from !== null && c.to !== null ? `${esc(nm(c.from))} → ${esc(nm(c.to))}` : c.from !== null ? `drop ${esc(nm(c.from))}` : `add ${esc(nm(c.to))}`).join(', ');
+    const last = i === plan.length - 1;
+    $('mapMove').innerHTML = `<h3>${last ? 'Back to the start' : 'Into the next chord'}: ${esc(p.bar.name)} → ${esc(q.bar.name)}</h3><ul class="mapmv">`
+      + `<li>${tr.common.length ? `<b>${tr.common.map(nm).map(esc).join(', ')}</b> ${tr.common.length > 1 ? 'are' : 'is'} in both chords: hold or repeat ${tr.common.length > 1 ? 'one' : 'it'} across the change and it sounds right on both.` : 'The two chords share no notes: move by a step into one of the new chord’s notes.'}</li>`
+      + moves
+      + `<li>${same ? `Same scale notes on both chords (${esc(mapLabel(p.choice))} → ${esc(mapLabel(q.choice))}): keep playing, just aim for ${esc(q.bar.name)}’s notes on the change.` : `Scale change (${esc(mapLabel(p.choice))} → ${esc(mapLabel(q.choice))}): ${chg}. Every other note stays.`}</li>`
+      + `<li>Land on a note of ${esc(q.bar.name)} right on beat 1: the green rings on the neck. A note a half step below or above it slides in nicely.</li></ul>`
+      + `<div class="lsbtns"><button type="button" class="tapbtn strong" data-map="bridge">Add a run into ${esc(q.bar.name)}</button></div>`
+      + `<p class="mapsrc">The 3rd and 7th of a chord (its guide tones) usually move by a half or whole step, or stay, into the next chord. Source: ${mapSrc('guide')}.</p>`;
+    // scales that go together
+    const kmode = imKeyMode();
+    const T = kmode.tonic, minorKey = kmode.mode === 'minor';
+    const rel = minorKey ? (T + 3) % 12 : (T + 9) % 12;
+    const pairs = [
+      [`In a blues: ${nm(T)} minor pentatonic + ${nm(T)} major pentatonic`, 'Same root, minor and major, over dominant 7th chords: players use minor pentatonic away from the I chord and major pentatonic when the I chord comes back. Try a minor phrase answered by a major one.', 'pg'],
+      [`${nm(minorKey ? T : rel)} minor pentatonic = ${nm(minorKey ? rel : T)} major pentatonic`, 'Relative pair: the very same five notes and shapes, only the home note changes. Learn one shape, get both.', 'yamaha'],
+      [`Minor pentatonic + ♭5 = blues scale`, 'Add one passing “blue” note between the 4th and 5th.', 'yamaha'],
+      [`Minor pentatonic + 2nd and 6th = Dorian`, 'Dorian is minor pentatonic with two notes filled in (the 6th is major). With a ♭6th instead you get natural minor.', ''],
+      [`Major pentatonic + 4th and ♭7th = Mixolydian`, 'Mixolydian is major pentatonic plus the 4th and ♭7th, the sound of a dominant 7th. With a major 7th instead you get the major scale.', ''],
+      [`${nm(minorKey ? T : (T + 9) % 12)} natural minor → harmonic minor over ${nm(((minorKey ? T : (T + 9) % 12) + 7) % 12)}7`, `${nm(((minorKey ? T : (T + 9) % 12) + 7) % 12)}7 is the V7 of ${nm(minorKey ? T : (T + 9) % 12)} minor. Raise one note, the 7th (${nm(((minorKey ? T : (T + 9) % 12) + 10) % 12)} → ${nm(((minorKey ? T : (T + 9) % 12) + 11) % 12)}), while it plays; go back afterwards.`, 'hmin'],
+    ].concat(minorKey ? [] : [[`${nm(T)} major → ${nm(T)} minor over borrowed chords`, `Over chords borrowed from the parallel minor (iv, ♭VI, ♭VII in a major key, such as ${nm((T + 5) % 12)}m, ${nm((T + 8) % 12)} or ${nm((T + 10) % 12)}), swap to ${nm(T)} minor’s notes: the 3rd, 6th and 7th flatten.`, 'mix']]);
+    const whole = progressionScales(plan.map((x) => mapChord(x.bar)), kmode).slice(0, 3);
+    $('mapTogether').innerHTML = `<h3>Over the whole progression</h3><ul class="mapwhole">${whole.map((w) => `<li><b>${esc(mapFull(w))}</b><span>holds every note of ${w.full} of ${w.n} chords · no half-step rub over ${w.calm} of ${w.n}</span><button type="button" class="tapbtn lssmall" data-map="every:${esc(w.name)}|${w.root}">Use on every bar</button></li>`).join('')}</ul>`
+      + `<p class="mapsrc">A “rub” is a scale note a half step above a note of the chord (and not in it): it sounds tense if you stop on it. Pentatonic scales have no half steps, which is why they rub least.</p>`
+      + `<h3>Scales that go together</h3><ul class="mappairs">${pairs.map(([t, d, s]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span><small>${s ? 'Source: ' + mapSrc(s) : 'Worked out from the notes.'}</small></li>`).join('')}</ul>`;
+  }
+  // The neck: big amber = notes of the chord playing (land on these), a square = its root, small blue = other scale notes
+  // (pass through them), a green ring = a note of the next chord, a white dot at the corner = a finger of your chord shape.
+  const MAP_DEG = { root: 'R', '3rd': '3', '♭3rd': '♭3', '5th': '5', '♭5th': '♭5', '♯5th': '♯5', '7th': '7', '♭7th': '♭7', '9th': '9', '♭9': '♭9', '4th': '4', '6th': '6' };
+  function renderMapNeck(plan, i) {
+    const svg = $('mapNeck');
+    if (!svg) return;
+    const p = plan[i], q = plan[(i + 1) % plan.length];
+    const names = imNames();
+    const show = IM.mapShow || (IM.mapShow = { next: true, shape: true });
+    const win = IM.mapAll ? null : p.win;
+    const inWin = new Set(win ? win.dots.map((d) => d.s + ':' + d.f) : []);
+    const tones = p.bar.tones.map((t) => t.pc), root = p.bar.tones[0].pc;
+    const ntones = q && q !== p && q.bar.name !== p.bar.name && show.next ? q.bar.tones.map((t) => t.pc) : [];   // nothing to aim for when the chord stays
+    const qq = chordQuality(root, tones);
+    const shape = new Set();
+    if (show.shape && p.bar.frets) p.bar.frets.forEach((f, s) => { if (Number.isInteger(f) && f >= 0) shape.add(s + ':' + f); });
+    const blk = mapBlocks(IM.mapAll ? Object.assign({}, p, { win: null }) : p).find((b) => b.id === IM.mapBlock);
+    const order = new Map();
+    if (blk && (IM.mapPeek || blk.id === 'mine')) mapOrder(blk.cells, IM.mapDir === 'tap' ? 'up' : IM.mapDir, blk.id === 'mine').forEach((c, k) => { const key = c.s + ':' + c.f; if (!order.has(key)) order.set(key, k + 1); });
+    let g = boardSvg([], []);
+    if (win) {
+      const x0 = win.min === 0 ? nutX - 50 : fx(win.min - 1) + 2, x1 = fx(win.max) - 2;
+      g += `<rect class="mapwin" x="${x0.toFixed(1)}" y="${top - 18}" width="${(x1 - x0).toFixed(1)}" height="${5 * gap + 36}" rx="8"/>`;
+      g += `<text class="mapwinlab" x="${((x0 + x1) / 2).toFixed(1)}" y="${top - 24}" text-anchor="middle">Your hand here: frets ${win.min}–${win.max}</text>`;
+    }
+    const nm = p.bar.name, qn = q ? q.bar.name : '';
+    for (let s = 0; s < 6; s++) {
+      for (let f = 0; f <= MAX_FRET; f++) {
+        const pc = (OPEN[s] + f) % 12;
+        if (!p.choice.pcs.includes(pc)) continue;
+        const key = s + ':' + f;
+        const dim = win && !inWin.has(key);
+        const isTone = tones.includes(pc), isRoot = pc === root;
+        const role = toneRole(root, pc, qq);
+        const deg = MAP_DEG[role] || role;
+        const lab = IM.mapLabels === 'deg' ? deg : names[pc];
+        const x = dotX(f), y = sy(s);
+        const tip = `${names[pc]} (${STRING_NAMES[s]} string, ${f === 0 ? 'open' : 'fret ' + f}): ` + (isRoot ? `the root of ${nm}, its home note. The strongest note to land on.` : isTone ? `the ${role} of ${nm}, a chord note. Safe to land on.` : `a scale note (the ${role} above ${names[root]}). Use it to move between chord notes; it sounds tense if you stop on it.`)
+          + (ntones.includes(pc) && !dim ? ` Also in ${qn}, the next chord: aim here at the change.` : '') + (shape.has(key) ? ` Your ${nm} chord shape uses this one.` : '') + (dim ? ' (Outside the hand position you picked.)' : '');
+        const cls = 'mapdot' + (isTone ? ' tone' : ' pass') + (isRoot ? ' croot' : '') + (dim ? ' dim' : '') + (order.has(key) ? ' sel' : '');
+        g += `<g class="${cls}" data-mapdot="${s}:${f}"><title>${esc(tip)}</title>`;
+        if (dim) { g += `<circle cx="${x.toFixed(1)}" cy="${y}" r="6"/></g>`; continue; }
+        const r = isTone ? 14 : 10.5;
+        if (ntones.includes(pc)) g += `<circle class="mapnext" cx="${x.toFixed(1)}" cy="${y}" r="${r + 4}"/>`;
+        if (isRoot) g += `<rect class="mapbody" x="${(x - r).toFixed(1)}" y="${y - r}" width="${2 * r}" height="${2 * r}" rx="5"/>`;
+        else g += `<circle class="mapbody" cx="${x.toFixed(1)}" cy="${y}" r="${r}"/>`;
+        g += `<text x="${x.toFixed(1)}" y="${y + (isTone ? 4.2 : 3.4)}" text-anchor="middle" font-size="${isTone ? (lab.length >= 3 ? 9.5 : 12) : (lab.length >= 3 ? 8 : 10)}">${esc(lab)}</text>`;
+        if (shape.has(key)) g += `<circle class="mapfinger" cx="${(x - r + 1).toFixed(1)}" cy="${(y + r - 1).toFixed(1)}" r="4.6"/>`;
+        if (order.has(key)) g += `<circle class="mapord" cx="${(x + r - 1).toFixed(1)}" cy="${(y - r + 1).toFixed(1)}" r="7.5"/><text class="mapordt" x="${(x + r - 1).toFixed(1)}" y="${(y - r + 4).toFixed(1)}" text-anchor="middle" font-size="9">${order.get(key)}</text>`;
+        g += `</g>`;
+      }
+    }
+    let x0 = 0, x1 = VBW;
+    if (win) { x0 = win.min <= 1 ? 0 : Math.max(0, fx(Math.max(0, win.min - 3)) - 10); x1 = Math.min(VBW, fx(Math.min(MAX_FRET, win.max + 3)) + 12); if (x1 - x0 < 620) { x1 = Math.min(VBW, x0 + 620); } }
+    svg.setAttribute('viewBox', `${x0.toFixed(1)} 0 ${(x1 - x0).toFixed(1)} ${VBH}`);
+    svg.style.minWidth = Math.round((x1 - x0) * 0.62) + 'px';
+    svg.innerHTML = g;
+    svg.setAttribute('aria-label', `${mapFull(p.choice)} on the neck over ${p.bar.name}${win ? ', frets ' + win.min + ' to ' + win.max : ''}`);
+  }
+  // the key above the neck: each item is drawn exactly as on the neck; the last two switch their layer on and off
+  function renderMapLegend(p, q) {
+    const box = $('mapLegend');
+    if (!box) return;
+    const show = IM.mapShow || (IM.mapShow = { next: true, shape: true });
+    const sw = (inner) => `<svg viewBox="0 0 36 36" width="26" height="26" aria-hidden="true"><rect x="0" y="0" width="36" height="36" rx="7" fill="var(--board)"/>${inner}</svg>`;
+    const item = (svgIn, title, sub, act, on) => act
+      ? `<button type="button" class="mapleg${on ? '' : ' off'}" data-map="${act}" aria-pressed="${on}">${sw(svgIn)}<span><b>${title}</b><small>${sub}</small></span><i class="maplegsw">${on ? 'On' : 'Off'}</i></button>`
+      : `<div class="mapleg">${sw(svgIn)}<span><b>${title}</b><small>${sub}</small></span></div>`;
+    const nm = esc(p.bar.name), qn = esc(q && q !== p && q.bar.name !== p.bar.name ? q.bar.name : '');
+    box.innerHTML = item(`<rect class="lg-root" x="5" y="5" width="26" height="26" rx="5"/><text x="18" y="22.5" class="lg-t">R</text>`, 'Root of ' + nm, 'the chord’s home note')
+      + item(`<circle class="lg-tone" cx="18" cy="18" r="13"/><text x="18" y="22.5" class="lg-t">3</text>`, 'Notes of ' + nm, 'big amber: safe to land on')
+      + item(`<circle class="lg-pass" cx="18" cy="18" r="9.5"/>`, 'Other scale notes', 'small blue: pass through them')
+      + (qn ? item(`<circle class="lg-pass" cx="18" cy="18" r="9"/><circle class="lg-next" cx="18" cy="18" r="13.5"/>`, 'Next chord: ' + qn, 'green ring: aim here at the change', 'show:next', show.next) : '')
+      + (p.bar.frets ? item(`<circle class="lg-tone" cx="18" cy="18" r="12"/><circle class="lg-finger" cx="8" cy="28" r="5"/>`, 'Your ' + nm + ' shape', 'white dot: a finger of the chord', 'show:shape', show.shape) : '');
+  }
+  function mapHear(cells) {
+    const c = audio();
+    if (!c || !cells.length) return;
+    const d = Math.min(0.32, 60 / (IM.bpm || 92) / 2);
+    cells.forEach((x, k) => pluckAt(x.midi, c.currentTime + 0.05 + k * d, d * 1.6, { vol: 0.3 }));
+  }
+  function mapClick(t) {
+    const el = t.closest('[data-map]');
+    const dot = t.closest('[data-mapdot]');
+    if (!el && !dot) return false;
+    const plan = mapPlan();
+    if (!plan.length) return true;
+    const i = mapBarAt(plan), p = plan[i];
+    if (dot) {
+      const [s, f] = dot.getAttribute('data-mapdot').split(':').map(Number);
+      pluck(OPEN[s] + f, 0, 0.8);
+      IM.myBlock = IM.myBlock || [];
+      const k = IM.myBlock.findIndex((c) => c.s === s && c.f === f);
+      if (k >= 0) IM.myBlock.splice(k, 1); else IM.myBlock.push({ s, f });
+      IM.mapBlock = 'mine';
+      if (IM.mapDir === undefined || IM.mapDir === 'up') IM.mapDir = 'tap';
+      renderMap();
+      return true;
+    }
+    const v = el.getAttribute('data-map');
+    if (/^(bar|scale|every|same|pos|all):?/.test(v)) IM.mapPeek = false;
+    const [cmd, arg] = [v.split(':')[0], v.slice(v.indexOf(':') + 1)];
+    if (cmd === 'bar') { const b = plan[+arg]; if (b) { IM.cursor = b.bar.start; renderImRoll(); renderMap(); } return true; }
+    if (cmd === 'scale' || cmd === 'every') {
+      const [name, r] = arg.split('|');
+      const list = cmd === 'every' ? plan : [p];
+      list.forEach((x) => mapSet(x.i, { s: name, r: +r, pos: null, k: null }, x.bar));
+      imSave(); renderImRoll(); renderMap();
+      if (cmd === 'scale') { const np = mapPlan()[i]; const b = np ? mapBlocks(np).find((x) => x.id === 'all') : null; if (b) mapHear(mapOrder(b.cells, 'up')); }
+      return true;
+    }
+    if (cmd === 'same') {
+      plan.filter((x) => x.bar.name === p.bar.name).forEach((x) => mapSet(x.i, { s: p.choice.name, r: p.choice.root, pos: p.win ? p.win.min : null, k: p.win ? p.win.k : null }, x.bar));
+      imSave(); renderImRoll(); renderMap(); flash('Every ' + p.bar.name + ' uses ' + mapLabel(p.choice));
+      return true;
+    }
+    if (cmd === 'hear') { const b = mapBlocks(p).find((x) => x.id === 'all'); mapHear(b ? mapOrder(b.cells, 'updown') : []); return true; }
+    if (cmd === 'pos') { const [mn, k] = arg.split(':').map(Number); IM.mapAll = false; mapSet(i, { s: p.choice.name, r: p.choice.root, pos: mn, k }, p.bar); imSave(); renderMap(); return true; }
+    if (cmd === 'all') { IM.mapAll = !IM.mapAll; renderMap(); return true; }
+    if (cmd === 'show') { IM.mapShow = IM.mapShow || { next: true, shape: true }; IM.mapShow[arg] = !IM.mapShow[arg]; renderMap(); return true; }
+    if (cmd === 'labels') { IM.mapLabels = IM.mapLabels === 'deg' ? 'note' : 'deg'; renderMap(); return true; }
+    if (cmd === 'blk') { IM.mapPeek = true; IM.mapBlock = arg; if (arg !== 'mine' && IM.mapDir === 'tap') IM.mapDir = 'up'; renderMap(); const b = mapBlocks(IM.mapAll ? Object.assign({}, p, { win: null }) : p).find((x) => x.id === arg); if (b && b.cells.length) mapHear(mapOrder(b.cells, IM.mapDir === 'tap' ? 'up' : IM.mapDir || 'up', arg === 'mine')); return true; }
+    if (cmd === 'dir') { IM.mapPeek = true; IM.mapDir = arg; renderMap(); return true; }
+    if (cmd === 'clearmine') { IM.myBlock = []; renderMap(); return true; }
+    if (cmd === 'audition' || cmd === 'add') {
+      const b = mapBlocks(IM.mapAll ? Object.assign({}, p, { win: null }) : p).find((x) => x.id === IM.mapBlock);
+      if (!b || !b.cells.length) return true;
+      const cells = mapOrder(b.cells, IM.mapDir === 'tap' ? 'up' : IM.mapDir || 'up', b.id === 'mine');
+      if (cmd === 'audition') { mapHear(cells); return true; }
+      if (IMP.on) imStop();
+      const n = mapInsert(cells);
+      renderImprov();
+      const np = mapPlan(), ni = mapBarAt(np);
+      say(`Added ${n} notes of ${mapLabel(p.choice)}.${ni !== i ? ` The cursor is now in bar ${ni + 1} (${np[ni].bar.name}): pick its scale and add the next block.` : ''}`);
+      return true;
+    }
+    if (cmd === 'bridge') {
+      if (IMP.on) imStop();
+      const tg = mapBridge(plan, i);
+      if (!tg) { say('This bar is too short for a run. Try it on a longer bar.'); return true; }
+      renderImprov();
+      const q = plan[(i + 1) % plan.length];
+      say(`Added a run that walks through ${mapLabel(p.choice)} and lands on ${imNoteName(tg)}, a note of ${q.bar.name}, right on the change.`);
+      return true;
+    }
+    return true;
+  }
+
+  /* ==================== Record your guitar into the Studio ==================== */
+  // The microphone is read sample by sample; the pitch is measured every 10 ms (the tuner's method) and cut into notes,
+  // which land on the grid from the cursor. A count-in comes first; you can hear a click or the backing (use headphones).
+  const irSave = () => { try { localStorage.setItem('fretboard-irec', JSON.stringify({ count: IREC.count, hear: IREC.hear, replace: IREC.replace })); } catch (e) {} };
+  const irSay = (m) => { const el = $('imRecMsg'); if (el) el.textContent = m || ''; };
+  // a short noise tick: no pitch, so the recorder never mistakes it for a note
+  function irClick(c, when, accent, dest) {
+    if (!IREC.noise || IREC.noise.sampleRate !== c.sampleRate) {
+      const b = c.createBuffer(1, Math.floor(c.sampleRate * 0.03), c.sampleRate);
+      const d = b.getChannelData(0); let s = 99;
+      for (let i = 0; i < d.length; i++) { s = (s * 16807) % 2147483647; d[i] = (s / 2147483647 * 2 - 1) * Math.exp(-i / (c.sampleRate * 0.006)); }
+      IREC.noise = b;
+    }
+    const src = c.createBufferSource(); src.buffer = IREC.noise;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = accent ? 2500 : 4000;
+    const g = c.createGain(); g.gain.value = accent ? 0.9 : 0.55;
+    src.connect(hp); hp.connect(g); g.connect(dest || busNode(c));
+    src.start(when);
+  }
+  function irBlocked() {
+    irStop(false);
+    irSay('The microphone is not available here. Pages shown inside the Claude app cannot use it; on your own hosted site (or localhost) recording works.');
+  }
+  async function irStart() {
+    if (IREC.on) { irStop(true); return; }
+    if (!(window.AudioContext || window.webkitAudioContext)) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { irBlocked(); return; }
+    if (LS.live) lsStop();
+    if (SL.live) slStop();
+    if (GTR.on) gtrStop(false);
+    if (TU.live) tuStop();
+    if (PL.on) stopProg();
+    imStop();
+    const bars = imBars();
+    if (!bars.length) { irSay('Pick a backing first.'); return; }
+    const c = audio();
+    if (!c) return;
+    irSay('Asking to use the microphone…');
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); } catch (e) { irBlocked(); return; }
+    const mc = micContext();
+    if (!mc) { stream.getTracks().forEach((t) => t.stop()); irBlocked(); return; }
+    if (mc.state !== 'running') { try { await mc.resume(); } catch (e) {} }
+    const total = imTotal(bars);
+    const from = Math.max(0, Math.min(total - 1, IM.cursor || 0));
+    const bs = 60 / IM.bpm, stepDur = bs / IM.grid;
+    const countBeats = IREC.count * (bars[0].beats || 4);
+    const maxSec = countBeats * bs + (total - from) * stepDur + 3;
+    Object.assign(IREC, { on: true, mc, stream, sr: mc.sampleRate, data: new Float32Array(Math.ceil(mc.sampleRate * Math.min(240, maxSec))), n: 0, frames: [], hopAt: 0, take: [], from, endStep: total, stepDur, mcAt: null });
+    IREC.src = mc.createMediaStreamSource(stream);
+    IREC.proc = mc.createScriptProcessor(2048, 1, 1);
+    IREC.sink = mc.createGain(); IREC.sink.gain.value = 0;
+    IREC.src.connect(IREC.proc); IREC.proc.connect(IREC.sink); IREC.sink.connect(mc.destination);
+    IREC.proc.onaudioprocess = (e) => {
+      if (!IREC.on) return;
+      const d = e.inputBuffer.getChannelData(0);
+      // the time (on the microphone's clock) of the first sample we keep
+      if (IREC.mcAt === null) IREC.mcAt = e.playbackTime - 2 * d.length / IREC.sr - (mc.baseLatency || 0);
+      const room = IREC.data.length - IREC.n;
+      if (room > 0) { IREC.data.set(room >= d.length ? d : d.subarray(0, room), IREC.n); IREC.n += Math.min(room, d.length); }
+    };
+    // the two clocks (playback and microphone) meet through performance.now()
+    const pNow = performance.now(), acNow = c.currentTime, mcNow = mc.currentTime;
+    const outLat = (c.outputLatency || 0) + (c.baseLatency || 0);
+    const t0 = acNow + 0.25;
+    const songAc = t0 + countBeats * bs;    // the cursor's step sounds here
+    IREC.songMc = mcNow + (songAc - acNow) + outLat;   // ...and you hear it, and play to it, at this moment on the mic's clock
+    void pNow;
+    IREC.out = c.createGain(); IREC.out.gain.value = 1; IREC.out.connect(busNode(c));
+    for (let k = 0; k < countBeats; k++) irClick(c, t0 + k * bs, k % (bars[0].beats || 4) === 0, IREC.out);
+    const endAc = songAc + (total - from) * stepDur;
+    if (IREC.hear === 'click') {
+      let beat = 0;
+      bars.forEach((b) => { for (let k = 0; k < b.beats; k++, beat++) { const t = songAc + (beat * IM.grid - from) * stepDur; if (t >= songAc - 0.001) irClick(c, t, k === 0, IREC.out); } });
+    } else if (IREC.hear === 'backing') {
+      keepListening = true;
+      let beat = 0;
+      bars.forEach((b) => {
+        const slot = { name: b.name, tones: b.tones, beats: b.beats, frets: b.frets, bass: b.bass };
+        const plan = slotPlan(slot, IM.style === 'mine' ? (b.style || P.style) : IM.style === 'hold' ? 'hold' : 'strum', bs, beat);
+        plan.notes.forEach((n) => { const t = songAc + (b.start - from) * stepDur + n.t; if (t >= songAc - 0.01) pluckAt(n.midi, t, n.dur, { vol: n.vol * 0.5, sustain: true, dest: IREC.out, cut: n.cut }); });
+        beat += b.beats;
+      });
+      keepListening = false;
+    }
+    IREC.endAc = endAc;
+    IREC.timer = setInterval(irTick, 50);
+    const draw = () => {
+      if (!IREC.on || !ac) return;
+      const step = from + (ac.currentTime - songAc) / stepDur;
+      const h = $('imHead');
+      if (h && step >= from) { const x = IM_LW + step * imCw(); h.setAttribute('x1', x); h.setAttribute('x2', x); h.style.display = ''; }
+      const bi = step >= from ? bars.findIndex((b) => step >= b.start && step < b.start + b.steps) : -1;
+      if (bi !== IREC.lastBar) { IREC.lastBar = bi; imFormsMark(bi); syncDock(); }
+      if (ac.currentTime > endAc + 0.35) { irStop(true); return; }
+      IREC.raf = requestAnimationFrame(draw);
+    };
+    IREC.lastBar = -2;
+    IREC.raf = requestAnimationFrame(draw);
+    irSay(IREC.count ? `Count-in: ${countBeats} clicks, then play. Recording from bar ${(bars.findIndex((b) => from >= b.start && from < b.start + b.steps) + 1)}.` : 'Recording: play now.');
+    renderIrec();
+  }
+  // measure the pitch of everything new, then turn the whole take into notes on the grid
+  function irTick() {
+    if (!IREC.on || !IREC.data) return;
+    const W = 2048, hop = Math.max(256, Math.round(IREC.sr / 100));
+    let added = false;
+    for (; IREC.hopAt + W <= IREC.n; IREC.hopAt += hop) {
+      const p = tunerPitch(IREC.data.subarray(IREC.hopAt, IREC.hopAt + W), IREC.sr);
+      IREC.frames.push({ t: (IREC.hopAt + W * 0.5) / IREC.sr, f: p.f, rms: p.rms, clarity: p.clarity });
+      added = true;
+    }
+    if (!added || IREC.mcAt === null) return;
+    IREC.take = irNotes();
+    renderImRoll();
+    const sec = Math.max(0, (IREC.mcAt + IREC.n / IREC.sr) - IREC.songMc);
+    if (sec > 0) irSay(`Recording… ${IREC.take.length} note${IREC.take.length === 1 ? '' : 's'} so far. Press Stop when you are done.`);
+  }
+  function irNotes() {
+    const raw = notesFromPitch(IREC.frames, { a4: 440 });
+    const out = [];
+    raw.forEach((n) => {
+      if (n.midi > 88 || n.midi < 38) return;
+      const t0 = IREC.mcAt + n.t0 - 0.012 - IREC.songMc, t1 = IREC.mcAt + n.t1 - IREC.songMc;
+      const step = IREC.from + Math.round(t0 / IREC.stepDur);
+      if (step < IREC.from || step >= IREC.endStep) return;
+      const len = Math.max(1, Math.round((t1 - t0) / IREC.stepDur));
+      const prev = out[out.length - 1];
+      if (prev && prev.step === step) { if (n.v > prev.v) Object.assign(prev, { midi: n.midi, v: n.v }); return; }
+      if (prev && prev.step + prev.len > step) prev.len = Math.max(1, step - prev.step);
+      out.push({ step, len: Math.min(len, IREC.endStep - step), midi: n.midi, v: n.v });
+    });
+    return out;
+  }
+  function irStop(keep) {
+    const was = IREC.on;
+    IREC.on = false;
+    clearInterval(IREC.timer); cancelAnimationFrame(IREC.raf);
+    try { if (IREC.proc) IREC.proc.onaudioprocess = null; } catch (e) {}
+    try { if (IREC.src) IREC.src.disconnect(); } catch (e) {}
+    try { if (IREC.proc) IREC.proc.disconnect(); } catch (e) {}
+    try { if (IREC.stream) IREC.stream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    closeMic(IREC.mc);
+    if (IREC.out && ac) { const o = IREC.out; o.gain.setTargetAtTime(0.0001, ac.currentTime, 0.03); setTimeout(() => { try { o.disconnect(); } catch (e) {} }, 400); }
+    Object.assign(IREC, { mc: null, stream: null, src: null, proc: null, sink: null, out: null });
+    const hh = $('imHead'); if (hh) hh.style.display = 'none';
+    if (was && keep) {
+      if (IREC.frames.length && IREC.mcAt !== null) IREC.take = irNotes();
+      const take = IREC.take;
+      if (take.length) {
+        imPush();
+        const s0 = IREC.from, s1 = take[take.length - 1].step + take[take.length - 1].len;
+        if (IREC.replace) IM.notes = IM.notes.filter((n) => n.step + n.len <= s0 || n.step >= s1);
+        IM.notes = IM.notes.concat(take.map((n) => Object.assign({}, n))).sort((a, b) => a.step - b.step);
+        IM.selIds = new Set();
+        imSave();
+        irSay(`Recorded ${take.length} note${take.length === 1 ? '' : 's'} into the solo. Edit them like any other notes; Undo takes the whole take out.`);
+      } else irSay('No notes heard. Play a little louder or closer to the microphone, one note at a time.');
+    }
+    IREC.take = [];
+    IREC.data = null;
+    renderImprov();
+  }
+  function renderIrec() {
+    const b = $('imRec');
+    if (b) { b.innerHTML = IREC.on ? ICON.stopf + ' Stop recording' : '<span class="recdot" aria-hidden="true"></span> Record guitar'; b.setAttribute('aria-pressed', String(IREC.on)); b.classList.toggle('on', IREC.on); }
+    const cnt = $('imRecCount'); if (cnt) cnt.innerHTML = options([[0, 'None'], [1, '1 bar'], [2, '2 bars']], IREC.count);
+    const hr = $('imRecHear'); if (hr) hr.innerHTML = options([['click', 'A click'], ['backing', 'The backing (headphones)'], ['none', 'Nothing']], IREC.hear);
+    const rp = $('imRecReplace'); if (rp) rp.checked = IREC.replace;
   }
 
   /* ---------- Pick notes on the scale and send them to the chord creator ---------- */
@@ -3844,7 +5838,7 @@
     const parts = String(key).split(':');
     let ch = null;
     if (parts[0] === 'h') ch = hubList[+parts[1]];
-    else if (lastVM && lastVM.harm) ch = (S.chordType === 'seventh' ? lastVM.harm.sevenths : lastVM.harm.triads)[+parts[1]];
+    else if (lastVM && lastVM.harm) ch = harmList(lastVM.harm)[+parts[1]];
     if (ch) addToProg(ch);
   }
   function addFromShape(i, src) {
@@ -3890,6 +5884,7 @@
   /* player: schedules a little ahead on the audio clock so the timing stays steady, and a timer lights the chord that is sounding */
   function startProg() {
     if (PL.on || !P.slots.length || busy) return;
+    if (IMP.on) imStop();
     const c = audio();
     if (!c) { say('Sound is not available in this browser.'); return; }
     PL.out = c.createGain();
@@ -4341,19 +6336,19 @@
   const INFO = {
     library: { t: 'The library', tour: 'fretboard', b: '<p>Everything you can show on the neck, in groups:</p><ul><li><b>Scales</b>: the set of notes a song is built from. Major sounds bright, minor sounds sad.</li><li><b>Modes</b>: the major scale started from a different note, each with its own mood.</li><li><b>Dominant scales</b>: scales that fit 7th chords such as G7.</li><li><b>Arpeggios</b>: the notes of one chord played one at a time.</li><li><b>Diatonic arpeggios</b>: the chords of a key, as arpeggios.</li><li><b>Drop 2 and Drop 3</b>: jazz-style four-note chord shapes.</li></ul><p>Type in the search box to find one fast.</p>' },
     keyopts: { t: 'Key and display', tour: 'fretboard', b: '<p>The <b>key</b> is the home note. Pick C and the scale starts on C.</p><p><b>Labels</b>: Notes shows letter names. Intervals shows each note’s job: 1 is the root (home), 3 gives major or minor colour, 5 is the strong partner, and so on.</p><p><b>Flats or sharps</b>: the same notes can be named two ways (D♯ = E♭). Keys usually use one or the other.</p><p><b>Pattern</b> shows one hand position at a time, the way guitarists learn scales.</p>' },
-    board: { t: 'Reading the fretboard', tour: 'fretboard', b: '<p>The six lines are the strings: low E at the bottom, high e at the top, like looking at your guitar from the front. Each box is a fret, and every fret is one semitone, the smallest step in music.</p><p><b>Amber dots</b> are the root (home note). <b>Blue dots</b> are the other notes. Tap any dot to hear it; press <b>Play</b> to hear the whole pattern while the notes light up.</p><p>At the 12th fret everything repeats an octave higher.</p><p><b>Pick notes</b> turns the neck into a note picker: tap any notes (as many as you like), hear them together, then send them to the <b>chord creator</b> with the exact frets you tapped, or add them straight to your progression. The lowest note you pick becomes the bass, so picking E under C–E–G gives C/E.</p>' },
+    board: { t: 'Reading the fretboard', tour: 'fretboard', b: '<p>The six lines are the strings, drawn the same way as guitar tab: high e at the top, low E at the bottom. Each box is a fret, and every fret is one semitone, the smallest step in music.</p><p><b>Amber dots</b> are the root (home note). <b>Blue dots</b> are the other notes. Tap any dot to hear it; press <b>Play</b> to hear the whole pattern while the notes light up.</p><p>At the 12th fret everything repeats an octave higher.</p><p><b>Pick notes</b> turns the neck into a note picker: tap any notes (as many as you like), hear them together, then send them to the <b>chord creator</b> with the exact frets you tapped, or add them straight to your progression. The lowest note you pick becomes the bass, so picking E under C–E–G gives C/E.</p>' },
     shapes: { t: 'Reading chord diagrams', b: '<p>A chord diagram is the neck standing up: strings run top to bottom, low E on the left. Dots show where your fingers go. <b>○</b> means play the string open, <b>×</b> means don’t play it. A bar across several strings is a <b>barre</b>: one finger presses them all. "5fr" means the diagram starts at the 5th fret.</p><p>The numbers under it are <b>tab</b>: the fret on each string, low E to high e.</p>' },
     chordsScale: { t: 'Chords from a scale', b: '<p>Every scale contains chords. Start on any note of the scale, skip one, take the next, skip one, take the next: that stack of notes is a chord.</p><p>The <b>Roman numerals</b> show where each chord sits in the key. Capital (I, IV, V) means major, small (ii, iii, vi) means minor, ° means diminished. Songs talk in numbers so they work in any key: "I–IV–V" is C–F–G in C and G–C–D in G.</p>' + romanLink() },
     circle: { t: 'The circle of fifths', tour: 'keys', b: '<p>The 12 keys arranged like a clock. Each step clockwise goes up five notes (a fifth) and adds one sharp; anticlockwise adds a flat.</p><p>Keys next to each other share six of their seven notes, so they sound related. The inner ring holds the <b>relative minor</b>: A minor uses the same notes as C major.</p><p>The shaded slice around your key holds its most-used chords: I, IV and V on the outside, ii, iii and vi inside. Tap any key to move there and hear its chord.</p>' + romanLink() },
     keychords: { t: 'Chords in a key', tour: 'keys', b: '<p>These seven chords use only the notes of the key, so they always fit together. Most songs use mainly these.</p><p><b>I</b> feels like home. <b>V</b> feels like it wants to go home. <b>IV</b> moves away. <b>vi</b> is the sad cousin of I. <b>ii</b> often leads to V.</p><p>Tap a chord to hear it and see its shapes; press <b>+</b> to add it to your progression.</p>' },
     secondary: { t: 'Secondary dominants', b: '<p>A dominant (V) chord pulls strongly to the chord a fifth below. A <b>secondary dominant</b> borrows that pull to point at another chord in the key: "V/vi" is the V chord of vi. In C, that is E or E7, which leads to Am.</p><p>Use one just before the chord it points to for a strong, surprising pull.</p>' },
     borrowed: { t: 'Borrowed chords', b: '<p>Chords taken from the key with the same tonic but the other mood (C minor inside C major). They add a darker or more dramatic colour. iv (Fm in C) and ♭VII (B♭ in C) are rock and pop favourites.</p>' },
-    subs: { t: 'Substitutes', b: '<p>Chords that can stand in for others. The <b>Neapolitan</b> (♭II) and the <b>tritone substitute</b> (♭II7 for V7) are jazz colours; the leading-tone diminished chord (vii°) can replace V.</p>' },
+    subs: { t: 'Substitutes', b: '<p>Chords that can stand in for others. The <b>Neapolitan</b> (♭II, from classical music) is a dramatic stand-in for ii or IV just before V. The <b>tritone substitute</b> (♭II7 in place of V7) is a jazz colour: the two chords share their 3rd and 7th. The leading-tone diminished chord (vii°) can replace V: it holds three of the four notes of V7.</p>' },
     scales: { t: 'Scales for this key', tour: 'keys', b: '<p>Scales you can improvise or write melodies with over the chords of this key.</p><p>The <b>modes</b> use exactly the same notes, so they all fit; what changes is which note feels like home. <b>Pentatonic</b> scales have five notes and are the easiest to solo with. The <b>blues</b> scale adds the "blue note" for grit.</p>' },
     related: { t: 'Related keys', b: '<p>Keys that are close to this one, so songs often move between them: the <b>dominant</b> (one step clockwise on the circle), the <b>subdominant</b> (one step anticlockwise), and the <b>relative</b> major or minor (same notes, different home).</p>' },
-    workspace: { t: 'The progression workspace', tour: 'progression', b: '<p>A <b>chord progression</b> is the order of chords in a song. Build one here: add chords with <b>+</b> anywhere, drag cards to reorder, set how many beats each chord lasts, choose a strumming pattern and press <b>Play</b> to hear it loop.</p><p>Not sure where to start? Pick one of the <b>Common progressions</b>.</p>' },
+    workspace: { t: 'The progression workspace', tour: 'progression', b: '<p>A <b>chord progression</b> is the order of chords in a song. Build one here: add chords with <b>+</b> anywhere, drag cards to reorder, set how many beats each chord lasts, choose a strumming pattern and press <b>Play</b> to hear it loop.</p><p>Not sure where to start? Pick one of the <b>Common progressions</b>.</p><p>Happy with it? <b>MIDI for your DAW</b> downloads the chords and a bass line as a MIDI file, with the tempo and chord names, to drag into Ableton, Logic, FL Studio or any other DAW.</p>' },
     next: { t: 'What comes next', tour: 'keys', b: '<p>Chords have jobs. <b>I</b> is home and feels at rest. <b>IV</b> and <b>ii</b> move away. <b>V</b> builds tension that wants to resolve back to I.</p><p>Many strong moves <b>fall a fifth</b>: one step anticlockwise on the circle (vi → ii → V → I). That is why the highlights so often sit right next to the chord you chose.</p><ul><li><b>Strong pull</b>: the move the ear expects, like V → I.</li><li><b>Common</b>: used all the time, like IV → I (the "amen" ending).</li><li><b>Colour</b>: a surprise or a borrowed flavour, like V → vi (the "deceptive" ending) or IV → iv.</li></ul><p>These are guides, not rules. If it sounds good, it is good.</p>' },
-    listen: { t: 'Chord listener', b: '<p>Strum a chord on your guitar and the listener names it. The bars show how loudly each of the 12 notes is sounding; the lit ones are the notes of the chord it hears.</p><p>It also tells you the chord\u2019s number in your key (like <b>V</b> in C major), or that it is outside the key. <b>Show on the circle</b> opens it in the Key explorer with its next moves.</p><p><b>Upload a clip</b> reads a whole recording, like the chord track in a DAW or the Moises app, and guesses its key. Tap a chord to hear it, play the clip to follow along, then add the chords to your progression.</p><p>Tips: let each chord ring, keep the phone close, and keep background music and talking down. It knows major, minor, 7, maj7, m7, sus2, sus4 and dim chords.</p><p><b>Live listening</b> needs the microphone, which pages inside the Claude app cannot use. It works once the site is hosted on its own.</p>' + romanLink() },
+    listen: { t: 'Chord listener', tour: 'listen', b: '<p>Strum a chord on your guitar and the listener names it. The bars show how loudly each of the 12 notes is sounding; the lit ones are the notes of the chord it hears.</p><p>It also tells you the chord\u2019s number in your key (like <b>V</b> in C major), or that it is outside the key. <b>Show on the circle</b> opens it in the Key explorer with its next moves.</p><p><b>Upload a clip</b> reads a whole recording, like the chord track in a DAW or the Moises app, and guesses its key. Tap a chord to hear it, play the clip to follow along, then add the chords to your progression.</p><p>Tips: let each chord ring, keep the phone close, and keep background music and talking down. It knows major, minor, 7, maj7, m7, 9, maj9, m9, sus2, sus4, 7sus4, 6, m6, dim, dim7, m7♭5 and augmented chords, and slash chords such as C/E (see <b>Getting the chord right</b>).</p><p><b>Live listening</b> needs the microphone, which pages inside the Claude app cannot use. It works once the site is hosted on its own.</p>' + romanLink() },
     analysis: { t: 'Progression analysis', wide: true, b: () => '<p>The site works out which <b>key</b> your chords belong to, then gives each chord its number (I, ii, V…) and its job: <b>Home</b> (I, vi, iii) rests, <b>Away</b> (IV, ii) moves off, <b>Tension</b> (V, vii°) wants to resolve.</p>' + svgJobs() + '<p>It names the <b>kind of progression</b> (a 2–5–1, the pop loop I–V–vi–IV, the Andalusian cadence…), points out <b>cadences</b> (how phrases end) and chords from outside the key, and suggests what could come next and which scales to solo with.</p>' + romanLink() },
     lsacc: { t: 'Getting the chord right', b: '<p>The listener hears notes, not your fingers, so a few habits make it much more accurate:</p><ul>'
       + '<li><b>Let the chord ring</b> for a second. The first moment of a strum is mostly the pick; the name settles once the strings ring.</li>'
@@ -4365,10 +6360,27 @@
       + '<li><b>Slash chords</b> (C/E, D/F♯, A/B): when the bass note is not the chord\'s root and holds steady, the name shows it after a slash. Inversions are the hardest thing to hear, so if it shows plain C when you played C/E, the slash version is often among the other guesses to tap.</li>'
       + '<li>Just learning? Choose <b>Simple: major, minor, 7</b>. Fewer chord types means fewer look-alikes (a C will not turn into Cmaj7 or Csus2).</li>'
       + '<li>If it still names a chord wrong, tap one of the <b>other guesses</b> under the name. The listener remembers that correction for the rest of the session.</li></ul>' },
-    tuner: { t: 'Guitar tuner', b: '<p>Press <b>Start tuner</b>, then play <b>one string at a time</b>, open (no fingers), and let it ring. The tuner finds which string it is and shows how far off it is.</p><ul><li>Needle <b>left</b> (♭): the string is too low. <b>Tighten</b> it (tune up) slowly.</li><li>Needle <b>right</b> (♯): too high. <b>Loosen</b> it a little, then come back up to the note (tuning up to a note holds better).</li><li><b>Green in the middle</b>: in tune. The string gets a ✓.</li></ul><p><b>Cents</b>: 100 cents is one fret, so 5 cents is a tiny nudge of the tuning peg.</p><p>Pick another <b>tuning</b> (Drop D, Open G, DADGAD…) from the list. Tap a string to lock the tuner to it, useful when a string is far off. <b>Hear the note</b> plays the note to tune to. The A = 440 setting is the standard reference; change it only to match a piano or a recording tuned differently.</p>' },
+    fbcirc: { t: 'Where to go next', b: '<p>The small circle of fifths shows the key of the scale on the neck (the dark segment). The highlighted segments are the chords of this scale: tap one to show it on the neck, like the chord cards.</p><p>When a chord is chosen, the circle marks the chords that usually come next: <b>amber</b> is a strong pull (like V going home to I), <b>blue</b> a common move, and a dashed ring a colour, for a gentler or surprising turn. The same suggestions are listed under the circle.</p><p>Neighbours on the circle share most of their notes, so moving one step (to the V, the IV or the relative minor/major) sounds smooth. Tap any key outside the scale to move the neck there.</p>' },
+    imkeys: { t: 'Keyboard shortcuts', xwide: true, b: () => {
+      const mac = /Mac|iPhone|iPad/.test((navigator.platform || '') + ' ' + (navigator.userAgent || ''));
+      const M = mac ? '⌘' : 'Ctrl', A = mac ? 'Option' : 'Alt';
+      const k = (s) => s.split(' ').map((x) => '<kbd>' + x + '</kbd>').join('<span class="kbplus">+</span>');
+      const tbl = (title, rows) => `<div><h4>${title}</h4><table>${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table></div>`;
+      return '<div class="kbsheet">'
+        + tbl('Play and record', [[k('Space'), 'Play / stop'], [k('R'), 'Record your guitar (press again to stop)'], [k('Home'), 'Move the start point back to bar 1'], [k('L'), 'Loop on / off']])
+        + tbl('Edit', [[k(M + ' Z'), 'Undo'], [k(M + ' Shift Z'), 'Redo'], [k(M + ' Y'), 'Redo (also)'], [k('Delete'), 'Delete the selected notes'], [k(M + ' A'), 'Select all notes'], [k('Esc'), 'Clear the selection'], [k(M + ' C'), 'Copy'], [k(M + ' X'), 'Cut'], [k(M + ' V'), 'Paste at the start point'], [k(M + ' D'), 'Duplicate right after itself']])
+        + tbl('Move the selected notes', [[k('←') + ' / ' + k('→'), 'One grid step earlier or later'], [k('Shift ←') + ' / ' + k('→'), 'One bar'], [k('↑') + ' / ' + k('↓'), 'One scale note higher or lower'], [k('Shift ↑') + ' / ' + k('↓'), 'One octave']])
+        + tbl('Tools and view', [[k('B'), 'Switch pencil / pointer'], [k('E'), 'Eraser'], [k('1') + ' ' + k('2') + ' ' + k('3') + ' ' + k('4'), 'Note length: shortest to longest'], [k('+') + ' ' + k('−'), 'Zoom in / out'], [k('?'), 'Show this list']])
+        + tbl('Mouse', [['Click', 'Add a note (pencil)'], ['Click and drag right', 'Draw a longer note'], ['Drag a note', 'Move it (up or down changes the pitch)'], ['Drag its right edge', 'Make it longer or shorter'], ['Double-click a note', 'Delete it'], [k(A) + ' + drag', 'Copy the notes you drag'], [k('Shift') + ' + drag', 'Select a group with a box'], ['Click the chord ruler', 'Set where Play starts'], ['Drag in the velocity lane', 'Louder or softer'], ['Click a note name', 'Hear it']])
+        + '</div>';
+    } },
+    scalemap: { t: 'The scale map', tour: 'studio', b: '<p>Every chord in your backing gets its own list of scales that fit it, best first. The labels say why:</p><ul><li><b>In the key</b>: the notes of the song\u2019s key, played from the chord\u2019s root. Chord-scale theory gives each chord of a major key its mode: I Ionian, ii Dorian, iii Phrygian, IV Lydian, V Mixolydian, vi Aeolian, vii Locrian. You never leave the key, so it always works.</li><li><b>Easy</b>: pentatonic scales and other safe choices. Pentatonics have no half steps, so nothing rubs.</li><li><b>Blues</b>: minor pentatonic or blues scale over a dominant 7th: the minor 3rd against the chord\u2019s major 3rd is the blues sound, on purpose.</li><li><b>Borrowed</b>: the chord comes from the parallel key (for example F minor in C major), so its notes do too.</li><li><b>Leads on</b>: a chord that pulls to the next one (like E7 going to A minor) takes that chord\u2019s harmonic minor.</li><li><b>Colour</b> and <b>Tension</b>: other scales that hold the chord\u2019s notes with a different flavour, or with extra tension that wants to resolve.</li></ul><p><b>On the neck</b>: <b>big amber dots</b> are the notes of the chord playing, the safest notes to land on, and the <b>amber square</b> is its root. <b>Small blue dots</b> are the other scale notes: pass through them. A <b>green ring</b> marks a note of the next chord (aim for it at the change), and a <b>white dot</b> at a corner shows a finger of your chord shape. The key above the neck switches the green rings and white dots on and off. The lit box is one hand position; pick another, or show the whole neck. Hover over any dot to read what it is. While the Studio plays, the map follows the bar that is sounding, so you can see what fits right now.</p><p><b>Building blocks</b>: pieces of the position (string pairs, low or high strings, only the chord notes) or your own block of tapped notes. Add one at the cursor; the cursor moves on, so the next block joins on. Change scale when the chord changes, or keep one scale across several chords: the map shows which notes change.</p><p><b>Into the next chord</b> shows the notes both chords share, where the chord\u2019s 3rd and 7th move (often a half step), and adds a short run that lands on a note of the next chord right on the change.</p><p>Sources: Open Music Theory (chord-scale theory, modal mixture), Gary Burton for Berklee Online (jazz scales), Yamaha (pentatonics, Dorian), Premier Guitar (mixing major and minor pentatonics), Berklee Online (guide tones).</p>' },
+    imrec: { t: 'Record your guitar', b: '<p>Play single notes into your microphone and they appear in the Studio as notes you can edit, just like recording a guitar into a DAW in MIDI.</p><ul><li>Click the chord ruler to put the cursor where you want to start, then press <b>Record guitar</b>. After the count-in, play.</li><li><b>While recording, hear</b>: a click (a short tick with no pitch, so it is never mistaken for a note), the backing (wear headphones, or the microphone hears the backing too), or nothing.</li><li>Each note snaps to the grid (8ths or 16ths), so small timing slips are tidied up. Recording stops at the end of the backing, or press Stop.</li><li>It hears one note at a time: chords and notes left ringing under the next one can confuse it. Mute the strings you are not playing.</li><li><b>Replace notes where I play</b> clears what was there before; untick it to add a layer. Undo removes the whole take.</li></ul><p>The microphone only works on your own hosted copy of the site or on localhost, not in a preview inside the Claude app.</p>' },
+    improv: { t: 'The Studio', tour: 'studio', b: '<p>A small <b>melody DAW</b> on top of a backing. <b>Use my progression</b> plays the chords from your Progression tab, in their key, tempo and strumming pattern, and the roll follows when you change them. Pick a key, a scale and a backing (your own progression, a 12-bar blues or a famous progression), then:</p><ul><li><b>Pencil</b>: click to add a note, click and drag to draw a long one. <b>Drag</b> a note to move it (up or down changes the pitch), drag its <b>right edge</b> to resize, <b>double-click</b> to delete, <b>Alt/Option-drag</b> to copy. The <b>Pointer</b> (or Shift-drag) draws a box to select several notes. Click the chord ruler to set where Play starts; drag in the velocity lane to make notes louder or softer.</li><li><b>Keys</b>: Delete removes the selection, arrows move it (Shift: by a bar or an octave), Ctrl/Cmd+C, X, V, D copy, cut, paste (at the cursor) and duplicate, Ctrl/Cmd+Z undo, Shift+Ctrl/Cmd+Z redo, Ctrl/Cmd+A selects all, Space plays, B switches pencil/pointer. Click a note name on the left to hear it.</li><li><b>Ideas</b>: pick one (Three up, Question, Answer, Approach note…) and tap where it should start. It is built from the scale you chose, and its last note lands on a chord tone if that box is ticked.</li><li><b>Tinted rows</b> are the notes of the chord playing at that moment: the strongest notes to land on. Amber is the chord\'s root.</li><li><b>Suggest a start</b> fills empty bars with a question and an answer to edit.</li></ul><p>Play loops it with the backing. Your solo also appears on the neck and as tab (copy it), and you can save it. <b>Record guitar</b> plays your own guitar into the roll, and the <b>Scale map</b> below shows which scales fit each chord and lets you build the solo from pieces of them.</p><p><b>MIDI for your DAW</b> downloads the solo, the chords and a bass line as a MIDI file, with the tempo, key and chord names, so you can sketch an idea here and finish it in Ableton, Logic, FL Studio or any other DAW.</p>' },
+    tuner: { t: 'Guitar tuner', tour: 'listen', b: '<p>Press <b>Start tuner</b>, then play <b>one string at a time</b>, open (no fingers), and let it ring. The tuner finds which string it is and shows how far off it is.</p><ul><li>Needle <b>left</b> (♭): the string is too low. <b>Tighten</b> it (tune up) slowly.</li><li>Needle <b>right</b> (♯): too high. <b>Loosen</b> it a little, then come back up to the note (tuning up to a note holds better).</li><li><b>Green in the middle</b>: in tune. The string gets a ✓.</li></ul><p><b>Cents</b>: 100 cents is one fret, so 5 cents is a tiny nudge of the tuning peg.</p><p>Pick another <b>tuning</b> (Drop D, Open G, DADGAD…) from the list. Tap a string to lock the tuner to it, useful when a string is far off. <b>Hear the note</b> plays the note to tune to. The A = 440 setting is the standard reference; change it only to match a piano or a recording tuned differently.</p>' },
     trace: { t: 'What you played, on the neck', b: '<p>While the <b>Scale listener</b> is on, every note it hears is put on this fretboard. A guitar has the same note in several places, so the site picks the place closest to where your hand has been.</p><p><b>Played a wrong note?</b> With <b>Tap a dot to: Remove it</b>, tap it and it is taken out, and the scale is worked out again without it (<b>Undo</b> puts it back). Switch to <b>Move it</b> to put a note on the string you really used.</p><p><b>Show on the Fretboard</b> (or <b>Show my pattern</b> next to a scale) opens the Fretboard page on that scale, at the pattern where you played, with your notes ringed in green.</p><p>Bigger dots are notes you played more often. The amber dot is the <b>home note</b> of the scale you compare with, faint dots are the notes of that scale you have not played yet, and a red dashed ring marks a note that is <b>not in that scale</b>.</p><p>Choose another scale under <b>Compare with</b> to check it against what you played. When every dot fits and nothing is ringed red, that is your scale. It is all saved on this device until you press Clear.</p>' },
-    scalelisten: { t: 'Scale listener', b: '<p>Play a scale, a riff or a melody one note at a time. The listener hears each note, keeps count of which of the 12 notes you used, and lists the scales that contain them, best first.</p><p>The same notes can make different scales (C major and A minor share every note). What decides it is the <b>home note</b>, so start and end on the note that sounds like home.</p><p>Tap <b>Show on fretboard</b> to see the scale on the neck. Live listening needs the microphone, which pages inside the Claude app cannot use; upload a clip there instead.</p>' },
-    common: { t: 'Common progressions', tour: 'progression', wide: true, b: () => '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' + svg251() + '<p>Use the style chips to narrow the list. <b>J-pop and anime</b> lean on the <b>Royal road (王道進行, IV–V–iii–vi)</b>, which starts away from home and leans toward the sad vi, and on <b>丸サ (IVmaj7–III7–vi7)</b>, where the borrowed III7 pulls hard into vi. <b>C-pop</b> ballads love <b>4536251</b> and the Canon’s bass walking down. <b>K-pop</b> often lifts into a chorus with ii–iii–IV–V. <b>Gospel</b> turns IV minor (iv) for a sigh before home, and <b>rock</b> borrows ♭VII from Mixolydian.</p>' + romanLink() },
+    scalelisten: { t: 'Scale listener', tour: 'listen', b: '<p>Play a scale, a riff or a melody one note at a time. The listener hears each note, keeps count of which of the 12 notes you used, and lists the scales that contain them, best first.</p><p>The same notes can make different scales (C major and A minor share every note). What decides it is the <b>home note</b>, so start and end on the note that sounds like home.</p><p>Tap <b>Show on fretboard</b> to see the scale on the neck. Live listening needs the microphone, which pages inside the Claude app cannot use; upload a clip there instead.</p>' },
+    common: { t: 'Common progressions', tour: 'progression', wide: true, b: () => '<p>Chord orders used in thousands of songs, written in Roman numerals so they work in any key. Pick your key and chord type above them, press <b>Hear</b>, then <b>Add</b> them to your chords or <b>Use</b> one to replace your chords.</p><p><b>2–5–1 (ii–V–I)</b> is the most important: in C it is Dm → G → C. The ii chord sets up the V, and V pulls you home to I. In 7th chords (Dm7 → G7 → Cmaj7) it is the sound of jazz.</p>' + svg251() + '<p>Use the style chips to narrow the list. <b>J-pop and anime</b> lean on the <b>Royal road (王道進行, IV–V–iii–vi)</b>, which starts away from home and leans toward the sad vi, and on <b>丸サ (IVmaj7–III7–vi7)</b>, where the borrowed III7 pulls hard into vi. <b>C-pop</b> ballads love <b>4536251</b> and the Canon’s bass walking down. <b>K-pop</b> leans on the I–V–vi–IV loop and pushes into choruses with secondary dominants such as III7, the V of vi. <b>Gospel</b> turns IV minor (iv) for a sigh before home, and <b>rock</b> borrows ♭VII from Mixolydian.</p><p class="imsrc">Sources: <a href="https://en.wikipedia.org/wiki/Royal_road_progression" target="_blank" rel="noopener">Royal road progression</a> (IV–V–iii–vi and its full form IV–V–iii–vi–ii–V–I) · <a href="https://blog.flat.io/kpop-chord-progressions/" target="_blank" rel="noopener">Flat: K-pop chord progressions</a> · <a href="https://viva.pressbooks.pub/openmusictheory/chapter/modal-mixture/" target="_blank" rel="noopener">Open Music Theory: modal mixture</a> (iv, ♭VI, ♭VII).</p>' + romanLink() },
     playback: { t: 'Tempo and playback', b: '<p><b>Tempo</b> is speed in beats per minute (BPM). 60 BPM is one beat a second; most pop songs sit between 80 and 130. <b>Tap</b> the button in time to set it.</p><p><b>Speed</b> plays everything slower or faster while keeping your tempo setting: great for practising at half speed.</p><p><b>Click track</b> adds a metronome tick on each beat; the first beat of each bar is higher.</p>' },
     patterns: { t: 'Strumming and picking patterns', tour: 'patterns', b: '<p>The rhythm your strumming hand plays. Each box is a step in time: <b>1 & 2 &</b> are eighth notes, <b>1 e & a</b> are sixteenths.</p><p><b>↓</b> is a down-strum, <b>↑</b> an up-strum. <b>Faint arrows</b> are ghost (soft) strums. <b>×</b> is a muted strum: rest your fretting hand on the strings so they click instead of ringing. B and b are bass notes; • and 1–3 are single picked strings.</p><p>Make your own with <b>New pattern</b>, the strum pad, or your real guitar: press <b>Listen to my guitar</b> and strum, and the site writes down your pattern and takes your tempo.</p>' },
     find: { t: 'Chord names', b: '<p>How chord names work: the letter is the root. Nothing after it means <b>major</b> (happy). <b>m</b> is minor (sad). <b>7</b> adds a bluesy 7th. <b>maj7</b> is soft and jazzy. <b>m7</b> is mellow minor. <b>dim</b> (°) is tense, <b>aug</b> (+) is dreamy and unstable. <b>sus2</b> and <b>sus4</b> swap the 3rd for a more open sound. <b>m7♭5</b> (ø) is half-diminished, the ii chord of a minor key.</p>' },
@@ -4482,18 +6494,19 @@
   };
   const TOURS = {
     welcome: [
-      { t: 'Welcome!', b: 'This site helps you see music theory on the guitar: scales, chords, keys and progressions, all on a real fretboard you can hear. This tour takes about a minute. You can skip it any time.' },
-      { sel: '.tabs', tab: 'fretboard', t: 'Three areas', b: '<b>Fretboard</b> shows scales and arpeggios. <b>Keys and chords</b> shows the circle of fifths and the chords of a key. <b>Progression</b> is where you build and play chord progressions. The Layout switch puts them all on one page.' },
+      { t: 'Welcome!', b: 'This site helps you see music theory on the guitar: scales, chords, keys and progressions on a real fretboard you can hear, plus a tuner, listeners that hear your guitar, and a studio to write and record solos. This tour takes about a minute. You can skip it any time.' },
+      { sel: '.tabs', tab: 'fretboard', t: 'Five areas', b: '<b>Fretboard</b>: scales, arpeggios and chord shapes on the neck. <b>Keys and chords</b>: the circle of fifths and the chords of a key. <b>Progression</b>: build and play chord progressions. <b>Listen</b>: tuner, chord listener and scale listener. <b>Studio</b>: write or record a solo over your chords. The Layout switch puts everything on one page.' },
       { sel: '#keys', tab: 'fretboard', t: 'Pick a key', b: 'The key is the home note. Everything on the neck starts from it.' },
       { sel: '.lib', tab: 'fretboard', t: 'Pick what to see', b: 'Scales, modes, arpeggios and chord voicings. The neck shows only the one you choose.' },
-      { sel: '#boardPanel', tab: 'fretboard', t: 'The fretboard', b: 'Amber dots are the root, blue dots are the other notes. Tap any dot to hear it, or press <b>Play</b> to hear the whole thing light up.' },
+      { sel: '#boardPanel', tab: 'fretboard', t: 'The fretboard', b: 'Amber dots are the root, blue dots are the other notes. Tap any dot to hear it, or press <b>Play</b> to hear the whole thing light up. The small circle of fifths beside it shows the key and where to go next.' },
       { sel: '#circle', tab: 'keys', t: 'The circle of fifths', b: 'Tap a key to move there and hear its chord. Neighbours share almost all their notes, so they sound related.' },
       { sel: '#keyInfo', tab: 'keys', t: 'Chords that fit', b: 'Every chord in the key, with a shape to play. Roman numerals (I, ii, V) show its job in the key. Tap to hear, press <b>+</b> to add it to your progression.' },
-      { sel: 'details[data-sec="common"]', tab: 'progression', t: 'Start from a classic', b: 'Common progressions like the <b>2–5–1</b>, the pop anthem and the 12-bar blues, ready in your key. Hear them, then add one with a tap.' },
+      { sel: 'details[data-sec="common"]', tab: 'progression', t: 'Start from a classic', b: 'Common progressions like the <b>2–5–1</b>, the pop anthem, the 12-bar blues and J-pop, C-pop and K-pop favourites, ready in your key. Hear them, then add one with a tap.' },
       { sel: 'details[data-sec="chords"]', tab: 'progression', t: 'Your progression', b: 'Your chords in order. Drag to reorder, change the shape or the number of beats, or tap a chord to hear it.' },
-      { sel: '#progPlay', tab: 'progression', t: 'Play it', b: 'Plays your progression on a loop. Change the tempo and speed below.' },
-      { sel: 'details[data-sec="rhythm"]', tab: 'progression', t: 'Strumming patterns', b: 'Choose how the chords are played: pop, funk, bossa nova, picking and more, or make your own.' },
-      { sel: '#guideBtn', t: 'Help is always here', b: 'Open the Guide for tours of each part. Look for the <b>i</b> buttons too: they explain each part and the theory behind it.' },
+      { sel: '#progPlay', tab: 'progression', t: 'Play it', b: 'Plays your progression on a loop with the strumming pattern you choose.' },
+      { sel: '#tunerPanel', tab: 'listen', t: 'Tune up and listen', b: 'The <b>Listen</b> tab tunes your guitar, names the chords you strum and works out the scale of what you play. It needs a microphone, so it works on your own hosted site.' },
+      { sel: '#imPanel', tab: 'improv', t: 'Make a solo in the Studio', b: 'A small DAW over your progression: draw notes, snap in pieces of scales, or record your guitar. The <b>Scale map</b> below it shows what to play over each chord.' },
+      { sel: '#guideBtn', t: 'Help is always here', b: 'Open the Guide for a tour of each part. Look for the <b>i</b> buttons too: they explain each part and the theory behind it.' },
     ],
     fretboard: [
       { sel: '.lib', tab: 'fretboard', t: 'The library', b: 'Scales are the notes a song uses. Arpeggios are the notes of a single chord. Start with <b>Major (Ionian)</b> or <b>Minor pentatonic</b>.' },
@@ -4501,7 +6514,10 @@
       { sel: '#labelSeg', tab: 'fretboard', t: 'Notes or intervals', b: '<b>Intervals</b> shows each note’s job: 1 is the root, 3 makes it major or minor, 5 is the strong partner. Thinking in intervals is how you play in any key.' },
       { sel: '#pat', tab: 'fretboard', t: 'One position at a time', b: 'Guitarists learn scales as patterns in one hand position. Choose Pattern 1, learn it, then link it to Pattern 2.' },
       { sel: '#boardPanel', tab: 'fretboard', t: 'Play and listen', b: 'Press <b>Play</b> and watch each note light up as it sounds. Tap any dot to hear that note.' },
-      { sel: '#chordPanel', tab: 'fretboard', t: 'Chords inside the scale', b: 'Every 7-note scale contains seven chords. Tap one to see where its notes sit inside the scale.' },
+      { sel: '#fbCirc', tab: 'fretboard', t: 'The small circle', b: 'The dark slice is the key of the scale on the neck; the highlighted slices are its chords. Tap one to show it on the neck. Once a chord is picked, the circle marks the chords that usually come next.' },
+      { sel: '#pickBtn', tab: 'fretboard', t: 'Pick notes', b: 'Turns the neck into a note picker: tap notes, hear them together, and send them to the chord creator or straight into your progression. The lowest note becomes the bass.' },
+      { sel: '#chordPanel', tab: 'fretboard', t: 'Chords inside the scale', b: 'Every 7-note scale contains seven chords. Tap one to see where its notes sit inside the scale, and its shapes open right below it.' },
+      { sel: '#pinBtn', tab: 'fretboard', t: 'Keep the neck in view', b: 'While you look at chord shapes, the neck stays pinned at the top so you can see the whole fretboard. Tap to unpin it.' },
     ],
     keys: [
       { sel: '#circle', tab: 'keys', t: 'The circle of fifths', b: 'Clockwise adds a sharp, anticlockwise adds a flat. The inner ring holds each key’s relative minor. The shaded slice holds the key’s main chords.' },
@@ -4511,17 +6527,39 @@
       { sel: '#keyScales', tab: 'keys', t: 'Scales to play over them', b: 'Any of these fits the chords of the key. Pentatonic is the easiest place to start soloing.' },
     ],
     progression: [
-      { sel: 'details[data-sec="common"]', tab: 'progression', t: 'Common progressions', b: 'Try the <b>2–5–1</b>: in C it is Dm → G → C. ii sets up V, V pulls home to I. Press Hear, then Use.' },
+      { sel: 'details[data-sec="common"]', tab: 'progression', t: 'Common progressions', b: 'Try the <b>2–5–1</b>: in C it is Dm → G → C. ii sets up V, V pulls home to I. Use the style chips (J-pop, C-pop, blues…) to narrow the list. Press Hear, then Use.' },
       { sel: 'details[data-sec="chords"]', tab: 'progression', t: 'Your chords', b: 'Each card is one chord. The arrows change the shape, − and + change how many beats it lasts, and you can drag cards to reorder.' },
-      { sel: 'details[data-sec="playback"]', tab: 'progression', t: 'Tempo', b: 'Slow it down to practise (try ½× speed), then bring it back up. The click track keeps you in time.' },
-      { sel: 'details[data-sec="rhythm"]', tab: 'progression', t: 'Strumming', b: 'Pick a pattern and watch the strum chart light up as it plays. Strum along on your guitar.' },
-      { sel: 'details[data-sec="find"]', tab: 'progression', t: 'Find any chord', b: 'Type a name like Cm7 or F#dim, hear each shape, and add the one you like.' },
-      { sel: 'details[data-sec="saved"]', tab: 'progression', t: 'Save it', b: 'Name your progression and save it to come back to later.' },
+      { sel: 'details[data-sec="analysis"]', tab: 'progression', t: 'What your chords are doing', b: 'The analysis finds the key, numbers every chord (I, ii, V…), names cadences and familiar progressions, and suggests what could come next.' },
+      { sel: '#playSub', tab: 'progression', t: 'Tempo', b: 'Slow it down to practise (try ½× speed), then bring it back up. The click track keeps you in time.' },
+      { sel: 'details[data-sec="rhythm"]', tab: 'progression', t: 'Strumming', b: 'Pick a pattern and watch the strum chart light up as it plays. You can also record your own strumming and the site writes the pattern down.' },
+      { sel: 'details[data-sec="find"]', tab: 'progression', t: 'Find any chord', b: 'Type a name like Cm7, F#dim or D/F#, hear each shape, and add the one you like.' },
+      { sel: '#midiProgBtn', tab: 'progression', t: 'Take it to your DAW', b: 'Download your progression as a MIDI file: chords, bass, tempo and chord names, ready to drag into Ableton, Logic, FL Studio or any DAW.' },
+      { sel: 'details[data-sec="saved"]', tab: 'progression', t: 'Save it', b: 'Name your progression and save it to come back to later. Then open the <b>Studio</b> to solo over it.' },
     ],
     patterns: [
       { sel: '#styleSeg', tab: 'progression', t: 'Pick a pattern', b: 'Tap one to hear a bar of it. Pop and Rock are great first patterns.' },
       { sel: '#rhythmView', tab: 'progression', t: 'Read the strum chart', b: '↓ down, ↑ up, faint arrows are soft ghost strums, × is a muted strum. Count along: 1 & 2 & 3 & 4 &.' },
-      { sel: '#rNew', tab: 'progression', t: 'Make your own', b: 'Build a pattern box by box, play it on the strum pad, or load a recording of your own guitar.' },
+      { sel: '#rNew', tab: 'progression', t: 'Make your own', b: 'Build a pattern box by box, play it on the strum pad, or record your own guitar and let the site write it down, pauses included.' },
+    ],
+    listen: [
+      { sel: '#tunerPanel', tab: 'listen', t: 'Tune first', b: 'Press <b>Start tuner</b> and play one open string at a time. Needle left means too low (tune up), right means too high. A chime plays when a string is in tune. Other tunings (Drop D, Open G…) are in the list.' },
+      { sel: '#listenPanel', tab: 'listen', t: 'Chord listener', b: 'Strum a chord and it names it, from major and minor to 9ths, diminished and slash chords, and gives its number in your key. <b>Upload a clip</b> reads a whole recording like the chord track in a DAW. Add what it hears to your progression.' },
+      { sel: '#scalePanel', tab: 'listen', t: 'Scale listener', b: 'Play a scale, riff or melody one note at a time. It counts the notes you used and lists the scales that contain them. Start and end on the note that feels like home.' },
+      { sel: '#tracePanel', tab: 'listen', t: 'What you played, on the neck', b: 'Every note it hears lands on this fretboard. Tap a wrong note to remove it, compare with a scale, or open your pattern on the Fretboard page.' },
+    ],
+    studio: [
+      { sel: '#imCtl', tab: 'improv', t: 'Pick a backing', b: 'Choose a key, a scale and a backing: <b>Use my progression</b> plays your own chords with your strumming pattern, or pick a 12-bar blues or a famous progression.' },
+      { sel: '#imForms', tab: 'improv', t: 'The chords as they play', b: 'A small shape for every bar. The one playing lights up. Tap one to hear it and start from there.' },
+      { sel: '#imTools', tab: 'improv', t: 'Draw or drop in ideas', b: 'The <b>Pencil</b> adds notes, the <b>Pointer</b> selects and moves them. The ideas (Three up, Question, Answer…) drop a ready-made phrase from the scale wherever you click.' },
+      { sel: '#imRoll', tab: 'improv', t: 'The piano roll', b: 'Tinted rows are the notes of the chord playing: the strongest notes to land on. Drag notes to move them, drag a right edge to resize, and click the chord ruler to set where Play starts.' },
+      { sel: '#imRecRow', tab: 'improv', t: 'Record your guitar', b: 'Play single notes into the microphone after a count-in and they land on the grid as notes you can edit, like recording MIDI guitar into a DAW.' },
+      { sel: '#imKeysBtn', tab: 'improv', t: 'Keyboard shortcuts', b: 'On a computer: Space plays, Ctrl+Z undoes, R records, and more. Press <b>?</b> any time to see them all.' },
+      { sel: '#mapBars', tab: 'improv', t: 'Scale map', b: 'Pick a bar, then a scale for its chord. The labels say why each one fits: in the key, easy, bluesy, borrowed and so on.' },
+      { sel: '#mapLegend', tab: 'improv', t: 'Reading the neck', b: 'Big amber dots and the amber square are the chord’s notes and root: land on them. Small blue dots are passing notes. Green rings are the next chord’s notes. Switch layers on and off here.' },
+      { sel: '#mapBlocks', tab: 'improv', t: 'Build with blocks', b: 'Pieces of the scale position, or your own block of tapped dots. Add one and the cursor moves on, so the next block joins on, like Lego. Change scale when the chord changes.' },
+      { sel: '#mapMove', tab: 'improv', t: 'Into the next chord', b: 'The notes both chords share, where the 3rd and 7th move, and which scale notes change. <b>Add a run</b> writes a short phrase that lands on the new chord right on the change.' },
+      { sel: '#midiImBtn', tab: 'improv', t: 'Finish it in your DAW', b: 'When an idea works, download it as a MIDI file: your solo, the chords and a bass line on separate tracks, with the tempo, key and chord names. Drag it into your DAW and keep going there.' },
+      { sel: '#imGuide', tab: 'improv', t: 'Learn and listen', b: 'Nine short lessons, from three notes to a whole solo, and example solos explained bar by bar. Each one opens in the Studio.' },
     ],
   };
   const GUIDE = { learn: false, seen: {}, intro: false, firstVisit: false };
@@ -4545,7 +6583,7 @@
       + `<p class="gp-text">New to the site or to music theory? Take a short tour, or read <button type="button" class="ip-link inl" data-info="roman">what chord numbers (I, IV, V, 2–5–1) mean</button>. Already know your way around? Just close this.</p>`
       + `<button type="button" class="tapbtn strong gp-main" data-tour="welcome">Take the tour of the site</button>`
       + `<div class="gp-label">Tours of each part</div><div class="gp-tours">`
-      + [['fretboard', 'Fretboard and scales'], ['keys', 'Keys and the circle of fifths'], ['progression', 'Building a progression'], ['patterns', 'Strumming patterns']].map(([k, l]) => `<button type="button" class="tapbtn" data-tour="${k}">${l}${GUIDE.seen[k] ? ' <span class="gp-done">✓</span>' : ''}</button>`).join('')
+      + [['fretboard', 'Fretboard and scales'], ['keys', 'Keys and the circle of fifths'], ['progression', 'Building a progression'], ['patterns', 'Strumming patterns'], ['listen', 'Tuner and listeners'], ['studio', 'Studio and scale map']].map(([k, l]) => `<button type="button" class="tapbtn" data-tour="${k}">${l}${GUIDE.seen[k] ? ' <span class="gp-done">✓</span>' : ''}</button>`).join('')
       + `</div>`
       + `<label class="check gp-learn"><input type="checkbox" id="learnToggle"${GUIDE.learn ? ' checked' : ''}> <span><b>Learning mode</b><br><small>Shows a short tour the first time you open each part, and makes the <i>i</i> buttons glow so they are easy to find.</small></span></label>`
       + `<div class="gp-label">Button effects</div><div class="seg">${fxb('subtle', 'Subtle')}${fxb('pixel', 'Pixel sparkles')}${fxb('off', 'Off')}</div>`;
@@ -4556,7 +6594,7 @@
     if (!open && !p.hidden) markGuideSeen();
     p.hidden = !open;
     $('guideBtn').setAttribute('aria-expanded', String(!!open));
-    if (open) { closeInfo(); renderGuide(); }
+    if (open) { closeInfo(); renderGuide(); try { openShare(false); } catch (e) {} }
   }
 
   // (i) notes
@@ -4573,8 +6611,8 @@
     'Natural minor (Aeolian)': { mood: 'Sad, serious, dark.', what: 'The major scale started from its 6th note: A minor uses the same notes as C major, with A as home. Compared with major it lowers the 3rd, 6th and 7th. As a mode it is called <b>Aeolian</b>.', use: 'Rock ballads, metal, pop, film music. Play it over minor chords (A natural minor over Am) and minor-key songs.' },
     'Harmonic minor': { mood: 'Dramatic, exotic, classical.', what: 'Natural minor with the 7th raised a half step. That makes the big jump between ♭6 and 7 (a step and a half) that gives it its Middle-Eastern sound, and it turns the V chord major (E in A minor), so it pulls home strongly.', use: 'Classical, neoclassical metal, flamenco, Middle-Eastern flavours. Great over the V7 chord of a minor key (over E7 when you are in A minor).' },
     'Melodic minor': { mood: 'Smooth, jazzy, bittersweet.', what: 'Natural minor with both the 6th and 7th raised: a minor scale whose top half is major. Jazz players use it going both up and down; in classical music it goes back to natural minor on the way down.', use: 'Jazz over minor chords such as m6 and m(maj7). Its modes give jazz sounds like Lydian dominant and the altered scale.' },
-    'Major pentatonic': { mood: 'Open, sunny, can’t-go-wrong.', what: 'Five notes: the major scale without its 4th and 7th, the two notes that clash most easily. With no half steps, every note sounds good over the key’s chords.', use: 'Country, folk, pop, Southern rock, happy blues solos. The easiest scale to improvise with over a major key.' },
-    'Minor pentatonic': { mood: 'Bluesy, cool, rock.', what: 'Five notes: the natural minor scale without its 2nd and 6th. It uses the same notes as the major pentatonic three notes higher (A minor pentatonic = C major pentatonic).', use: 'The guitar solo scale: blues, rock, funk, metal. Works over minor chords, and over blues progressions in the same key even when the chords are major.' },
+    'Major pentatonic': { mood: 'Open, sunny, can’t-go-wrong.', what: 'Five notes: the major scale without its 4th and 7th, the two notes that clash most easily. With no half steps between its notes, it rarely clashes with the key’s chords.', use: 'Country, folk, pop, Southern rock, happy blues solos. The easiest scale to improvise with over a major key.' },
+    'Minor pentatonic': { mood: 'Bluesy, cool, rock.', what: 'Five notes: the natural minor scale without its 2nd and 6th. It uses the same notes as the major pentatonic three frets (a minor 3rd) higher: A minor pentatonic = C major pentatonic.', use: 'The guitar solo scale: blues, rock, funk, metal. Works over minor chords, and over blues progressions in the same key even when the chords are major.' },
     'Blues': { mood: 'Gritty, soulful, crying.', what: 'Minor pentatonic plus one extra note: the ♭5, the "blue note". Slide through it on the way between 4 and 5 rather than resting on it.', use: 'Blues, rock, jazz. Over a 12-bar blues or any dominant 7th chord on the same root.' },
     'Whole tone': { mood: 'Dreamy, floating, unresolved.', what: 'Six notes, every one a whole step apart. With no half steps there is no clear home note, so it sounds like a dream sequence. There are only two different whole-tone scales.', use: 'Impressionist music (Debussy), film dream scenes, jazz over augmented chords and 7♯5 chords.' },
     'Diminished (whole-half)': { mood: 'Tense, mysterious, symmetrical.', what: 'Eight notes alternating whole step, half step. It repeats every minor 3rd, so it only exists in three versions.', use: 'Jazz and metal over diminished 7th chords (C°7 with C whole-half). Horror and suspense moods.' },
@@ -4624,7 +6662,8 @@
     pop.hidden = false;
     if (fromNote) btn = infoAnchor || btn; else infoAnchor = btn;
     const r = btn.getBoundingClientRect();
-    const w = Math.min(it.wide ? 440 : 360, window.innerWidth - 24);
+    const w = Math.min(it.xwide ? 720 : it.wide ? 440 : 360, window.innerWidth - 24);
+    pop.classList.toggle('xwide', !!it.xwide);
     pop.style.width = w + 'px';
     if (window.innerWidth < 600) { pop.classList.add('sheet'); pop.style.left = ''; pop.style.top = ''; return; }
     pop.classList.remove('sheet');
@@ -4714,6 +6753,25 @@
     card.style.top = y + 'px';
     card.style.left = Math.max(12, Math.min(vw - w - 12, (vw < 600 ? (vw - w) / 2 : r.left))) + 'px';
   }
+  function fbKeyClick(t) {
+    const fc = t.closest('[data-c]');
+    if (fc && t.closest('#fbCirc')) {
+      // a chord of the scale, from the circle or the suggestions: the same as tapping its card
+      const turnOn = String(S.chord) !== fc.getAttribute('data-c');
+      S.chord = turnOn ? fc.getAttribute('data-c') : 'none';
+      S.cx = null;
+      render();
+      if (turnOn && lastVM && lastVM.chord) audition(lastVM.chord);
+      return true;
+    }
+    const k = t.closest('[data-fbkey]');
+    if (!k) return false;
+    const [pc, md] = k.getAttribute('data-fbkey').split(':');
+    setHome(+pc, md === 'minor' ? 'minor' : 'major');
+    playHome();
+    say('Moved to ' + (S.flats ? FLAT_NAMES : SHARP_NAMES)[+pc] + ' ' + md + '.');
+    return true;
+  }
   function pinClick(t) {
     if (!t.closest('#pinBtn')) return false;
     PIN = !PIN;
@@ -4743,7 +6801,7 @@
   // Learning mode: the first visit to each part starts its tour
   function maybeLearnTour(tab) {
     if (!GUIDE.learn || TOUR.name) return;
-    const name = !GUIDE.seen.welcome ? 'welcome' : tab;
+    const name = !GUIDE.seen.welcome ? 'welcome' : tab === 'improv' ? 'studio' : tab;
     if (TOURS[name] && !GUIDE.seen[name]) setTimeout(() => { if (!TOUR.name) startTour(name); }, 400);
   }
 
@@ -4757,11 +6815,11 @@
     if (!grid) return;
     const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
     const mode = S.hm === 'minor' ? 'minor' : 'major';
-    const seventh = S.chordType === 'seventh';
+    const seventh = S.chordType !== 'triad';
     const tonic = names[((S.hk % 12) + 12) % 12];
     $('cpRoot').innerHTML = options(names.map((n, i) => [i, n]), ((S.hk % 12) + 12) % 12);
     seg('cpMode', 'hm', [['major', 'Major'], ['minor', 'Minor']], mode);
-    seg('cpType', 'ctype', [['triad', 'Triads'], ['seventh', '7th chords']], seventh ? 'seventh' : 'triad');
+    seg('cpType', 'ctype', CTYPE_OPTS, S.chordType === 'ninth' ? 'ninth' : seventh ? 'seventh' : 'triad');
     $('secCommonSum').textContent = 'in ' + tonic + ' ' + mode;
     if (cpGenre !== 'all' && CP_GENRES.indexOf(cpGenre) < 0) cpGenre = 'all';
     const inMode = COMMON_PROGS.filter((d) => d.mode === mode);
@@ -4773,8 +6831,17 @@
     const otherN = cpGenre === 'all' ? 0 : COMMON_PROGS.filter((d) => d.mode === other && (d.genres || []).indexOf(cpGenre) >= 0).length;
     $('cpNote').innerHTML = cpGenre === 'all' ? '' : (shown.length ? shown.length + ' ' + esc(cpGenre) + ' progression' + (shown.length === 1 ? '' : 's') + ' in ' + mode + '.' : 'No ' + esc(cpGenre) + ' progressions in ' + mode + '.')
       + (otherN ? ` <button type="button" class="linkbtn" data-seg="hm" data-v="${other}">${otherN} more in ${other} →</button>` : '');
-    grid.innerHTML = shown.map((d) => {
-      const chords = progChords(d, tonic, seventh);
+    let cpAll = false;
+    try { cpAll = localStorage.getItem('fretboard-cp-all') === '1'; } catch (e) {}
+    const CP_FIRST = 5;
+    const cut = cpGenre === 'all' && !cpAll && shown.length > CP_FIRST + 1;
+    const more = $('cpMore');
+    if (more) { more.hidden = cpGenre !== 'all' || shown.length <= CP_FIRST + 1; more.textContent = cut ? `Show all ${shown.length} progressions` : 'Show fewer'; more.setAttribute('aria-expanded', String(!cut)); }
+    // the short list starts with the best-known progressions of each kind
+    const FEATURED = ['axis', '251', 'blues', 'royal', '50s', 'andalusian', 'epic', 'm251', 'minorpop', 'mroyalV'];
+    const pick = cut ? shown.slice().sort((x, y) => { const a = FEATURED.indexOf(x.id), b2 = FEATURED.indexOf(y.id); return (a < 0 ? 99 : a) - (b2 < 0 ? 99 : b2); }).slice(0, CP_FIRST) : shown;
+    grid.innerHTML = pick.map((d) => {
+      const chords = cpLevel(progChords(d, tonic, seventh), d);
       const armed = cpArmed === d.id;
       return `<div class="cpcard" data-cpcard="${d.id}"><div class="cp-top"><b>${esc(d.name)}</b></div>`
         + `<div class="cp-gen">${(d.genres || []).map((g) => `<span>${esc(g)}</span>`).join('')}</div>`
@@ -4786,11 +6853,25 @@
         + `<button type="button" class="tapbtn strong${armed ? ' danger' : ''}" data-cp="${d.id}" data-cpact="use">${armed ? 'Replace your ' + P.slots.length + ' chords?' : 'Use this'}</button></div></div>`;
     }).join('');
   }
+  // with 9th chords chosen, each 7th chord takes the 9th its key gives it (Imaj9, ii9, V9; V7♭9 in minor)
+  function cpLevel(chords, d) {
+    if (S.chordType !== 'ninth') return chords;
+    const key = { tonic: ((S.hk % 12) + 12) % 12, mode: d.mode === 'minor' ? 'minor' : 'major' };
+    return chords.map((c) => {
+      const root = c.tones[0].pc, pcs = c.tones.map((t) => t.pc);
+      const sym = chordAtLevel(root, pcs, '9th', key);
+      const qi = ARP_ENTRIES.findIndex((e) => e.sym === sym);
+      if (!['maj9', '9', 'm9', '7♭9'].includes(sym) || qi < 0) return c;
+      const rn = c.tones[0].name;
+      const ch = pickerChord(qi, root, S.flats, rn.indexOf('♭') >= 0 ? true : rn.indexOf('♯') >= 0 ? false : undefined);
+      return Object.assign({}, c, { name: ch.name, tones: ch.tones, roman: String(c.roman || '').replace(/(maj7|m7|7)$/, (m) => (m === 'm7' ? 'm' : '')) + { maj9: 'maj9', '9': '9', m9: '9', '7♭9': '7♭9' }[sym] });
+    });
+  }
   function cpChords(id) {
     const d = COMMON_PROGS.find((x) => x.id === id);
     if (!d) return null;
     const names = S.flats ? FLAT_NAMES : SHARP_NAMES;
-    return { d, chords: progChords(d, names[((S.hk % 12) + 12) % 12], S.chordType === 'seventh') };
+    return { d, chords: cpLevel(progChords(d, names[((S.hk % 12) + 12) % 12], S.chordType !== 'triad'), d) };
   }
   function cpAction(id, act) {
     const r = cpChords(id);
@@ -4845,6 +6926,9 @@
   function handleClick(e) {
     const t = e.target;
     if (!t || !t.closest) return;
+    if (heroClick(t)) return;
+    if (shareClick(t)) return;
+    if (ideaClick(t)) return;
     if (TOUR.name || t.closest('[data-info]') || t.closest('#guideBtn') || t.closest('#guidePanel') || t.closest('#infoPop') || infoOpen) {
       if (guideClick(t)) { if (t.closest('summary')) e.preventDefault(); return; }
     }
@@ -4884,7 +6968,19 @@
     }
     if (t.closest('#rvHear')) { previewRhythm(rhythmShown || P.style); return; }
     if (edClick(t)) return;
+    if (t.closest('#cpMore')) {
+      let all = false; try { all = localStorage.getItem('fretboard-cp-all') === '1'; } catch (err) {}
+      try { localStorage.setItem('fretboard-cp-all', all ? '0' : '1'); } catch (err) {}
+      renderCommon();
+      if (all) { const s = document.querySelector('details[data-sec="common"]'); if (s && s.scrollIntoView) s.scrollIntoView({ block: 'start' }); }
+      return;
+    }
+    if (midiClick(t)) return;
+    const plv = t.closest('[data-proglevel]');
+    if (plv) { progLevel(plv.getAttribute('data-proglevel')); return; }
+    if (imClick(t, e)) return;
     if (pinClick(t)) return;
+    if (fbKeyClick(t)) return;
     if (tuClick(t)) return;
     if (lsClick(t)) return;
     if (slClick(t)) return;
@@ -4919,6 +7015,8 @@
       S.chord = 'none';
       render();
       renderLibrary();
+      // on a phone the library sits above the neck: bring the neck into view so you see what you picked
+      if (window.innerWidth < 760) { const bp = $('boardPanel'); if (bp && bp.scrollIntoView) setTimeout(() => bp.scrollIntoView({ block: 'start', behavior: calmMotion() ? 'auto' : 'smooth' }), 60); }
       return;
     }
     const key = t.closest('.key');
@@ -5057,8 +7155,9 @@
   /* progression controls */
   const toggleProg = () => (PL.on ? stopProg() : startProg());
   $('progPlay').addEventListener('click', toggleProg);
-  $('dockPlay').addEventListener('click', toggleProg);
+  $('dockPlay').addEventListener('click', () => { if (LAYOUT === 'tabs' && TAB === 'improv') { if (IREC.on) irStop(true); else imPlay(); syncDock(); return; } toggleProg(); });
   $('dockGo').addEventListener('click', () => {
+    if (LAYOUT === 'tabs' && TAB === 'improv') { const p = $('imPanel'); if (p && p.scrollIntoView) p.scrollIntoView({ block: 'start', behavior: calmMotion() ? 'auto' : 'smooth' }); return; }
     if (LAYOUT === 'tabs') setTab('progression');
     const p = $('progPanel');
     if (p && p.scrollIntoView) p.scrollIntoView({ block: 'start', behavior: calmMotion() ? 'auto' : 'smooth' });
@@ -5174,6 +7273,7 @@
   document.addEventListener('change', (e) => {
     const id = e.target && e.target.id;
     if (id === 'recMetro') ED.metro = !!e.target.checked;
+    if (id && id.indexOf('im') === 0 && imChange(id, e.target.value, e.target)) return;
     if (id === 'traceCmp') { TR.cmp = e.target.value; renderTrace(); }
     if (id === 'tuTuning') { TU.tuning = e.target.value; TU.done = {}; TU.lock = -1; TU.read = null; tuSave(); renderTuner(); }
     if (id === 'tuA4') { TU.a4 = +e.target.value || 440; tuSave(); renderTuner(); }
@@ -5199,6 +7299,15 @@
   });
   if (window.addEventListener) window.addEventListener('resize', () => { if (ED.tx) drawTx(); drawTake(); });
   document.addEventListener('change', (e) => {
+    if (e.target && e.target.getAttribute && e.target.getAttribute('data-mx') !== null) { MX[e.target.getAttribute('data-mx')] = !!e.target.checked; mxSave(); return; }
+    if (e.target && e.target.hasAttribute && e.target.hasAttribute('data-mxreps')) { MX.reps = +e.target.value || 1; mxSave(); return; }
+    if (e.target && e.target.id === 'playStyle') { P.style = e.target.value; saveProg(); renderProg(); previewRhythm(P.style); return; }
+    const ty = e.target && e.target.closest ? e.target.closest('[data-slottype]') : null;
+    if (ty) {
+      const sl = P.slots[+ty.getAttribute('data-slottype')];
+      if (sl && slotRetype(sl, ty.value)) { saveProg(); renderProg(); auditionSlot(sl); say('Changed to ' + sl.name + '.'); }
+      return;
+    }
     const s = e.target && e.target.closest ? e.target.closest('[data-slotstyle]') : null;
     if (!s) return;
     const sl = P.slots[+s.getAttribute('data-slotstyle')];
@@ -5220,12 +7329,16 @@
     sel.value = INST;
   })();
   /* tabs: Fretboard, Keys and chords, Progression, Listen (the link remembers which one: #fretboard, #keys, #progression, #listen) */
-  const TABS = ['fretboard', 'keys', 'progression', 'listen'];
+  const TABS = ['fretboard', 'keys', 'progression', 'listen', 'improv'];
+  // the Studio tab is 'improv' inside the code; its address is #studio (old #improv links still open it)
+  const tabHash = (t) => '#' + (t === 'improv' ? 'studio' : t);
+  const hashTab = (h) => (h === 'studio' ? 'improv' : h);
   let TAB = 'fretboard';
   let LAYOUT = root && root.classList && root.classList.contains('alltabs') ? 'one' : 'tabs';
   try { const l = localStorage.getItem('fretboard-layout'); if (l === 'one' || l === 'tabs') LAYOUT = l; } catch (e) {}
   // Tabs: one area at a time. One page: everything together; the tab buttons jump to each part.
   function setLayout(l) {
+    setTimeout(() => tabLead(TAB), 0);
     LAYOUT = l === 'one' ? 'one' : 'tabs';
     const st = $('dockStrip');
     if (st && st.setAttribute) st.setAttribute('data-key', '');
@@ -5235,14 +7348,24 @@
     syncDock();
     try { pinPaint(lastVM); } catch (e) {}
   }
-  const TAB_TARGET = { fretboard: 'boardPanel', keys: 'keyPanel', progression: 'progPanel', listen: 'listenPanel' };
+  const TAB_TARGET = { fretboard: 'boardPanel', keys: 'keyPanel', progression: 'progPanel', listen: 'tunerPanel', improv: 'imPanel' };
+  const TAB_LEAD = {
+    fretboard: 'Pick a key and a pattern. The neck shows only that pattern, with every position from the nut to the 22nd fret.',
+    keys: 'Explore a key: the circle of fifths, the chords that belong to it, and where each chord likes to go next.',
+    progression: 'Build a chord progression, choose its tempo and strumming, and play it on a loop.',
+    listen: 'Tune your guitar, and let the site hear the chords and scales you play.',
+    improv: 'Write or record a solo over your chords, with the scales that fit each one.',
+  };
+  function tabLead(t) { try { const ld = $('tabLead'); if (ld) ld.textContent = LAYOUT === 'one' ? 'Scales, chords, keys and progressions on a real fretboard you can hear, plus a tuner, listeners and a studio.' : TAB_LEAD[t] || TAB_LEAD.fretboard; } catch (e) {} }
   function setTab(t) {
     if (TABS.indexOf(t) < 0) t = 'fretboard';
+    tabLead(t);
+    if (t === 'improv') { try { renderImprov(); } catch (e) {} }
     if (LAYOUT === 'one') {
       TAB = t;
       qsa(document, '[data-go]').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-go') === t)));
       try { localStorage.setItem('fretboard-tab', t); } catch (e) {}
-      try { if (location.hash !== '#' + t) history.replaceState(null, '', '#' + t); } catch (e) {}
+      try { if (location.hash !== tabHash(t)) history.replaceState(null, '', tabHash(t)); } catch (e) {}
       const el = $(TAB_TARGET[t]);
       const nav = document.querySelector && document.querySelector('.tabs');
       if (el && el.getBoundingClientRect && window.scrollTo) {
@@ -5259,7 +7382,7 @@
     if (app && app.setAttribute) app.setAttribute('data-tab', t);
     qsa(document, '[data-go]').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-go') === t)));
     try { localStorage.setItem('fretboard-tab', t); } catch (e) {}
-    try { if (location.hash !== '#' + t) history.replaceState(null, '', '#' + t); } catch (e) {}
+    try { if (location.hash !== tabHash(t)) history.replaceState(null, '', tabHash(t)); } catch (e) {}
     if (changed) {
       maybeLearnTour(t);
       wantJump = true;
@@ -5268,7 +7391,7 @@
     }
     syncDock();
   }
-  if (window.addEventListener) window.addEventListener('hashchange', () => { const h = (location.hash || '').slice(1); if (TABS.indexOf(h) >= 0) setTab(h); });
+  if (window.addEventListener) window.addEventListener('hashchange', () => { const raw = (location.hash || '').slice(1); if (raw === 'home') { if (!HERO.on) showHero(true); return; } const h = hashTab(raw); if (TABS.indexOf(h) >= 0) { if (HERO.on) showHero(false); setTab(h); } });
   // folded sections stay folded next time
   try {
     const open = JSON.parse(localStorage.getItem('fretboard-secs') || '{}');
@@ -5287,6 +7410,7 @@
   traceLoad();
   renderLibrary();
   renderTuner();
+  try { if (IM_FRESH && P.slots.length) imUseMine(true); renderImprov(); renderImLearn(); } catch (e) {}
   render();
   renderProg();
   renderLib();
@@ -5294,12 +7418,19 @@
   try { pwDefault(); edDefault(); } catch (e) {}
   let startTab = 'fretboard';
   try {
-    const h = (location.hash || '').slice(1);
+    const h = hashTab((location.hash || '').slice(1));
     startTab = TABS.indexOf(h) >= 0 ? h : localStorage.getItem('fretboard-tab') || 'fretboard';
   } catch (e) {}
+  // a shared idea in the address (read here, once everything it needs is set up)
+  try { const m = /[?&]idea=([^&#]+)/.exec(location.search || ''); if (m) IDEA = ideaUnpack(m[1]); } catch (e) { IDEA = null; }
+  try { renderIdeaBar(); } catch (e) {}
   syncLearn();
   setLayout(LAYOUT);
   if (LAYOUT === 'tabs') setTab(startTab);
   else { TAB = startTab; qsa(document, '[data-go]').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-go') === TAB))); }
-  if (GUIDE.firstVisit) setTimeout(() => { const gp = $('guidePanel'); if (gp && gp.hidden && !TOUR.name) { GUIDE.intro = true; openGuide(true); } }, 700);
+  let heroFirst = false;
+  try { heroFirst = !localStorage.getItem('fretboard-hero-seen') && GUIDE.firstVisit; } catch (e) {}
+  const hashNow = HASH0;
+  if (hashNow === 'home' || (heroFirst && !hashNow && !IDEA)) { try { showHero(true); } catch (e) {} }
+  else if (GUIDE.firstVisit) setTimeout(() => { const gp = $('guidePanel'); if (gp && gp.hidden && !TOUR.name) { GUIDE.intro = true; openGuide(true); } }, 700);
 })();
