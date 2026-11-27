@@ -1,6 +1,6 @@
 # Fretboard Library
 
-A guitar music-theory site: scales, arpeggios and chord shapes on the fretboard, a key explorer with the circle of fifths, a progression workspace with strumming and picking patterns, a chord listener and tuner, and a Studio for writing or recording solos over your own progression and exporting them as MIDI.
+A guitar music-theory site: interactive chord shapes on the welcome page, scales and chords on the fretboard, a key explorer with the circle of fifths, a progression workspace with strumming and picking patterns, a chord listener and tuner, and a Studio for writing or recording solos over your own progression and exporting them as MIDI. The Studio's scale map can highlight played notes and show the whole fretboard.
 
 ## Run it on your own computer
 
