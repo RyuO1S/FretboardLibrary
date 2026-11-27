@@ -760,6 +760,11 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
 .leout span b { font-family: inherit; font-size: inherit; color: var(--fg); }
 /* the scale listener's live neck */
 :root.alltabs main > #tracePanel, :root.alltabs main > #tunerPanel { order: 7; }
+#neck .dot.mine circle { stroke: var(--live); stroke-width: 4.5; }
+.minebar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 10px; padding: 8px 12px; border: 1.5px solid var(--live); border-radius: 10px; font-size: 0.88rem; }
+.minebar > span { flex: 1 1 260px; min-width: 0; }
+.minekey, .minek { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: var(--dot); box-shadow: 0 0 0 2.5px var(--live); }
+.minebar[hidden] { display: none; }
 /* tuner */
 .tuctl { gap: 8px 16px; margin: 10px 0 6px; }
 .tubody { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); grid-template-areas: "gauge read" "gauge strings" "gauge reset"; gap: 6px 22px; align-items: center; padding: 12px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--panel); transition: border-color 0.2s, background 0.2s; }
@@ -1002,6 +1007,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
         <div class="neck-scroll"><svg id="neck" role="img" aria-label="Guitar fretboard"></svg></div>
         <div class="note-empty" id="boardNote" hidden></div>
         <div class="pickbar" id="pickBar" hidden></div>
+        <div class="minebar" id="mineBar" hidden></div>
       </section>
 
       <section class="panel" id="shapePanel" data-tab-of="fretboard" hidden aria-label="Chord shapes">
@@ -1028,6 +1034,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
         <div class="row tuctl">
           <label class="field"><span>Tuning</span><select id="tuTuning"></select></label>
           <label class="field"><span>Reference</span><select id="tuA4"></select></label>
+          <label class="check"><input type="checkbox" id="tuDing" checked> Ding when a string is in tune</label>
         </div>
         <div class="tubody" id="tuBody">
           <div class="tugauge" id="tuGaugeBox"></div>
@@ -1119,18 +1126,21 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <p>Every note the Scale listener hears lands on the fretboard where you most likely played it, and stays there. It is saved on this device, so you can come back to it.</p>
           </div>
           <div class="lsacts">
+            <button type="button" class="tapbtn strong" id="traceBoard">Show on the Fretboard</button>
             <button type="button" class="tapbtn" id="traceHear">Hear it back</button>
+            <button type="button" class="tapbtn" id="traceUndo">Undo</button>
             <button type="button" class="tapbtn" id="traceClear">Clear</button>
           </div>
         </div>
         <div class="row tracectl">
           <label class="field"><span>Compare with</span><select id="traceCmp"></select></label>
           <div class="field"><span>Labels</span><div class="seg" id="traceLbl" role="group" aria-label="Labels"></div></div>
+          <div class="field"><span>Tap a dot to</span><div class="seg" id="traceTap" role="group" aria-label="What tapping a dot does"></div></div>
           <label class="check"><input type="checkbox" id="traceFill" checked> Show the scale notes you have not played (faint)</label>
         </div>
         <div class="neck-scroll"><svg id="traceNeck" role="img" aria-label="Fretboard showing the notes you played"></svg></div>
         <p class="tracesum" id="traceSum" role="status"></p>
-        <p class="tracekey"><span><i class="k kroot"></i>home note of the scale</span><span><i class="k kplay"></i>you played it (bigger = more often)</span><span><i class="k lastk"></i>last note</span><span><i class="k ghostk"></i>in the scale, not played yet</span><span><i class="k outk"></i>not in the scale</span><span>Wrong string? Tap a dot to move it.</span></p>
+        <p class="tracekey"><span><i class="k kroot"></i>home note of the scale</span><span><i class="k kplay"></i>you played it (bigger = more often)</span><span><i class="k lastk"></i>last note</span><span><i class="k ghostk"></i>in the scale, not played yet</span><span><i class="k outk"></i>not in the scale</span><span>A wrong note? Tap it to remove it.</span></p>
       </section>
 
       <section class="panel" id="progPanel" data-tab-of="progression" aria-label="Progression workspace">
