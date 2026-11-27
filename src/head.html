@@ -121,6 +121,15 @@ button:not(:disabled):active { transform: translateY(2px) scale(0.97); box-shado
 /* Controls */
 main { display: grid; gap: 16px; min-width: 0; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+/* while a chord is chosen, the neck stays in view (just under the tabs) as you scroll through its shapes */
+@media (min-width: 700px) and (min-height: 620px) {
+  #boardPanel.pin { position: sticky; top: calc(var(--tabsH, 60px) + env(safe-area-inset-top, 0px)); z-index: 20; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22); }
+  #boardPanel.pin #patMeta, #boardPanel.pin .note-empty { display: none; }
+  #boardPanel.pin .board-head { margin-bottom: 4px; }
+  #boardPanel.pin #neck { max-height: 34vh; }
+}
+.pinbtn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.pinbtn[hidden] { display: none; }
 .row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; }
 .field { display: grid; gap: 4px; min-width: 0; }
 .field > span, .label { font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
@@ -1001,6 +1010,7 @@ button:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35
             <p id="patMeta"></p>
           </div>
           <div class="now" id="now" style="visibility:hidden"><span>♪</span> <b>C</b></div>
+          <button type="button" class="tapbtn pinbtn" id="pinBtn" aria-pressed="true" hidden title="Keep the fretboard in view while you choose chords and shapes below">Neck pinned</button>
           <button type="button" class="tapbtn pickbtn" id="pickBtn" aria-pressed="false" title="Tap notes on the neck to build a chord from them">Pick notes</button>
           <button type="button" class="play" id="playBtn"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M6 4l14 8-14 8z" fill="currentColor"/></svg> Play</button>
         </div>
