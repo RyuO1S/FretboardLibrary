@@ -1751,8 +1751,8 @@
     const st = HERO.strings[s];
     if (!st) return;
     st.amp = Math.min(9, 5 + vel * 6); st.t = performance.now();
+    HERO.energy = Math.min(1, (HERO.energy || 0) + 0.18);
     if (st.el) { st.el.classList.add('hit'); clearTimeout(st.hitT); st.hitT = setTimeout(() => st.el && st.el.classList.remove('hit'), 380); }
-    try { const c = audio(); if (c && c.state === 'running') pluckAt(OPEN[s], c.currentTime + 0.005, 2.2, { vol: 0.22 }); } catch (e) {}
     if (!HERO.raf) HERO.raf = requestAnimationFrame(heroVibrate);
   }
   function heroVibrate(now) {
@@ -1781,12 +1781,11 @@
     HERO.last = y;
     if (e.type === 'pointerdown') {
       let s = Math.round(5 - (y - HN.top) / HN.gap); s = Math.max(0, Math.min(5, s));
-      try { audio(); } catch (err) {}
-      heroPluck(s, 0.8);
+      heroPluck(s, 0.8); heroSpark(s, e.clientX);
       return;
     }
     if (prev === null) return;
-    for (let s = 0; s < 6; s++) { const sy2 = hnY(s); if ((prev - sy2) * (y - sy2) < 0) heroPluck(s, Math.min(1, Math.abs(y - prev) / 40)); }   // crossed a string: it sounds
+    for (let s = 0; s < 6; s++) { const sy2 = hnY(s); if ((prev - sy2) * (y - sy2) < 0) { heroPluck(s, Math.min(1, Math.abs(y - prev) / 40)); heroSpark(s, e.clientX); } }   // crossed a string: it sounds
   }
   function heroDots() {
     clearInterval(HERO.dots);
@@ -1817,42 +1816,211 @@
     };
     setTimeout(() => requestAnimationFrame(tick), 900);
   }
-  // chord shapes on the welcome page: the everyday ones, open and barre, each one strums when tapped
-  // frets run from the low E string to the high E string (-1: not played)
-  const HERO_SHAPES = [
-    ['C', [-1, 3, 2, 0, 1, 0], 0, 'open'], ['G', [3, 2, 0, 0, 0, 3], 7, 'open'], ['D', [-1, -1, 0, 2, 3, 2], 2, 'open'], ['A', [-1, 0, 2, 2, 2, 0], 9, 'open'], ['E', [0, 2, 2, 1, 0, 0], 4, 'open'],
-    ['Am', [-1, 0, 2, 2, 1, 0], 9, 'open minor'], ['Em', [0, 2, 2, 0, 0, 0], 4, 'open minor'], ['Dm', [-1, -1, 0, 2, 3, 1], 2, 'open minor'],
-    ['F', [1, 3, 3, 2, 1, 1], 5, 'barre', [1, 0, 5]], ['B♭', [-1, 1, 3, 3, 3, 1], 10, 'barre', [1, 1, 5]], ['Bm', [-1, 2, 4, 4, 3, 2], 11, 'barre minor', [2, 1, 5]],
-    ['F♯m', [2, 4, 4, 2, 2, 2], 6, 'barre minor', [2, 0, 5]], ['C♯m', [-1, 4, 6, 6, 5, 4], 1, 'barre minor', [4, 1, 5]],
-    ['E7', [0, 2, 0, 1, 0, 0], 4, 'seventh'], ['A7', [-1, 0, 2, 0, 2, 0], 9, 'seventh'], ['D7', [-1, -1, 0, 2, 1, 2], 2, 'seventh'], ['G7', [3, 2, 0, 0, 0, 1], 7, 'seventh'], ['B7', [-1, 2, 1, 2, 0, 2], 11, 'seventh'],
-    ['Cmaj7', [-1, 3, 2, 0, 0, 0], 0, 'seventh'], ['Fmaj7', [-1, -1, 3, 2, 1, 0], 5, 'seventh'], ['Am7', [-1, 0, 2, 0, 1, 0], 9, 'seventh minor'], ['Em7', [0, 2, 0, 0, 0, 0], 4, 'seventh minor'], ['Dm7', [-1, -1, 0, 2, 1, 1], 2, 'seventh minor'],
+  // the background effects, built once; the circle of fifths, the tuner, the sound waves and the particles move in one animation loop
+  const HFX = { built: false, raf: 0, t0: 0, cf: null, tu: null, waves: null, parts: [], cv: null, ctx: null, w: 0, h: 0, dpr: 1 };
+  // what the comet on the circle of fifths plays: real progressions, chord by chord ('o' = the outer ring of major keys, 'm' = the inner ring of minors)
+  const C5 = ['C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'D♭', 'A♭', 'E♭', 'B♭', 'F'], C5M = ['Am', 'Em', 'Bm', 'F♯m', 'C♯m', 'G♯m', 'D♯m', 'B♭m', 'Fm', 'Cm', 'Gm', 'Dm'];
+  const HFX_PROGS = [
+    ['I–V–vi–IV in C', [['o', 0], ['o', 1], ['m', 0], ['o', 11]]],
+    ['ii–V–I in G', [['m', 0], ['o', 2], ['o', 1]]],
+    ['Falling fifths', [['o', 4], ['o', 3], ['o', 2], ['o', 1], ['o', 0]]],
+    ['i–iv–v in A minor', [['m', 0], ['m', 11], ['m', 1], ['m', 0]]],
+    ['I–IV–V in E', [['o', 4], ['o', 3], ['o', 5], ['o', 4]]],
+    ['vi–IV–I–V in D', [['m', 2], ['o', 1], ['o', 2], ['o', 3]]],
   ];
-  const heroShapeOf = (x) => {
-    const fr = x[1].filter((f) => f > 0);
-    return { frets: x[1], min: fr.length ? Math.min.apply(null, fr) : 0, max: fr.length ? Math.max.apply(null, fr) : 0, barre: x[4] ? { fret: x[4][0], from: x[4][1], to: x[4][2] } : null };
-  };
-  function heroShapes(which) {
-    const box = $('heroShapes');
+  function heroFx() {
+    const box = $('heroFx');
     if (!box) return;
-    HERO.shapes = which || HERO.shapes || 'all';
-    qsa(document, '[data-hshapes]').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-hshapes') === HERO.shapes)));
-    let d = 0;
-    box.innerHTML = HERO_SHAPES.map((x, i) => {
-      if (HERO.shapes !== 'all' && x[3].split(' ').indexOf(HERO.shapes) < 0) return '';
-      const sh = heroShapeOf(x);
-      return `<button type="button" class="hero-shape" data-hshape="${i}" style="--d:${d++}" aria-label="${esc(x[0])}: tap to strum it. Tab ${esc(tabText(sh))}"><b>${esc(x[0])}</b>${shapeSvg(sh, [{ pc: x[2] }], x[0])}<small>${esc(tabText(sh))}</small></button>`;
-    }).join('');
+    if (!HFX.built) {
+      HFX.built = true;
+      let h = '<div class="hfx-aurora"><i></i><i></i><i></i></div><div class="hfx-spot"></div><canvas class="hfx-parts"></canvas>';
+      // six faint strings that ripple across the background, each at its own speed
+      const wave = (y, amp, len) => { let d = `M0 ${y}`; for (let x = 0, k = 0; x < 2400; x += len / 2, k++) d += ` q${len / 4} ${k % 2 ? -amp : amp} ${len / 2} 0`; return d; };
+      h += '<svg class="hfx-waves" viewBox="0 0 1600 1000" preserveAspectRatio="none">';
+      [[200, 10, 400, '#38bdd8', 1.4, 16], [330, 16, 400, '#8b8cf2', 1.1, 22], [470, 8, 200, '#38bdd8', 1, 12], [610, 14, 400, '#f5a524', 1.2, 19], [760, 9, 200, '#38bdd8', 0.9, 26]]
+        .forEach(([y, a, l, c, w, sp], k) => { h += `<g style="--sp:${sp}s;animation-direction:${k % 2 ? 'reverse' : 'normal'}"><path d="${wave(y, a, l)}" stroke="${c}" stroke-opacity="0.3" stroke-width="${w}"/></g>`; });
+      h += '</svg>';
+      // the circle of fifths: a glowing comet travels from chord to chord, and each chord lights up as it lands
+      const pol = (i, r) => { const a = (i * 30 - 90) * Math.PI / 180; return [180 + r * Math.cos(a), 180 + r * Math.sin(a)]; };
+      let cf = '<svg class="hfx-circle" viewBox="0 0 360 360"><defs><radialGradient id="hfxGlow"><stop offset="0" stop-color="#ffcf5a" stop-opacity="0.95"/><stop offset="0.45" stop-color="#f5a524" stop-opacity="0.45"/><stop offset="1" stop-color="#f5a524" stop-opacity="0"/></radialGradient><radialGradient id="hfxGlowC"><stop offset="0" stop-color="#9be7f5" stop-opacity="0.95"/><stop offset="0.45" stop-color="#38bdd8" stop-opacity="0.45"/><stop offset="1" stop-color="#38bdd8" stop-opacity="0"/></radialGradient></defs>';
+      cf += '<circle cx="180" cy="180" r="172" fill="none" stroke="#38bdd8" stroke-opacity="0.55" stroke-width="1.5"/><circle cx="180" cy="180" r="120" fill="none" stroke="#38bdd8" stroke-opacity="0.35"/><circle cx="180" cy="180" r="70" fill="none" stroke="#f5a524" stroke-opacity="0.4"/>';
+      for (let i = 0; i < 12; i++) { const [l0, m0] = pol(i + 0.5, 120), [l1, m1] = pol(i + 0.5, 172); cf += `<line x1="${l0.toFixed(1)}" y1="${m0.toFixed(1)}" x2="${l1.toFixed(1)}" y2="${m1.toFixed(1)}" stroke="#38bdd8" stroke-opacity="0.3"/>`; }
+      cf += '<path class="cflink" d="" fill="none" stroke="#ffcf5a" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 6"/>';
+      C5.forEach((n, i) => {
+        const [x, y] = pol(i, 146), [x2, y2] = pol(i, 95);
+        cf += `<circle class="cfg" data-cf="o${i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="30" fill="url(#hfxGlow)" opacity="0"/><text class="cft" data-cft="o${i}" x="${x.toFixed(1)}" y="${(y + 7).toFixed(1)}" text-anchor="middle" font-size="21" font-weight="700" fill="#cfe9f0">${n}</text>`;
+        cf += `<circle class="cfg" data-cf="m${i}" cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="22" fill="url(#hfxGlowC)" opacity="0"/><text class="cft" data-cft="m${i}" x="${x2.toFixed(1)}" y="${(y2 + 5).toFixed(1)}" text-anchor="middle" font-size="13" fill="#97a1aa">${C5M[i]}</text>`;
+      });
+      for (let k = 7; k >= 0; k--) cf += `<circle class="cfc" data-cfc="${k}" r="${(6.5 - k * 0.65).toFixed(1)}" cx="180" cy="34" fill="${k ? '#ffcf5a' : '#fff4c2'}" opacity="${k ? (0.55 - k * 0.06).toFixed(2) : 1}"/>`;
+      cf += '<text class="cfname" x="180" y="176" text-anchor="middle" font-size="22" font-weight="700" fill="#fff4c2"></text><text class="cfprog" x="180" y="198" text-anchor="middle" font-size="11.5" fill="#97a1aa"></text></svg>';
+      h += cf;
+      // the tuner: the needle searches, wobbles, then settles in the green, string after string
+      let tg = '<svg class="hfx-gauge" viewBox="0 0 320 210"><path d="M40 170 A120 120 0 0 1 280 170" fill="none" stroke="#97a1aa" stroke-opacity="0.45" stroke-width="10" stroke-linecap="round"/><path class="ok" d="M146 51 A120 120 0 0 1 174 51" fill="none" stroke="#4ade80" stroke-width="12" opacity="0.25"/>';
+      for (let c = -50; c <= 50; c += 10) { const a = (c * 1.6 - 90) * Math.PI / 180, r2 = c % 50 === 0 || c === 0 ? 80 : 88; tg += `<line x1="${(160 + 100 * Math.cos(a)).toFixed(1)}" y1="${(170 + 100 * Math.sin(a)).toFixed(1)}" x2="${(160 + r2 * Math.cos(a)).toFixed(1)}" y2="${(170 + r2 * Math.sin(a)).toFixed(1)}" stroke="#97a1aa" stroke-width="${c === 0 ? 3 : 1.5}"/>`; }
+      tg += '<text x="38" y="196" text-anchor="middle" font-size="16" fill="#97a1aa">♭</text><text x="282" y="196" text-anchor="middle" font-size="16" fill="#97a1aa">♯</text>';
+      tg += '<circle class="okring" cx="160" cy="118" r="34" fill="none" stroke="#4ade80" stroke-width="3" opacity="0"/><text class="tnote" x="160" y="132" text-anchor="middle" font-size="40" font-weight="700" fill="#cfe9f0">E</text><text class="tcents" x="160" y="196" text-anchor="middle" font-size="14" font-weight="600" fill="#97a1aa"></text>';
+      tg += '<g class="needle"><line x1="160" y1="170" x2="160" y2="60" stroke="#f5a524" stroke-width="3.5" stroke-linecap="round"/></g><circle cx="160" cy="170" r="7" fill="#f5a524"/></svg>';
+      h += tg;
+      // music words rising up the sides
+      // on the right only (the circle of fifths has the left), one every 3 seconds, in lanes that take turns so they never pile up
+      const W = [['Am7', 0], ['Dorian', 1], ['ii–V–I', 0], ['Mixolydian', 1], ['Cmaj7', 0], ['Blues scale', 1], ['E7♯9', 0], ['Lydian', 1]];
+      const LANES = [18, 52, 28, 62, 22, 56, 34, 46];   // pixels in from the edge: they stay in the margin
+      W.forEach(([t, amb], k) => {
+        h += `<span class="hfx-chip${amb ? ' amb' : ''}" style="right:${LANES[k]}px;--d:24s;--w:${-(k * 3).toFixed(1)}s">${esc(t)}</span>`;
+      });
+      // sound waves along the bottom: a few voices layered, like a guitar ringing on an oscilloscope
+      h += '<svg class="hfx-sound" viewBox="0 0 1600 180" preserveAspectRatio="none"><defs><linearGradient id="hfxWav" x1="0" y1="0" x2="1600" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#38bdd8" stop-opacity="0"/><stop offset="0.18" stop-color="#38bdd8"/><stop offset="0.5" stop-color="#8b8cf2"/><stop offset="0.82" stop-color="#f5a524"/><stop offset="1" stop-color="#f5a524" stop-opacity="0"/></linearGradient></defs>';
+      for (let k = 0; k < 4; k++) h += `<path class="sw-glow" data-sw="${k}g" d=""/><path class="sw" data-sw="${k}" d="" style="opacity:${(1 - k * 0.2).toFixed(2)}"/>`;
+      h += '</svg>';
+      box.innerHTML = h;
+      const hero = $('hero');
+      if (hero && hero.addEventListener) hero.addEventListener('pointermove', (e) => {
+        const r = hero.getBoundingClientRect();
+        const sp = box.querySelector('.hfx-spot');
+        if (sp) { sp.style.setProperty('--mx', (e.clientX - r.left) + 'px'); sp.style.setProperty('--my', (e.clientY - r.top) + 'px'); }
+      });
+      const q = (sel) => box.querySelector(sel);
+      HFX.cf = { svg: q('.hfx-circle'), comet: [0, 1, 2, 3, 4, 5, 6, 7].map((k) => q('[data-cfc="' + k + '"]')), glows: {}, labels: {}, link: q('.cflink'), name: q('.cfname'), prog: q('.cfprog'), hist: [], glow: {} };
+      qsa(box, '[data-cf]').forEach((el) => { HFX.cf.glows[el.getAttribute('data-cf')] = el; });
+      qsa(box, '[data-cft]').forEach((el) => { HFX.cf.labels[el.getAttribute('data-cft')] = el; });
+      HFX.tu = { needle: q('.hfx-gauge .needle'), ok: q('.hfx-gauge .ok'), ring: q('.hfx-gauge .okring'), note: q('.hfx-gauge .tnote'), cents: q('.hfx-gauge .tcents') };
+      HFX.waves = [0, 1, 2, 3].map((k) => ({ p: q('[data-sw="' + k + '"]'), g: q('[data-sw="' + k + 'g"]') }));
+      HFX.cv = q('.hfx-parts');
+      HFX.ctx = HFX.cv && HFX.cv.getContext ? HFX.cv.getContext('2d') : null;
+      let seed = 11; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+      HFX.parts = Array.from({ length: 54 }, () => ({ x: rnd(), y: rnd(), v: 0.012 + rnd() * 0.035, r: 0.7 + rnd() * 2.2, s: rnd() * 6.28, c: rnd() > 0.7 ? '245,165,36' : rnd() > 0.5 ? '139,140,242' : '56,189,216' }));
+    }
+    if (!HFX.raf) { HFX.t0 = HFX.t0 || performance.now(); HFX.raf = requestAnimationFrame(heroFxFrame); }
   }
-  function heroStrum(i, el) {
-    const x = HERO_SHAPES[i];
-    if (!x) return;
-    try {
-      const c = audio();
-      if (c) { let k = 0; x[1].forEach((f, s) => { if (f >= 0) pluckAt(OPEN[s] + f, c.currentTime + 0.03 + (k++) * 0.035, 2.2, { vol: 0.2 }); }); }
-    } catch (e) {}
-    if (el && el.classList) { el.classList.remove('strum'); void el.offsetWidth; el.classList.add('strum'); clearTimeout(el._st); el._st = setTimeout(() => el.classList.remove('strum'), 700); }
-    // the strings on the big neck shake too
-    try { x[1].forEach((f, s) => { if (f >= 0) setTimeout(() => { const st = HERO.strings[s]; if (st) { st.amp = 4; st.t = performance.now(); if (!HERO.raf) HERO.raf = requestAnimationFrame(heroVibrate); } }, s * 35); }); } catch (e) {}
+  function heroFxSize() {
+    const cv = HFX.cv, hero = $('hero');
+    if (!cv || !hero || !hero.getBoundingClientRect) return;
+    const r = hero.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (Math.abs(r.width - HFX.w) < 1 && Math.abs(r.height - HFX.h) < 1 && dpr === HFX.dpr) return;
+    HFX.w = r.width; HFX.h = r.height; HFX.dpr = dpr;
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    cv.style.width = r.width + 'px'; cv.style.height = r.height + 'px';
+  }
+  const easeIO = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  function heroFxFrame(now) {
+    HFX.raf = 0;
+    if (!HERO.on) return;
+    const calm = calmMotion();
+    if (!document.hidden) {
+      const t = Math.max(0, (now - HFX.t0) / 1000);   // the first frame can be stamped a hair before the loop started
+      HERO.energy = (HERO.energy || 0) * 0.97;
+      // ----- circle of fifths -----
+      const CF = HFX.cf;
+      if (CF) {
+        const STEP = 1.6, flat = [];
+        HFX_PROGS.forEach(([name, seq]) => seq.forEach((c, k) => flat.push({ name, c, first: k === 0 })));
+        const n = Math.floor(t / STEP), ph = (t / STEP) % 1;
+        const cur = flat[n % flat.length], prev = flat[(n - 1 + flat.length) % flat.length];
+        const ang = (c) => c[1];
+        let a0 = ang(prev.c), a1 = ang(cur.c);
+        let d = a1 - a0; if (d > 6) d -= 12; if (d < -6) d += 12;
+        const mv = cur.first ? 1 : easeIO(Math.min(1, ph / 0.55));   // a new progression starts where it is
+        const rad = (c) => (c[0] === 'o' ? 146 : 95);
+        const ai = a0 + d * mv, ri = rad(prev.c) + (rad(cur.c) - rad(prev.c)) * mv;
+        const A = (ai * 30 - 90) * Math.PI / 180;
+        const hx = 180 + ri * Math.cos(A), hy = 180 + ri * Math.sin(A);
+        CF.hist.unshift([hx, hy]); if (CF.hist.length > 40) CF.hist.length = 40;
+        CF.comet.forEach((el, k) => { const pnt = CF.hist[Math.min(CF.hist.length - 1, k * 3)]; if (el && pnt) { el.setAttribute('cx', pnt[0].toFixed(1)); el.setAttribute('cy', pnt[1].toFixed(1)); } });
+        // the chord it lands on glows, then fades slowly
+        const key = cur.c[0] + cur.c[1];
+        Object.keys(CF.glows).forEach((k2) => {
+          let g = CF.glow[k2] || 0;
+          g = k2 === key && mv >= 1 ? Math.min(1, g + 0.12) : g * 0.965;
+          CF.glow[k2] = g;
+          CF.glows[k2].setAttribute('opacity', g.toFixed(3));
+          const lb = CF.labels[k2];
+          if (lb) lb.setAttribute('fill', g > 0.35 ? '#fff4c2' : k2[0] === 'o' ? '#cfe9f0' : '#97a1aa');
+        });
+        // a dotted thread from the chord before to this one
+        if (!cur.first && mv < 1) { const [px, py] = (() => { const a = (a0 * 30 - 90) * Math.PI / 180, r0 = rad(prev.c); return [180 + r0 * Math.cos(a), 180 + r0 * Math.sin(a)]; })(); CF.link.setAttribute('d', `M${px.toFixed(1)} ${py.toFixed(1)} Q180 180 ${hx.toFixed(1)} ${hy.toFixed(1)}`); CF.link.setAttribute('opacity', '0.7'); }
+        else CF.link.setAttribute('opacity', Math.max(0, (+CF.link.getAttribute('opacity') || 0) - 0.04).toFixed(2));
+        const nm = cur.c[0] === 'o' ? C5[cur.c[1]] : C5M[cur.c[1]];
+        if (CF.name.textContent !== nm) CF.name.textContent = nm;
+        if (CF.prog.textContent !== cur.name) CF.prog.textContent = cur.name;
+      }
+      // ----- the tuner -----
+      const TUx = HFX.tu;
+      if (TUx && TUx.needle) {
+        const PER = 5.2, cyc = Math.floor(t / PER), u = t % PER;
+        const NOTES = ['E', 'A', 'D', 'G', 'B', 'E'];
+        const start = [-42, 36, -30, 44, -26, 32][cyc % 6];
+        // a damped swing toward the note, with a little live wobble while the string rings
+        let c = u < 3.4 ? start * Math.exp(-u * 1.25) * Math.cos(u * 4.2) + Math.sin(t * 9) * 0.8 * Math.exp(-u * 0.6) : 0.4 * Math.sin(t * 6);
+        if (u > 4.6) c = (u - 4.6) / 0.6 * [-42, 36, -30, 44, -26, 32][(cyc + 1) % 6] * 0.6;   // the next string starts out of tune
+        TUx.needle.setAttribute('transform', `rotate(${(Math.max(-50, Math.min(50, c)) * 1.6).toFixed(2)} 160 170)`);
+        const inTune = Math.abs(c) < 3 && u > 1.2 && u < 4.6;
+        TUx.ok.setAttribute('opacity', inTune ? '1' : '0.25');
+        TUx.note.textContent = NOTES[cyc % 6];
+        TUx.note.setAttribute('fill', inTune ? '#4ade80' : '#cfe9f0');
+        TUx.cents.textContent = inTune ? 'In tune ✓' : (c > 0 ? '+' : '−') + Math.abs(Math.round(c)) + ' cents';
+        TUx.cents.setAttribute('fill', inTune ? '#4ade80' : '#97a1aa');
+        const ringT = inTune ? Math.max(0, Math.min(1, (u - 2.6) / 0.6)) : 0;
+        TUx.ring.setAttribute('r', (34 + ringT * 26).toFixed(1));
+        TUx.ring.setAttribute('opacity', inTune && ringT > 0 ? (1 - ringT).toFixed(2) : '0');
+      }
+      // ----- sound waves -----
+      if (HFX.waves) {
+        const E = 1 + (HERO.energy || 0) * 2.2;
+        const V = [[34, 0.0062, 1.5, 0.011, 1.1], [24, 0.0095, -2.1, 0.0041, 0.7], [18, 0.0144, 2.6, 0.0072, 1.6], [12, 0.021, -3.2, 0.013, 2.2]];
+        HFX.waves.forEach((w, k) => {
+          const [amp, f1, sp, f2, sp2] = V[k];
+          let dd = '';
+          for (let x = 0; x <= 1600; x += 16) {
+            const env = Math.pow(Math.sin(Math.PI * x / 1600), 1.4);
+            const y = 100 + env * E * amp * (Math.sin(x * f1 + t * sp) * 0.75 + Math.sin(x * f2 - t * sp2 + k) * 0.45) * (0.8 + 0.2 * Math.sin(t * 0.7 + k));
+            dd += (x ? 'L' : 'M') + x + ' ' + y.toFixed(1);
+          }
+          if (w.p) w.p.setAttribute('d', dd);
+          if (w.g) w.g.setAttribute('d', dd);
+        });
+      }
+      // ----- particles flowing across -----
+      heroFxSize();
+      const ctx = HFX.ctx;
+      if (ctx && HFX.w) {
+        const W2 = HFX.w, H2 = HFX.h;
+        ctx.setTransform(HFX.dpr, 0, 0, HFX.dpr, 0, 0);
+        ctx.clearRect(0, 0, W2, H2);
+        ctx.globalCompositeOperation = 'lighter';
+        HFX.parts.forEach((p) => {
+          if (!calm) {
+            p.x += p.v / 60 * (1 + (HERO.energy || 0) * 2);
+            p.y += Math.sin(p.x * 7 + t * 0.5 + p.s) * 0.0009;
+            if (p.x > 1.05) { p.x = -0.05; }
+            if (p.y < -0.05) p.y = 1.05; if (p.y > 1.05) p.y = -0.05;
+          }
+          const x = p.x * W2, y = p.y * H2, tw = 0.55 + 0.45 * Math.sin(t * 1.8 + p.s * 3);
+          ctx.fillStyle = `rgba(${p.c},${(0.08 * tw).toFixed(3)})`; ctx.beginPath(); ctx.arc(x, y, p.r * 5, 0, 6.283); ctx.fill();
+          ctx.fillStyle = `rgba(${p.c},${(0.75 * tw).toFixed(3)})`; ctx.beginPath(); ctx.arc(x, y, p.r, 0, 6.283); ctx.fill();
+        });
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+    if (!calm) HFX.raf = requestAnimationFrame(heroFxFrame);
+  }
+  // a ripple and a few sparks where a string is struck
+  function heroSpark(s, clientX) {
+    const svg = $('heroNeck');
+    if (!svg || !svg.getBoundingClientRect || calmMotion()) return;
+    const r = svg.getBoundingClientRect();
+    const x = Math.max(HN.x0, Math.min(HN.x1, (clientX - r.left) / r.width * 1000)), y = hnY(s);
+    const ns = 'http://www.w3.org/2000/svg';
+    const add = (el) => { svg.appendChild(el); setTimeout(() => { try { el.remove(); } catch (e) {} }, 800); };
+    const ring = document.createElementNS(ns, 'circle');
+    ring.setAttribute('cx', x.toFixed(1)); ring.setAttribute('cy', y); ring.setAttribute('r', '10'); ring.setAttribute('class', 'hripple');
+    add(ring);
+    for (let k = 0; k < 5; k++) {
+      const c = document.createElementNS(ns, 'circle');
+      const a = Math.random() * Math.PI * 2, d = 16 + Math.random() * 22;
+      c.setAttribute('cx', x.toFixed(1)); c.setAttribute('cy', y); c.setAttribute('r', (1.5 + Math.random() * 1.8).toFixed(1)); c.setAttribute('class', 'hspark');
+      c.style.setProperty('--sx', (Math.cos(a) * d).toFixed(1) + 'px'); c.style.setProperty('--sy', (Math.sin(a) * d).toFixed(1) + 'px');
+      add(c);
+    }
   }
   function showHero(on) {
     const el = $('hero');
@@ -1863,7 +2031,7 @@
     el.hidden = !HERO.on;
     el.classList.remove('leaving');
     if (HERO.on) {
-      heroNeck(); heroType(); heroDots(); heroStats(); heroShapes();
+      heroFx(); heroNeck(); heroType(); heroDots(); heroStats();
       try { const k = $('heroKeep'); if (k) k.checked = localStorage.getItem('fretboard-hero-skip') !== '1'; } catch (e) {}
       try { window.scrollTo(0, 0); } catch (e) {}
       try { if (location.hash !== '#home') history.replaceState(null, '', location.href.split('#')[0] + '#home'); } catch (e) {}
@@ -1879,10 +2047,6 @@
     setTimeout(done, 330);
   }
   function heroClick(t) {
-    const hs = t.closest('[data-hshape]');
-    if (hs) { heroStrum(+hs.getAttribute('data-hshape'), hs); return true; }
-    const hf = t.closest('[data-hshapes]');
-    if (hf) { heroShapes(hf.getAttribute('data-hshapes')); return true; }
     if (t.closest('#homeLink') || t.closest('#homeBtn')) { try { if (!$('guidePanel').hidden) openGuide(false); if (!$('sharePanel').hidden) openShare(false); } catch (e) {} showHero(true); return true; }
     const b = t.closest('[data-hero]');
     if (!b) return false;
