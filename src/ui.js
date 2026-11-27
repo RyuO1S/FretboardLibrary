@@ -864,8 +864,22 @@
       + `<button type="button" class="shapeadd" data-addshape="${i}" data-src="${src}" aria-label="Add this ${esc(ch.name)} shape to the progression">${ICON.plus} Add</button></div>`).join('');
   }
   let shapeList = [];
+  // one place for a chord's shapes: right under the chord you tapped in "Chords in this scale"; the separate panel only
+  // for a chord chosen elsewhere (the Keys tab)
+  let PIN = true;
+  try { PIN = localStorage.getItem('fretboard-pin') !== '0'; } catch (e) {}
+  function pinPaint(vm) {
+    const bp = $('boardPanel');
+    const on = !!(vm && vm.chord) && LAYOUT === 'tabs';
+    if (bp && bp.classList) bp.classList.toggle('pin', on && PIN);
+    const b = $('pinBtn');
+    if (b) { b.hidden = !on; b.setAttribute('aria-pressed', String(PIN)); b.textContent = PIN ? 'Neck pinned' : 'Pin the neck'; }
+    const tabs = document.querySelector && document.querySelector('.tabs');
+    if (tabs && tabs.getBoundingClientRect && document.documentElement.style) document.documentElement.style.setProperty('--tabsH', Math.round(tabs.getBoundingClientRect().height) + 'px');
+  }
   function renderShapes(vm) {
-    $('shapePanel').hidden = !vm.chord;
+    pinPaint(vm);
+    $('shapePanel').hidden = !vm.chord || (S.chord !== 'none' && !S.cx);
     if (!vm.chord) return;
     const res = chordShapes(vm.chord.tones, 4);
     shapeList = res.list;
@@ -4700,6 +4714,13 @@
     card.style.top = y + 'px';
     card.style.left = Math.max(12, Math.min(vw - w - 12, (vw < 600 ? (vw - w) / 2 : r.left))) + 'px';
   }
+  function pinClick(t) {
+    if (!t.closest('#pinBtn')) return false;
+    PIN = !PIN;
+    try { localStorage.setItem('fretboard-pin', PIN ? '1' : '0'); } catch (e) {}
+    pinPaint(lastVM);
+    return true;
+  }
   function guideClick(t) {
     if (t.closest('#guideBtn')) { openGuide($('guidePanel').hidden); return true; }
     if (t.closest('#guideClose')) { openGuide(false); return true; }
@@ -4863,6 +4884,7 @@
     }
     if (t.closest('#rvHear')) { previewRhythm(rhythmShown || P.style); return; }
     if (edClick(t)) return;
+    if (pinClick(t)) return;
     if (tuClick(t)) return;
     if (lsClick(t)) return;
     if (slClick(t)) return;
@@ -5211,6 +5233,7 @@
     qsa(document, '[data-layout]').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-layout') === LAYOUT)));
     try { localStorage.setItem('fretboard-layout', LAYOUT); } catch (e) {}
     syncDock();
+    try { pinPaint(lastVM); } catch (e) {}
   }
   const TAB_TARGET = { fretboard: 'boardPanel', keys: 'keyPanel', progression: 'progPanel', listen: 'listenPanel' };
   function setTab(t) {
