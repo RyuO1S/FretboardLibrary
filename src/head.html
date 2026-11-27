@@ -187,6 +187,18 @@ h1.homelink { cursor: pointer; }
 header p.tagline { margin-top: 2px; color: var(--accent); font-family: var(--font-head); font-weight: 600; font-size: 1.02rem; letter-spacing: 0.005em; }
 .sharebtn { padding: 0 14px 0 12px; } .sharebtn svg { color: var(--accent); }
 @media (max-width: 560px) { .sharebtn span { display: none; } .sharebtn { padding: 0 11px; } }
+.acctbtn { padding: 0 14px 0 12px; } .acctbtn svg { color: var(--accent); }
+.acctbtn.in { border-color: var(--accent); }
+.acctbtn.in svg { color: var(--live); }
+@media (max-width: 560px) { .acctbtn span { display: none; } .acctbtn { padding: 0 11px; } }
+.acct-panel h3 { margin: 0; font-family: var(--font-head); font-size: 1.1rem; }
+.acct-panel p { margin: 0; color: var(--muted); }
+.acct-panel .acctform { display: grid; gap: 8px; }
+.acct-panel input[type="email"] { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.acct-panel .tapbtn { min-height: 44px; }
+.acct-panel .acctacts { display: flex; flex-wrap: wrap; gap: 8px; }
+.acct-panel .acctmsg:empty { display: none; }
+.acct-panel .acctmsg { color: var(--amber-text); font-weight: 600; }
 .share-panel { width: min(420px, calc(100vw - 32px)); max-height: min(80vh, 720px); overflow: auto; }
 .sp-sec { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
 .sp-sec h4 { margin: 0; font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
@@ -1313,6 +1325,7 @@ button.mapleg { cursor: pointer; } button.mapleg:hover { border-color: var(--acc
     </div>
     <div class="hdr-acts">
       <label class="instsel" title="Guitar sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 2.5l2 2-3.2 3.2.9.9-1.4 1.4-.9-.9-3.1 3.1a4.4 4.4 0 0 1-1.1 4.6c-1.9 1.9-5 2.1-6.6.5s-1.4-4.7.5-6.6a4.4 4.4 0 0 1 4.6-1.1l3.1-3.1-.9-.9 1.4-1.4.9.9z" fill="currentColor"/></svg><select id="instSel" aria-label="Guitar sound"></select></label>
+      <button type="button" class="guidebtn acctbtn" id="acctBtn" aria-haspopup="dialog" aria-expanded="false" title="Sign in to keep your progressions on every device" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="acctBtnLbl">Sign in</span></button>
       <button type="button" class="guidebtn homebtn" id="homeBtn" title="Open the welcome page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h5v-6h3v6h5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Home</span></button>
       <button type="button" class="guidebtn sharebtn" id="shareBtn" aria-haspopup="dialog" aria-expanded="false" title="Share your idea or export it"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Share and export</span></button>
       <button type="button" class="guidebtn" id="guideBtn" aria-haspopup="dialog" aria-expanded="false"><span class="gq">?</span> Guide</button>
@@ -1320,6 +1333,7 @@ button.mapleg { cursor: pointer; } button.mapleg:hover { border-color: var(--acc
     </div>
     <div class="guide-panel" id="guidePanel" role="dialog" aria-label="Guide" hidden></div>
     <div class="guide-panel share-panel" id="sharePanel" role="dialog" aria-label="Share and export" hidden></div>
+    <div class="guide-panel acct-panel" id="acctPanel" role="dialog" aria-label="Your account" hidden></div>
   </header>
   <div class="ideabar" id="ideaBar" role="status" hidden></div>
   <nav class="tabs" role="tablist" aria-label="Sections">

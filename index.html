@@ -193,6 +193,18 @@ h1.homelink { cursor: pointer; }
 header p.tagline { margin-top: 2px; color: var(--accent); font-family: var(--font-head); font-weight: 600; font-size: 1.02rem; letter-spacing: 0.005em; }
 .sharebtn { padding: 0 14px 0 12px; } .sharebtn svg { color: var(--accent); }
 @media (max-width: 560px) { .sharebtn span { display: none; } .sharebtn { padding: 0 11px; } }
+.acctbtn { padding: 0 14px 0 12px; } .acctbtn svg { color: var(--accent); }
+.acctbtn.in { border-color: var(--accent); }
+.acctbtn.in svg { color: var(--live); }
+@media (max-width: 560px) { .acctbtn span { display: none; } .acctbtn { padding: 0 11px; } }
+.acct-panel h3 { margin: 0; font-family: var(--font-head); font-size: 1.1rem; }
+.acct-panel p { margin: 0; color: var(--muted); }
+.acct-panel .acctform { display: grid; gap: 8px; }
+.acct-panel input[type="email"] { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.acct-panel .tapbtn { min-height: 44px; }
+.acct-panel .acctacts { display: flex; flex-wrap: wrap; gap: 8px; }
+.acct-panel .acctmsg:empty { display: none; }
+.acct-panel .acctmsg { color: var(--amber-text); font-weight: 600; }
 .share-panel { width: min(420px, calc(100vw - 32px)); max-height: min(80vh, 720px); overflow: auto; }
 .sp-sec { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
 .sp-sec h4 { margin: 0; font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
@@ -1319,6 +1331,7 @@ button.mapleg { cursor: pointer; } button.mapleg:hover { border-color: var(--acc
     </div>
     <div class="hdr-acts">
       <label class="instsel" title="Guitar sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 2.5l2 2-3.2 3.2.9.9-1.4 1.4-.9-.9-3.1 3.1a4.4 4.4 0 0 1-1.1 4.6c-1.9 1.9-5 2.1-6.6.5s-1.4-4.7.5-6.6a4.4 4.4 0 0 1 4.6-1.1l3.1-3.1-.9-.9 1.4-1.4.9.9z" fill="currentColor"/></svg><select id="instSel" aria-label="Guitar sound"></select></label>
+      <button type="button" class="guidebtn acctbtn" id="acctBtn" aria-haspopup="dialog" aria-expanded="false" title="Sign in to keep your progressions on every device" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="acctBtnLbl">Sign in</span></button>
       <button type="button" class="guidebtn homebtn" id="homeBtn" title="Open the welcome page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h5v-6h3v6h5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Home</span></button>
       <button type="button" class="guidebtn sharebtn" id="shareBtn" aria-haspopup="dialog" aria-expanded="false" title="Share your idea or export it"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Share and export</span></button>
       <button type="button" class="guidebtn" id="guideBtn" aria-haspopup="dialog" aria-expanded="false"><span class="gq">?</span> Guide</button>
@@ -1326,6 +1339,7 @@ button.mapleg { cursor: pointer; } button.mapleg:hover { border-color: var(--acc
     </div>
     <div class="guide-panel" id="guidePanel" role="dialog" aria-label="Guide" hidden></div>
     <div class="guide-panel share-panel" id="sharePanel" role="dialog" aria-label="Share and export" hidden></div>
+    <div class="guide-panel acct-panel" id="acctPanel" role="dialog" aria-label="Your account" hidden></div>
   </header>
   <div class="ideabar" id="ideaBar" role="status" hidden></div>
   <nav class="tabs" role="tablist" aria-label="Sections">
@@ -6238,7 +6252,7 @@ if (typeof module !== 'undefined') {
     setTimeout(done, 330);
   }
   function heroClick(t) {
-    if (t.closest('#homeLink') || t.closest('#homeBtn')) { try { if (!$('guidePanel').hidden) openGuide(false); if (!$('sharePanel').hidden) openShare(false); } catch (e) {} showHero(true); return true; }
+    if (t.closest('#homeLink') || t.closest('#homeBtn')) { try { if (!$('guidePanel').hidden) openGuide(false); if (!$('sharePanel').hidden) openShare(false); openAcct(false); } catch (e) {} showHero(true); return true; }
     const b = t.closest('[data-hero]');
     if (!b) return false;
     const v = b.getAttribute('data-hero');
@@ -6317,7 +6331,7 @@ if (typeof module !== 'undefined') {
     if (!p) return;
     p.hidden = !open;
     $('shareBtn').setAttribute('aria-expanded', String(!!open));
-    if (open) { closeInfo(); openGuide(false); renderShare(); }
+    if (open) { closeInfo(); openGuide(false); try { openAcct(false); } catch (e) {} renderShare(); }
   }
   function shareClick(t) {
     if (t.closest('#shareBtn')) { openShare($('sharePanel').hidden); return true; }
@@ -7097,7 +7111,7 @@ if (typeof module !== 'undefined') {
       e.preventDefault();
       return;
     }
-    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); const sp = $('sharePanel'); if (sp && !sp.hidden) openShare(false); }
+    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); const sp = $('sharePanel'); if (sp && !sp.hidden) openShare(false); const ap = $('acctPanel'); if (ap && !ap.hidden) openAcct(false); }
     if (!ED.open || e.ctrlKey || e.metaKey || e.altKey || (LAYOUT === "tabs" && TAB !== "progression")) return;
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
@@ -10634,25 +10648,28 @@ if (typeof module !== 'undefined') {
     }
   }
   const cloudRow = (id, rec) => ({ user_id: CLOUD.user.id, id, name: rec.name, data: rec, updated_at: new Date(rec.updatedAt || Date.now()).toISOString() });
-  async function cloudSignIn(kind) {
+  // messages go to the box on the Progression page and to the account panel in the top bar
+  const acctSay = (m) => { libSay(m); const el = $('acctMsg'); if (el) el.textContent = m || ''; };
+  async function cloudSignIn(kind, inputId) {
     if (!CLOUD.sb || CLOUD.busy) return;
-    const back = location.origin + location.pathname + '#progression';
+    const here = (location.hash || '').slice(1);
+    const back = location.origin + location.pathname + '#' + (here && here !== 'home' ? here : 'progression');
     if (kind === 'google') {
-      try { await CLOUD.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } }); } catch (e) { libSay('Google sign-in could not start. Try the email link instead.'); }
+      try { await CLOUD.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } }); } catch (e) { acctSay('Google sign-in could not start. Try the email link instead.'); }
       return;
     }
-    const inp = $('libEmail');
+    const inp = $(inputId || 'libEmail');
     const email = inp ? String(inp.value || '').trim() : '';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { libSay('Type your email address first.'); if (inp && inp.focus) inp.focus(); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { acctSay('Type your email address first.'); if (inp && inp.focus) inp.focus(); return; }
     CLOUD.busy = true;
-    libSay('Sending…');
+    acctSay('Sending…');
     try {
       const r = await CLOUD.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: back } });
       if (r && r.error) throw r.error;
       CLOUD.sent = email;
-      libSay('');
+      acctSay('');
     } catch (e) {
-      libSay('The sign-in email could not be sent' + (e && e.message ? ' (' + e.message + ')' : '') + '. Wait a minute and try again.');
+      acctSay('The sign-in email could not be sent' + (e && e.message ? ' (' + e.message + ')' : '') + '. Wait a minute and try again.');
     }
     CLOUD.busy = false;
     renderLib();
@@ -10676,7 +10693,63 @@ if (typeof module !== 'undefined') {
       libSay('They could not be copied' + (e && e.message ? ' (' + e.message + ')' : '') + '. Nothing was changed.');
     }
   }
+  // the account button in the top bar, and its panel
+  function renderAcctTop() {
+    const btn = $('acctBtn'), lbl = $('acctBtnLbl'), panel = $('acctPanel');
+    if (!btn) return;
+    btn.hidden = !CLOUD.cfg;
+    if (!CLOUD.cfg) { if (panel) panel.hidden = true; return; }
+    const signedIn = LIB.mode === 'cloud' && !!CLOUD.user;
+    const who = signedIn ? String(CLOUD.user.email || 'Account').split('@')[0] : '';
+    if (lbl) lbl.textContent = signedIn ? (who.length > 14 ? who.slice(0, 13) + '…' : who) : 'Sign in';
+    if (btn.classList) btn.classList.toggle('in', signedIn);
+    btn.title = signedIn ? 'Signed in as ' + (CLOUD.user.email || '') : 'Sign in to keep your progressions on every device';
+    if (!panel || panel.hidden) return;
+    const keep = $('acctEmail') ? $('acctEmail').value : '';
+    if (signedIn) {
+      panel.innerHTML = `<h3>Your account</h3><p>Signed in as <b>${esc(CLOUD.user.email || 'you')}</b>. Your saved progressions are kept in your account, on every device you sign in on.</p>`
+        + `<div class="acctacts"><button type="button" class="tapbtn strong" data-acctp="mine">My progressions</button><button type="button" class="tapbtn" data-acct="out">Sign out</button></div><p class="acctmsg" id="acctMsg"></p>`;
+    } else if (CLOUD.sent) {
+      panel.innerHTML = `<h3>Check your email</h3><p>We sent a sign-in link to <b>${esc(CLOUD.sent)}</b>. Open it on this device to finish signing in. It can take a minute; look in spam too.</p>`
+        + `<div class="acctacts"><button type="button" class="tapbtn" data-acct="again">Use another email</button></div><p class="acctmsg" id="acctMsg"></p>`;
+    } else if (LIB.mode === 'loading') {
+      panel.innerHTML = '<h3>Your account</h3><p>Checking…</p>';
+    } else {
+      panel.innerHTML = `<h3>Sign in</h3><p>Keep your progressions in your account and open them on any device. No password: we email you a link.</p>`
+        + `<div class="acctform"><input type="email" id="acctEmail" placeholder="you@example.com" aria-label="Email address" autocomplete="email"><button type="button" class="tapbtn strong" data-acct="email:acctEmail">Email me a sign-in link</button>`
+        + (CLOUD.cfg.google ? `<button type="button" class="tapbtn" data-acct="google">Sign in with Google</button>` : '') + `</div><p class="acctmsg" id="acctMsg"></p>`;
+      const inp = $('acctEmail');
+      if (inp) { inp.value = keep; if (inp.addEventListener) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); cloudSignIn('email', 'acctEmail'); } }); }
+    }
+  }
+  function openAcct(open) {
+    const p = $('acctPanel'), b = $('acctBtn');
+    if (!p || !b) return;
+    p.hidden = !open;
+    b.setAttribute('aria-expanded', String(!!open));
+    if (open) {
+      try { closeInfo(); openGuide(false); openShare(false); } catch (e) {}
+      renderAcctTop();
+      setTimeout(() => { const inp = $('acctEmail'); if (inp && inp.focus) inp.focus(); }, 30);
+    }
+  }
+  function acctTopClick(t) {
+    if (t.closest('#acctBtn')) { openAcct($('acctPanel').hidden); return true; }
+    if (t.closest('[data-acctp="mine"]')) {
+      openAcct(false);
+      try {
+        if (LAYOUT === 'tabs') setTab('progression');
+        const sec = document.querySelector('details[data-sec="saved"]');
+        if (sec) { sec.open = true; setTimeout(() => { try { sec.scrollIntoView({ behavior: calmMotion() ? 'auto' : 'smooth', block: 'start' }); } catch (e) {} }, 60); }
+      } catch (e) {}
+      return true;
+    }
+    const p = $('acctPanel');
+    if (p && !p.hidden && !t.closest('#acctPanel') && !t.closest('[data-acct]')) openAcct(false);
+    return false;
+  }
   function renderAcct() {
+    try { renderAcctTop(); } catch (e) {}
     const box = $('libAcct');
     if (!box) return;
     box.hidden = !CLOUD.cfg;
@@ -10699,7 +10772,8 @@ if (typeof module !== 'undefined') {
     const b = t.closest('[data-acct]');
     if (!b) return false;
     const a = b.dataset.acct;
-    if (a === 'email') cloudSignIn('email');
+    if (a === 'email:acctEmail') cloudSignIn('email', 'acctEmail');
+    else if (a === 'email') cloudSignIn('email');
     else if (a === 'google') cloudSignIn('google');
     else if (a === 'out') cloudSignOut();
     else if (a === 'copy') cloudCopyLocal();
@@ -11450,6 +11524,7 @@ if (typeof module !== 'undefined') {
     const t = e.target;
     if (!t || !t.closest) return;
     if (heroClick(t)) return;
+    if (acctTopClick(t)) return;
     if (shareClick(t)) return;
     if (ideaClick(t)) return;
     if (TOUR.name || t.closest('[data-info]') || t.closest('#guideBtn') || t.closest('#guidePanel') || t.closest('#infoPop') || infoOpen) {
