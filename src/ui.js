@@ -1696,23 +1696,56 @@
   function heroNeck() {
     const svg = $('heroNeck');
     if (!svg) return;
-    let g = `<defs><linearGradient id="hnWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a271c"/><stop offset="1" stop-color="#22160f"/></linearGradient></defs>`;
-    g += `<rect x="${HN.x0}" y="${HN.top - 20}" width="${HN.x1 - HN.x0}" height="${5 * HN.gap + 40}" rx="6" fill="url(#hnWood)"/>`;
-    g += `<rect x="${HN.x0 - 7}" y="${HN.top - 20}" width="7" height="${5 * HN.gap + 40}" fill="#e6dfc8"/>`;
-    [3, 5, 7, 9].forEach((n) => { g += `<circle cx="${((hnFx(n - 1) + hnFx(n)) / 2).toFixed(1)}" cy="${HN.top + 2.5 * HN.gap}" r="7" fill="#cfc7ae" opacity="0.35"/>`; });
-    [1.5, 3.5].forEach((k) => { g += `<circle cx="${((hnFx(11) + hnFx(12)) / 2).toFixed(1)}" cy="${HN.top + k * HN.gap}" r="7" fill="#cfc7ae" opacity="0.35"/>`; });
-    for (let n = 1; n <= 12; n++) g += `<line x1="${hnFx(n).toFixed(1)}" x2="${hnFx(n).toFixed(1)}" y1="${HN.top - 20}" y2="${HN.top + 5 * HN.gap + 20}" stroke="#b9bec4" stroke-width="2"/>`;
-    const W = [3.4, 2.9, 2.4, 1.9, 1.5, 1.2], NM = ['E', 'A', 'D', 'G', 'B', 'E'];
+    const y0 = HN.top - 20, H = 5 * HN.gap + 40, y1 = y0 + H;
+    // a rosewood board in the site's board colours, with grain, binding, metal frets, a bone nut, pearl inlays and real strings
+    let g = `<defs>
+      <linearGradient id="hnWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--board-hi)"/><stop offset="0.5" stop-color="var(--board)"/><stop offset="1" stop-color="#1c130e"/></linearGradient>
+      <linearGradient id="hnFret" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7d838a"/><stop offset="0.45" stop-color="#eef1f4"/><stop offset="1" stop-color="#8f959c"/></linearGradient>
+      <linearGradient id="hnNut" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9c1a6"/><stop offset="0.5" stop-color="#f4efdf"/><stop offset="1" stop-color="#b9b196"/></linearGradient>
+      <radialGradient id="hnPearl" cx="0.38" cy="0.35" r="0.7"><stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="var(--inlay)"/><stop offset="1" stop-color="#a99f86"/></radialGradient>
+      <linearGradient id="hnWound" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3e7c6"/><stop offset="0.5" stop-color="#b8a375"/><stop offset="1" stop-color="#7a6a48"/></linearGradient>
+      <pattern id="hnWind" width="2.6" height="10" patternUnits="userSpaceOnUse"><rect width="2.6" height="10" fill="url(#hnWound)"/><line x1="0" y1="0" x2="0" y2="10" stroke="#5c4f35" stroke-width="0.7" opacity="0.55"/></pattern>
+      <filter id="hnShadow" filterUnits="userSpaceOnUse" x="0" y="0" width="1000" height="250"><feGaussianBlur stdDeviation="1.6"/></filter>
+    </defs>`;
+    g += `<rect x="${HN.x0}" y="${y0}" width="${HN.x1 - HN.x0}" height="${H}" fill="url(#hnWood)"/>`;
+    // grain: long, faint, slightly wavy streaks (always the same, so the board does not flicker between visits)
+    let seed = 7; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    for (let k = 0; k < 26; k++) {
+      const y = y0 + 4 + rnd() * (H - 8), amp = 0.6 + rnd() * 1.6, len = 180 + rnd() * 420, x = HN.x0 + rnd() * (HN.x1 - HN.x0 - len);
+      g += `<path d="M${x.toFixed(1)} ${y.toFixed(1)} q${(len / 4).toFixed(1)} ${(-amp).toFixed(1)} ${(len / 2).toFixed(1)} 0 t${(len / 2).toFixed(1)} 0" fill="none" stroke="${rnd() > 0.5 ? '#000' : '#6b4a35'}" stroke-opacity="${(0.1 + rnd() * 0.12).toFixed(2)}" stroke-width="${(0.6 + rnd() * 1.4).toFixed(1)}"/>`;
+    }
+    // binding along both edges
+    g += `<rect x="${HN.x0}" y="${y0}" width="${HN.x1 - HN.x0}" height="2.5" fill="#e8dfc6" opacity="0.85"/><rect x="${HN.x0}" y="${y1 - 2.5}" width="${HN.x1 - HN.x0}" height="2.5" fill="#e8dfc6" opacity="0.85"/>`;
+    // pearl inlays, same places as the main fretboard
+    const inlay = (x, y) => `<circle cx="${x.toFixed(1)}" cy="${y}" r="8" fill="url(#hnPearl)" opacity="0.85"/>`;
+    [3, 5, 7, 9].forEach((n) => { g += inlay((hnFx(n - 1) + hnFx(n)) / 2, HN.top + 2.5 * HN.gap); });
+    [1.5, 3.5].forEach((k) => { g += inlay((hnFx(11) + hnFx(12)) / 2, HN.top + k * HN.gap); });
+    // fret wire: a shadow, then the rounded metal crown
+    for (let n = 1; n <= 12; n++) {
+      const x = hnFx(n);
+      g += `<rect x="${(x + 1.2).toFixed(1)}" y="${y0}" width="2.4" height="${H}" fill="#000" opacity="0.35"/>`;
+      g += `<rect x="${(x - 1.8).toFixed(1)}" y="${y0 - 1}" width="3.6" height="${H + 2}" rx="1.4" fill="url(#hnFret)"/>`;
+    }
+    // the nut
+    g += `<rect x="${HN.x0 - 9}" y="${y0 - 2}" width="9" height="${H + 4}" rx="1.5" fill="url(#hnNut)"/>`;
+    const W = [3.6, 3.0, 2.5, 1.9, 1.5, 1.15], NM = ['E', 'A', 'D', 'G', 'B', 'E'];
     for (let s = 0; s < 6; s++) {
-      g += `<text x="${HN.x0 - 26}" y="${hnY(s) + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--muted)">${NM[s]}</text>`;
-      g += `<path class="hstr" data-hs="${s}" d="M${HN.x0} ${hnY(s)} L${HN.x1} ${hnY(s)}" stroke="#d6d0be" stroke-width="${W[s]}" fill="none"/>`;
+      g += `<text x="${HN.x0 - 30}" y="${hnY(s) + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--muted)">${NM[s]}</text>`;
+      // the string's shadow on the board, then the string: wound for the three low strings, plain steel for the rest
+      g += `<path class="hsh" data-hsh="${s}" d="M${HN.x0} ${hnY(s) + 3} L${HN.x1} ${hnY(s) + 3}" stroke="#000" stroke-opacity="0.5" stroke-width="${W[s] + 1}" fill="none" filter="url(#hnShadow)"/>`;
+      g += `<path class="hstr" data-hs="${s}" d="M${HN.x0 - 9} ${hnY(s)} L${HN.x1} ${hnY(s)}" stroke="${s < 3 ? 'url(#hnWind)' : '#cfd4d9'}" stroke-width="${W[s]}" stroke-linecap="round" fill="none"/>`;
+      if (s >= 3) g += `<path class="hhi" data-hhi="${s}" d="M${HN.x0 - 9} ${hnY(s) - W[s] * 0.25} L${HN.x1} ${hnY(s) - W[s] * 0.25}" stroke="#ffffff" stroke-opacity="0.75" stroke-width="${(W[s] * 0.35).toFixed(2)}" fill="none"/>`;
+    }
+    for (let n = 1; n <= 12; n++) {
+      const bold = [3, 5, 7, 9, 12].includes(n);
+      g += `<text x="${((hnFx(n - 1) + hnFx(n)) / 2).toFixed(1)}" y="${y1 + 20}" text-anchor="middle" font-size="13" font-weight="${bold ? 700 : 400}" fill="var(--muted)">${n}</text>`;
     }
     HERO_BOX.forEach(([s, f], i) => {
       const x = (hnFx(f - 1) + hnFx(f)) / 2, y = hnY(s), root = (OPEN[s] + f) % 12 === 9;
-      g += `<g class="hdot${root ? ' root' : ''}" data-hd="${i}"><circle cx="${x.toFixed(1)}" cy="${y}" r="12" fill="var(--dot)" stroke="#22160f" stroke-width="2"/><text x="${x.toFixed(1)}" y="${y + 4.5}" text-anchor="middle" font-size="12" font-weight="800" fill="${root ? 'var(--root-fg)' : 'var(--dot-fg)'}">${SHARP_NAMES[(OPEN[s] + f) % 12]}</text></g>`;
+      g += `<g class="hdot${root ? ' root' : ''}" data-hd="${i}"><circle cx="${x.toFixed(1)}" cy="${y}" r="12" fill="var(--dot)" stroke="var(--board)" stroke-width="2"/><text x="${x.toFixed(1)}" y="${y + 4.5}" text-anchor="middle" font-size="12" font-weight="800" fill="${root ? 'var(--root-fg)' : 'var(--dot-fg)'}">${SHARP_NAMES[(OPEN[s] + f) % 12]}</text></g>`;
     });
     svg.innerHTML = g;
-    HERO.strings = [0, 1, 2, 3, 4, 5].map((s) => ({ amp: 0, t: 0, el: svg.querySelector('[data-hs="' + s + '"]') }));
+    HERO.strings = [0, 1, 2, 3, 4, 5].map((s) => ({ amp: 0, t: 0, el: svg.querySelector('[data-hs="' + s + '"]'), sh: svg.querySelector('[data-hsh="' + s + '"]'), hi: svg.querySelector('[data-hhi="' + s + '"]') }));
   }
   function heroPluck(s, vel) {
     const st = HERO.strings[s];
@@ -1729,11 +1762,13 @@
       if (!st.el) return;
       const age = (now - st.t) / 1000;
       const a = st.amp * Math.exp(-age * 3.2);
-      if (a < 0.15) { st.el.setAttribute('d', `M${HN.x0} ${hnY(s)} L${HN.x1} ${hnY(s)}`); return; }
+      if (a < 0.15) { st.el.setAttribute('d', `M${HN.x0 - 9} ${hnY(s)} L${HN.x1} ${hnY(s)}`); if (st.sh) st.sh.setAttribute('d', `M${HN.x0} ${hnY(s) + 3} L${HN.x1} ${hnY(s) + 3}`); if (st.hi) st.hi.setAttribute('opacity', '1'); return; }
       alive = true;
       const w = Math.sin(age * (52 - s * 4)) * a;   // lower strings wobble slower
       const mx = (HN.x0 + HN.x1) / 2;
-      st.el.setAttribute('d', `M${HN.x0} ${hnY(s)} Q${mx} ${(hnY(s) + w * 2).toFixed(1)} ${HN.x1} ${hnY(s)}`);
+      st.el.setAttribute('d', `M${HN.x0 - 9} ${hnY(s)} Q${mx} ${(hnY(s) + w * 2).toFixed(1)} ${HN.x1} ${hnY(s)}`);
+      if (st.hi) st.hi.setAttribute('opacity', '0');   // the shine hides while the string moves
+      if (st.sh) st.sh.setAttribute('d', `M${HN.x0} ${hnY(s) + 3} Q${mx} ${(hnY(s) + 3 + w * 1.4).toFixed(1)} ${HN.x1} ${hnY(s) + 3}`);
     });
     if (alive) HERO.raf = requestAnimationFrame(heroVibrate);
   }
@@ -1741,7 +1776,7 @@
     const svg = $('heroNeck');
     if (!svg || !svg.getBoundingClientRect) return;
     const r = svg.getBoundingClientRect();
-    const y = (e.clientY - r.top) / r.height * 230;
+    const y = (e.clientY - r.top) / r.height * 250;
     const prev = HERO.last;
     HERO.last = y;
     if (e.type === 'pointerdown') {
@@ -1782,6 +1817,43 @@
     };
     setTimeout(() => requestAnimationFrame(tick), 900);
   }
+  // chord shapes on the welcome page: the everyday ones, open and barre, each one strums when tapped
+  // frets run from the low E string to the high E string (-1: not played)
+  const HERO_SHAPES = [
+    ['C', [-1, 3, 2, 0, 1, 0], 0, 'open'], ['G', [3, 2, 0, 0, 0, 3], 7, 'open'], ['D', [-1, -1, 0, 2, 3, 2], 2, 'open'], ['A', [-1, 0, 2, 2, 2, 0], 9, 'open'], ['E', [0, 2, 2, 1, 0, 0], 4, 'open'],
+    ['Am', [-1, 0, 2, 2, 1, 0], 9, 'open minor'], ['Em', [0, 2, 2, 0, 0, 0], 4, 'open minor'], ['Dm', [-1, -1, 0, 2, 3, 1], 2, 'open minor'],
+    ['F', [1, 3, 3, 2, 1, 1], 5, 'barre', [1, 0, 5]], ['B♭', [-1, 1, 3, 3, 3, 1], 10, 'barre', [1, 1, 5]], ['Bm', [-1, 2, 4, 4, 3, 2], 11, 'barre minor', [2, 1, 5]],
+    ['F♯m', [2, 4, 4, 2, 2, 2], 6, 'barre minor', [2, 0, 5]], ['C♯m', [-1, 4, 6, 6, 5, 4], 1, 'barre minor', [4, 1, 5]],
+    ['E7', [0, 2, 0, 1, 0, 0], 4, 'seventh'], ['A7', [-1, 0, 2, 0, 2, 0], 9, 'seventh'], ['D7', [-1, -1, 0, 2, 1, 2], 2, 'seventh'], ['G7', [3, 2, 0, 0, 0, 1], 7, 'seventh'], ['B7', [-1, 2, 1, 2, 0, 2], 11, 'seventh'],
+    ['Cmaj7', [-1, 3, 2, 0, 0, 0], 0, 'seventh'], ['Fmaj7', [-1, -1, 3, 2, 1, 0], 5, 'seventh'], ['Am7', [-1, 0, 2, 0, 1, 0], 9, 'seventh minor'], ['Em7', [0, 2, 0, 0, 0, 0], 4, 'seventh minor'], ['Dm7', [-1, -1, 0, 2, 1, 1], 2, 'seventh minor'],
+  ];
+  const heroShapeOf = (x) => {
+    const fr = x[1].filter((f) => f > 0);
+    return { frets: x[1], min: fr.length ? Math.min.apply(null, fr) : 0, max: fr.length ? Math.max.apply(null, fr) : 0, barre: x[4] ? { fret: x[4][0], from: x[4][1], to: x[4][2] } : null };
+  };
+  function heroShapes(which) {
+    const box = $('heroShapes');
+    if (!box) return;
+    HERO.shapes = which || HERO.shapes || 'all';
+    qsa(document, '[data-hshapes]').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-hshapes') === HERO.shapes)));
+    let d = 0;
+    box.innerHTML = HERO_SHAPES.map((x, i) => {
+      if (HERO.shapes !== 'all' && x[3].split(' ').indexOf(HERO.shapes) < 0) return '';
+      const sh = heroShapeOf(x);
+      return `<button type="button" class="hero-shape" data-hshape="${i}" style="--d:${d++}" aria-label="${esc(x[0])}: tap to strum it. Tab ${esc(tabText(sh))}"><b>${esc(x[0])}</b>${shapeSvg(sh, [{ pc: x[2] }], x[0])}<small>${esc(tabText(sh))}</small></button>`;
+    }).join('');
+  }
+  function heroStrum(i, el) {
+    const x = HERO_SHAPES[i];
+    if (!x) return;
+    try {
+      const c = audio();
+      if (c) { let k = 0; x[1].forEach((f, s) => { if (f >= 0) pluckAt(OPEN[s] + f, c.currentTime + 0.03 + (k++) * 0.035, 2.2, { vol: 0.2 }); }); }
+    } catch (e) {}
+    if (el && el.classList) { el.classList.remove('strum'); void el.offsetWidth; el.classList.add('strum'); clearTimeout(el._st); el._st = setTimeout(() => el.classList.remove('strum'), 700); }
+    // the strings on the big neck shake too
+    try { x[1].forEach((f, s) => { if (f >= 0) setTimeout(() => { const st = HERO.strings[s]; if (st) { st.amp = 4; st.t = performance.now(); if (!HERO.raf) HERO.raf = requestAnimationFrame(heroVibrate); } }, s * 35); }); } catch (e) {}
+  }
   function showHero(on) {
     const el = $('hero');
     if (!el) return;
@@ -1791,7 +1863,8 @@
     el.hidden = !HERO.on;
     el.classList.remove('leaving');
     if (HERO.on) {
-      heroNeck(); heroType(); heroDots(); heroStats();
+      heroNeck(); heroType(); heroDots(); heroStats(); heroShapes();
+      try { const k = $('heroKeep'); if (k) k.checked = localStorage.getItem('fretboard-hero-skip') !== '1'; } catch (e) {}
       try { window.scrollTo(0, 0); } catch (e) {}
       try { if (location.hash !== '#home') history.replaceState(null, '', location.href.split('#')[0] + '#home'); } catch (e) {}
     }
@@ -1806,7 +1879,11 @@
     setTimeout(done, 330);
   }
   function heroClick(t) {
-    if (t.closest('#homeLink')) { showHero(true); return true; }
+    const hs = t.closest('[data-hshape]');
+    if (hs) { heroStrum(+hs.getAttribute('data-hshape'), hs); return true; }
+    const hf = t.closest('[data-hshapes]');
+    if (hf) { heroShapes(hf.getAttribute('data-hshapes')); return true; }
+    if (t.closest('#homeLink') || t.closest('#homeBtn')) { try { if (!$('guidePanel').hidden) openGuide(false); if (!$('sharePanel').hidden) openShare(false); } catch (e) {} showHero(true); return true; }
     const b = t.closest('[data-hero]');
     if (!b) return false;
     const v = b.getAttribute('data-hero');
@@ -3722,6 +3799,7 @@
   const noteName = (m) => { const names = S.flats ? FLAT_NAMES : SHARP_NAMES; return names[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1); };
   async function tuStart() {
     if (!(window.AudioContext || window.webkitAudioContext)) return;
+    try { audio(); } catch (e) {}   // wake the speakers now, inside the click, so the ding can be heard later
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { tuBlocked(); return; }
     if (LS.live) lsStop();
     if (SL.live) slStop();
@@ -3749,7 +3827,7 @@
   }
   function tuBlocked() {
     TU.live = false;
-    tuSay('The microphone is not available here. Pages shown inside the Claude app cannot use it; on your own hosted site (or localhost) the tuner works.');
+    tuSay('The microphone is not available here, so the tuner cannot hear your strings (and cannot ding). Pages shown inside the Claude app cannot use the microphone; on your own hosted site (or localhost) the tuner works. Press Test the ding to hear the sound.');
     renderTuner();
   }
   function tuStop(msg) {
@@ -3787,17 +3865,24 @@
     const jump = !TU.read || TU.read.string !== r.string || Math.abs(r.toTarget - (TU.cents || 0)) > 40;
     TU.cents = jump ? r.toTarget : 0.6 * TU.cents + 0.4 * r.toTarget;
     TU.read = Object.assign(r, { f: med });
-    if (Math.abs(TU.cents) <= 3) {
-      TU.good++;
-      if (TU.good === 8) {
+    // in tune: within 4 cents for about a third of a second (a small wobble as the string rings does not start the count again)
+    if (TU.chimeStr !== r.string) { TU.chimeStr = r.string; TU.chimed = false; TU.good = 0; }
+    const ac2 = Math.abs(TU.cents);
+    if (ac2 <= 4) TU.good++;
+    else if (ac2 <= 9) TU.good = Math.max(0, TU.good - 2);
+    else { TU.good = 0; TU.chimed = false; }
+    if (ac2 <= 4) {
+      if (TU.good >= 6 && !TU.chimed) {
+        TU.chimed = true;
         TU.done[r.string] = true; renderTunerStrings();
         const allDone = tuTuning().notes.every((_, i) => TU.done[i]);
         tuChime(allDone);
         // a burst of light on the string that is now in tune
         try { const b = document.querySelector('[data-tus="' + r.string + '"]'); if (b && b.getBoundingClientRect) { const q = b.getBoundingClientRect(); fxBurst(q.left + q.width / 2, q.top + q.height / 2, { n: allDone ? 26 : 12 }); b.classList.remove('tujust'); void b.offsetWidth; b.classList.add('tujust'); } } catch (e) {}
         if (allDone) { tuSay('All six strings are in tune. Time to play!'); flash('Guitar in tune'); }
+        else tuSay('String ' + (6 - r.string) + ' (' + noteName(tuTuning().notes[r.string]).replace(/-?\d+$/, '') + ') is in tune. Next string!');
       }
-    } else TU.good = 0;
+    }
     tuPaint();
   }
   // the gauge: -50 to +50 cents, green in the middle
@@ -3823,7 +3908,7 @@
     const r = TU.read, c = TU.cents;
     const shown = c === null || !r ? 0 : Math.max(-50, Math.min(50, c));
     nd.style.transform = `rotate(${(shown * 1.2).toFixed(1)}deg)`;
-    const ok = r && Math.abs(c) <= 3;
+    const ok = r && Math.abs(c) <= 4;
     if (body && body.classList) { body.classList.toggle('intune', !!ok); body.classList.toggle('heard', !!r); }
     if (!r) { big.textContent = TU.live ? '…' : '–'; sub.textContent = TU.live ? 'Play one string' : 'Press Start tuner'; return; }
     const t = noteName(r.target);
@@ -3878,14 +3963,15 @@
       o.start(t0); o.stop(t0 + len + 0.05);
     });
   }
-  function tuChime(all) {
-    if (!TU.ding) return;
+  function tuChime(all, force) {
+    if (!TU.ding && !force) return;
     const c = audio();
     if (!c) return;
     const notes = all ? [[1318.5, 0], [1568, 0.11], [2093, 0.22], [2637, 0.36]] : [[1318.5, 0], [1760, 0.13]];   // E6 → A6; all six strings: E6 G6 C7 E7
     selfSoundUntil = Math.max(selfSoundUntil, Date.now() + (all ? 1400 : 900));   // the tuner does not tune to its own ding
     const out = busNode(c);
-    notes.forEach(([f, d], k) => tuBell(c, out, f, c.currentTime + 0.01 + d, all && k === notes.length - 1 ? 0.2 : 0.16, all && k === notes.length - 1 ? 1.3 : 0.75));
+    const at = c.currentTime + (c.state === 'running' ? 0.01 : 0.06);
+    notes.forEach(([f, d], k) => tuBell(c, out, f, at + d, all && k === notes.length - 1 ? 0.3 : 0.26, all && k === notes.length - 1 ? 1.3 : 0.8));
   }
   function tuClick(t) {
     if (t.closest('#tuLive')) { if (TU.live) tuStop('Stopped.'); else tuStart(); return true; }
@@ -3902,6 +3988,7 @@
       return true;
     }
     if (t.closest('#tuReset')) { TU.done = {}; renderTunerStrings(); return true; }
+    if (t.closest('#tuDingTest')) { tuChime(false, true); setTimeout(() => tuChime(true, true), 1100); tuSay(TU.ding ? 'This is the ding for one string, then the one for all six. You hear it when a string stays in tune for a moment.' : 'This is the ding. Tick “Ding when a string is in tune” to hear it while tuning.'); return true; }
     return false;
   }
 
@@ -3909,7 +3996,8 @@
   // Backings: your progression, or a familiar one in any key. Notes: a list of {step, len, midi} on an 8th or 16th grid.
   const IM_SCALES = [['Minor pentatonic', 'Scales'], ['Blues', 'Scales'], ['Major pentatonic', 'Scales'], ['Major (Ionian)', 'Scales'], ['Natural minor (Aeolian)', 'Scales'], ['Dorian', 'Modes'], ['Mixolydian', 'Modes'], ['Harmonic minor', 'Scales'], ['Melodic minor', 'Scales'], ['Phrygian dominant', 'Dominant scales'], ['Bebop dominant', 'Dominant scales']];
   const imScaleEntry = (name) => { const p = IM_SCALES.find((x) => x[0] === name) || IM_SCALES[0]; return byName(p[1], p[0]) || ENTRIES[0]; };
-  const IM = { reps: 1, key: 9, scale: 'Minor pentatonic', backing: 'blues', seventh: true, style: 'strum', grid: 2, len: 2, tool: 'draw', snap: true, chromatic: false, notes: [], bpm: 92, loop: true, limit: null, lesson: null, name: '', undo: [], sel: -1, labels: 'note', map: {}, myBlock: [], mapBlock: 'all', mapDir: 'up', mapAll: false, mapLabels: 'note' };
+  const IM = { reps: 1, key: 9, scale: 'Minor pentatonic', backing: 'blues', seventh: true, style: 'strum', grid: 2, len: 2, tool: 'draw', snap: true, chromatic: false, notes: [], bpm: 92, loop: true, limit: null, lesson: null, name: '', undo: [], sel: -1, labels: 'note', map: {}, myBlock: [], mapBlock: 'all', mapDir: 'up', mapAll: false, mapLabels: 'note', mapView: 'close' };
+  try { if (localStorage.getItem('fretboard-mapview') === 'whole') IM.mapView = 'whole'; } catch (e) {}
   const IMP = { on: false, out: null, timer: 0, raf: 0, start: 0, next: 0, loopDur: 0, lastNote: -1 };
   const IREC = { on: false, mc: null, stream: null, src: null, proc: null, sink: null, data: null, n: 0, sr: 48000, frames: [], hopAt: 0, timer: 0, raf: 0, mcAt: null, songMc: 0, from: 0, endStep: 0, take: [], out: null, count: 1, hear: 'click', replace: true, noise: null };
   try { const sv = JSON.parse(localStorage.getItem('fretboard-irec') || 'null'); if (sv) { IREC.count = [0, 1, 2].includes(sv.count) ? sv.count : 1; IREC.hear = ['click', 'backing', 'none'].includes(sv.hear) ? sv.hear : 'click'; IREC.replace = sv.replace !== false; } } catch (e) {}
@@ -4431,6 +4519,8 @@
     const c = ac;
     if (IMP.out && c) { const o = IMP.out; o.gain.setTargetAtTime(0.0001, c.currentTime, 0.03); setTimeout(() => { try { o.disconnect(); } catch (e) {} }, 400); }
     IMP.out = null;
+    IMP.liveSig = null;
+    try { mapLiveClear(); } catch (e) {}
     const hh = $('imHead'); if (hh) hh.style.display = 'none';
     renderImNeck();
     renderImTransport();
@@ -4455,6 +4545,8 @@
     IMP.on = true;
     IMP.lastNote = -1;
     IMP.lastBar = -2;
+    IMP.liveSig = null;
+    try { mapLiveClear(); } catch (e) {}
     const now0 = c.currentTime + 0.1;
     const schedule = () => {
       const t0 = IMP.next;
@@ -4484,6 +4576,10 @@
       if (h && el >= 0) { const x = IM_LW + step * imCw(); h.setAttribute('x1', x); h.setAttribute('x2', x); h.style.display = ''; }
       const bi = bars.findIndex((b) => step >= b.start && step < b.start + b.steps);
       if (bi !== IMP.lastBar) { IMP.lastBar = bi; imFormsMark(bi); syncDock(); if (bi >= 0) { try { renderMap(); } catch (e) {} } }
+      // every solo note sounding now, lit on the scale map
+      const sounding = IM.notes.filter((n) => step >= n.step && step < n.step + n.len);
+      const sig = sounding.map((n) => n.step + ':' + n.midi).join(',');
+      if (sig !== IMP.liveSig) { IMP.liveSig = sig; try { mapLiveSet(sounding); } catch (e) {} }
       const k = IM.notes.findIndex((n) => step >= n.step && step < n.step + n.len);
       if (k !== IMP.lastNote && !IMD) { IMP.lastNote = k; renderImNeck(k); qsa(document, '#imSvg .imnote').forEach((r) => r.classList.toggle('on', +r.getAttribute('data-imn') === k)); }
       IMP.raf = requestAnimationFrame(draw);
@@ -5003,7 +5099,8 @@
     $('mapWhy').innerHTML = `<b>${esc(mapFull(chosen))}</b> over <b>${esc(p.bar.name)}</b> (bar ${i + 1}). ${esc(chosen.why || '')} <span class="mapnotes">Notes: ${chosen.pcs.map((pc) => `<i class="${inChord.includes(pc) ? 'ct' : ''}">${esc(names[pc])}</i>`).join(' ')}</span>${chosen.src ? ` <small class="mapsrc">Source: ${mapSrc(chosen.src)}</small>` : chosen.tag !== 'mine' ? ' <small class="mapsrc">Worked out from the notes themselves.</small>' : ''}`;
     // positions
     $('mapPos').innerHTML = `<span class="maplab">Position</span>` + p.wins.map((w) => `<button type="button" class="mappos${!IM.mapAll && p.win === w ? ' on' : ''}" data-map="pos:${w.min}:${w.k}" aria-pressed="${!IM.mapAll && p.win === w}" title="${esc(w.label)}">${w.min === 0 ? 'Open' : 'Fret ' + w.min}<small>${w.min}–${w.max}</small></button>`).join('')
-      + `<button type="button" class="mappos${IM.mapAll ? ' on' : ''}" data-map="all" aria-pressed="${!!IM.mapAll}">Whole neck</button>`
+      + `<button type="button" class="mappos${IM.mapAll ? ' on' : ''}" data-map="all" aria-pressed="${!!IM.mapAll}" title="Every note of the scale, with no hand position picked">All positions</button>`
+      + `<span class="mapview"><span class="maplab">View</span><span class="seg"><button type="button" data-map="view:close" aria-pressed="${IM.mapView !== 'whole'}">Close-up</button><button type="button" data-map="view:whole" aria-pressed="${IM.mapView === 'whole'}">Whole fretboard</button></span></span>`
       + `<span class="maplabs"><button type="button" class="tapbtn lssmall" data-map="labels" aria-pressed="${IM.mapLabels === 'deg'}">${IM.mapLabels === 'deg' ? 'Labels: degrees (R 3 5)' : 'Labels: note names'}</button></span>`;
     renderMapNeck(plan, i);
     renderMapLegend(p, plan[(i + 1) % plan.length]);
@@ -5092,25 +5189,92 @@
         const x = dotX(f), y = sy(s);
         const tip = `${names[pc]} (${STRING_NAMES[s]} string, ${f === 0 ? 'open' : 'fret ' + f}): ` + (isRoot ? `the root of ${nm}, its home note. The strongest note to land on.` : isTone ? `the ${role} of ${nm}, a chord note. Safe to land on.` : `a scale note (the ${role} above ${names[root]}). Use it to move between chord notes; it sounds tense if you stop on it.`)
           + (ntones.includes(pc) && !dim ? ` Also in ${qn}, the next chord: aim here at the change.` : '') + (shape.has(key) ? ` Your ${nm} chord shape uses this one.` : '') + (dim ? ' (Outside the hand position you picked.)' : '');
-        const cls = 'mapdot' + (isTone ? ' tone' : ' pass') + (isRoot ? ' croot' : '') + (dim ? ' dim' : '') + (order.has(key) ? ' sel' : '');
+        const cls = 'mapdot' + (isTone ? ' tone' : ' pass') + (isRoot ? ' croot' : '') + (dim ? (IM.mapView === 'whole' ? ' far' : ' dim') : '') + (order.has(key) ? ' sel' : '');
         g += `<g class="${cls}" data-mapdot="${s}:${f}"><title>${esc(tip)}</title>`;
-        if (dim) { g += `<circle cx="${x.toFixed(1)}" cy="${y}" r="6"/></g>`; continue; }
-        const r = isTone ? 14 : 10.5;
-        if (ntones.includes(pc)) g += `<circle class="mapnext" cx="${x.toFixed(1)}" cy="${y}" r="${r + 4}"/>`;
+        if (dim && IM.mapView !== 'whole') { g += `<circle cx="${x.toFixed(1)}" cy="${y}" r="6"/></g>`; continue; }
+        const r = dim ? (isTone ? 11 : 8.5) : isTone ? 14 : 10.5;
+        if (ntones.includes(pc) && !dim) g += `<circle class="mapnext" cx="${x.toFixed(1)}" cy="${y}" r="${r + 4}"/>`;
         if (isRoot) g += `<rect class="mapbody" x="${(x - r).toFixed(1)}" y="${y - r}" width="${2 * r}" height="${2 * r}" rx="5"/>`;
         else g += `<circle class="mapbody" cx="${x.toFixed(1)}" cy="${y}" r="${r}"/>`;
-        g += `<text x="${x.toFixed(1)}" y="${y + (isTone ? 4.2 : 3.4)}" text-anchor="middle" font-size="${isTone ? (lab.length >= 3 ? 9.5 : 12) : (lab.length >= 3 ? 8 : 10)}">${esc(lab)}</text>`;
+        g += `<text x="${x.toFixed(1)}" y="${y + (isTone ? 4.2 : 3.4)}" text-anchor="middle" font-size="${(dim ? 0.82 : 1) * (isTone ? (lab.length >= 3 ? 9.5 : 12) : (lab.length >= 3 ? 8 : 10))}">${esc(lab)}</text>`;
         if (shape.has(key)) g += `<circle class="mapfinger" cx="${(x - r + 1).toFixed(1)}" cy="${(y + r - 1).toFixed(1)}" r="4.6"/>`;
         if (order.has(key)) g += `<circle class="mapord" cx="${(x + r - 1).toFixed(1)}" cy="${(y - r + 1).toFixed(1)}" r="7.5"/><text class="mapordt" x="${(x + r - 1).toFixed(1)}" y="${(y - r + 4).toFixed(1)}" text-anchor="middle" font-size="9">${order.get(key)}</text>`;
         g += `</g>`;
       }
     }
     let x0 = 0, x1 = VBW;
-    if (win) { x0 = win.min <= 1 ? 0 : Math.max(0, fx(Math.max(0, win.min - 3)) - 10); x1 = Math.min(VBW, fx(Math.min(MAX_FRET, win.max + 3)) + 12); if (x1 - x0 < 620) { x1 = Math.min(VBW, x0 + 620); } }
+    if (win && IM.mapView !== 'whole') { x0 = win.min <= 1 ? 0 : Math.max(0, fx(Math.max(0, win.min - 3)) - 10); x1 = Math.min(VBW, fx(Math.min(MAX_FRET, win.max + 3)) + 12); if (x1 - x0 < 620) { x1 = Math.min(VBW, x0 + 620); } }
     svg.setAttribute('viewBox', `${x0.toFixed(1)} 0 ${(x1 - x0).toFixed(1)} ${VBH}`);
     svg.style.minWidth = Math.round((x1 - x0) * 0.62) + 'px';
-    svg.innerHTML = g;
+    svg.innerHTML = g + '<g id="mapLiveG"></g>';
+    // the frets on screen, and the hand position: notes that play are shown here first
+    let fLo = 0, fHi = MAX_FRET;
+    for (let f = 0; f <= MAX_FRET; f++) { if (dotX(f) >= x0) { fLo = f; break; } }
+    for (let f = MAX_FRET; f >= 0; f--) { if (dotX(f) <= x1) { fHi = f; break; } }
+    MAPLIVE.view = { lo: fLo, hi: fHi, win: win ? { min: win.min, max: win.max } : null };
+    mapLivePaint();
     svg.setAttribute('aria-label', `${mapFull(p.choice)} on the neck over ${p.bar.name}${win ? ', frets ' + win.min + ' to ' + win.max : ''}`);
+  }
+  // ----- the notes sounding right now, lit on the map: the Studio's solo while it plays, and the scale or block you hear -----
+  const MAPLIVE = { on: new Map(), timers: [], view: null, last: null };
+  // where on the neck to show a pitch: the place you put it if that is on screen, else inside your hand position, else close to the last note
+  function mapPlace(midi, hint) {
+    const v = MAPLIVE.view || { lo: 0, hi: MAX_FRET, win: null };
+    if (hint && Number.isInteger(hint.s) && Number.isInteger(hint.f) && OPEN[hint.s] + hint.f === midi && hint.f >= v.lo && hint.f <= v.hi) return { s: hint.s, f: hint.f };
+    let best = null, bc = Infinity;
+    for (let st = 0; st < 6; st++) {
+      const f = midi - OPEN[st];
+      if (f < 0 || f > MAX_FRET) continue;
+      let c = 0;
+      if (f < v.lo || f > v.hi) c += 100;
+      if (v.win) c += f < v.win.min ? (v.win.min - f) * 3 : f > v.win.max ? (f - v.win.max) * 3 : 0;
+      if (MAPLIVE.last) c += Math.abs(f - MAPLIVE.last.f) * 0.6 + Math.abs(st - MAPLIVE.last.s) * 0.4;
+      else c += f * 0.05;
+      if (c < bc) { bc = c; best = { s: st, f }; }
+    }
+    return best;
+  }
+  function mapLivePaint() {
+    const svg = $('mapNeck'), g = $('mapLiveG');
+    if (!svg || !g) return;
+    qsa(svg, '.mapdot.playing').forEach((el) => el.classList.remove('playing'));
+    const names = imNames();
+    let h = '';
+    MAPLIVE.on.forEach((c, key) => {
+      const x = dotX(c.f), y = sy(c.s);
+      const dot = svg.querySelector('[data-mapdot="' + key + '"]');
+      if (dot && dot.classList) dot.classList.add('playing');
+      h += `<g class="maplive${dot ? '' : ' outside'}"><circle class="mlring" cx="${x.toFixed(1)}" cy="${y}" r="19"/>`
+        + (dot ? '' : `<circle class="mlbody" cx="${x.toFixed(1)}" cy="${y}" r="12"/><text x="${x.toFixed(1)}" y="${y + 4}" text-anchor="middle" font-size="11">${esc(names[(OPEN[c.s] + c.f) % 12])}</text>`) + `</g>`;
+    });
+    g.innerHTML = h;
+  }
+  // light these notes now (replacing what was lit): cells are {midi, s?, f?}
+  function mapLiveSet(cells) {
+    MAPLIVE.on = new Map();
+    cells.forEach((n) => { const c = mapPlace(n.midi, n); if (c) { MAPLIVE.on.set(c.s + ':' + c.f, c); MAPLIVE.last = c; } });
+    mapLivePaint();
+  }
+  function mapLiveClear() {
+    MAPLIVE.timers.forEach((t) => clearTimeout(t));
+    MAPLIVE.timers = [];
+    MAPLIVE.on = new Map(); MAPLIVE.last = null;
+    mapLivePaint();
+  }
+  // light notes as they sound: each {midi, s?, f?} at an audio time, for a length in seconds
+  function mapLiveSchedule(list) {
+    const c = ac;
+    if (!c) return;
+    list.forEach((n) => {
+      const on = Math.max(0, (n.when - c.currentTime) * 1000), off = on + Math.max(120, n.dur * 1000);
+      MAPLIVE.timers.push(setTimeout(() => {
+        const cell = mapPlace(n.midi, n);
+        if (!cell) return;
+        const key = cell.s + ':' + cell.f;
+        MAPLIVE.on.set(key, cell); MAPLIVE.last = cell; mapLivePaint();
+        MAPLIVE.timers.push(setTimeout(() => { if (MAPLIVE.on.get(key) === cell) { MAPLIVE.on.delete(key); mapLivePaint(); } }, off - on));
+      }, on));
+    });
   }
   // the key above the neck: each item is drawn exactly as on the neck; the last two switch their layer on and off
   function renderMapLegend(p, q) {
@@ -5132,7 +5296,9 @@
     const c = audio();
     if (!c || !cells.length) return;
     const d = Math.min(0.32, 60 / (IM.bpm || 92) / 2);
+    if (!IMP.on) mapLiveClear();
     cells.forEach((x, k) => pluckAt(x.midi, c.currentTime + 0.05 + k * d, d * 1.6, { vol: 0.3 }));
+    mapLiveSchedule(cells.map((x, k) => ({ midi: x.midi, s: x.s, f: x.f, when: c.currentTime + 0.05 + k * d, dur: d * 0.95 })));
   }
   function mapClick(t) {
     const el = t.closest('[data-map]');
@@ -5144,6 +5310,7 @@
     if (dot) {
       const [s, f] = dot.getAttribute('data-mapdot').split(':').map(Number);
       pluck(OPEN[s] + f, 0, 0.8);
+      if (!IMP.on) { try { mapLiveClear(); const c0 = audio(); if (c0) mapLiveSchedule([{ midi: OPEN[s] + f, s, f, when: c0.currentTime, dur: 0.5 }]); } catch (e) {} }
       IM.myBlock = IM.myBlock || [];
       const k = IM.myBlock.findIndex((c) => c.s === s && c.f === f);
       if (k >= 0) IM.myBlock.splice(k, 1); else IM.myBlock.push({ s, f });
@@ -5172,6 +5339,7 @@
     if (cmd === 'hear') { const b = mapBlocks(p).find((x) => x.id === 'all'); mapHear(b ? mapOrder(b.cells, 'updown') : []); return true; }
     if (cmd === 'pos') { const [mn, k] = arg.split(':').map(Number); IM.mapAll = false; mapSet(i, { s: p.choice.name, r: p.choice.root, pos: mn, k }, p.bar); imSave(); renderMap(); return true; }
     if (cmd === 'all') { IM.mapAll = !IM.mapAll; renderMap(); return true; }
+    if (cmd === 'view') { IM.mapView = arg === 'whole' ? 'whole' : 'close'; try { localStorage.setItem('fretboard-mapview', IM.mapView); } catch (e) {} renderMap(); return true; }
     if (cmd === 'show') { IM.mapShow = IM.mapShow || { next: true, shape: true }; IM.mapShow[arg] = !IM.mapShow[arg]; renderMap(); return true; }
     if (cmd === 'labels') { IM.mapLabels = IM.mapLabels === 'deg' ? 'note' : 'deg'; renderMap(); return true; }
     if (cmd === 'blk') { IM.mapPeek = true; IM.mapBlock = arg; if (arg !== 'mine' && IM.mapDir === 'tap') IM.mapDir = 'up'; renderMap(); const b = mapBlocks(IM.mapAll ? Object.assign({}, p, { win: null }) : p).find((x) => x.id === arg); if (b && b.cells.length) mapHear(mapOrder(b.cells, IM.mapDir === 'tap' ? 'up' : IM.mapDir || 'up', arg === 'mine')); return true; }
@@ -6374,7 +6542,7 @@
         + tbl('Mouse', [['Click', 'Add a note (pencil)'], ['Click and drag right', 'Draw a longer note'], ['Drag a note', 'Move it (up or down changes the pitch)'], ['Drag its right edge', 'Make it longer or shorter'], ['Double-click a note', 'Delete it'], [k(A) + ' + drag', 'Copy the notes you drag'], [k('Shift') + ' + drag', 'Select a group with a box'], ['Click the chord ruler', 'Set where Play starts'], ['Drag in the velocity lane', 'Louder or softer'], ['Click a note name', 'Hear it']])
         + '</div>';
     } },
-    scalemap: { t: 'The scale map', tour: 'studio', b: '<p>Every chord in your backing gets its own list of scales that fit it, best first. The labels say why:</p><ul><li><b>In the key</b>: the notes of the song\u2019s key, played from the chord\u2019s root. Chord-scale theory gives each chord of a major key its mode: I Ionian, ii Dorian, iii Phrygian, IV Lydian, V Mixolydian, vi Aeolian, vii Locrian. You never leave the key, so it always works.</li><li><b>Easy</b>: pentatonic scales and other safe choices. Pentatonics have no half steps, so nothing rubs.</li><li><b>Blues</b>: minor pentatonic or blues scale over a dominant 7th: the minor 3rd against the chord\u2019s major 3rd is the blues sound, on purpose.</li><li><b>Borrowed</b>: the chord comes from the parallel key (for example F minor in C major), so its notes do too.</li><li><b>Leads on</b>: a chord that pulls to the next one (like E7 going to A minor) takes that chord\u2019s harmonic minor.</li><li><b>Colour</b> and <b>Tension</b>: other scales that hold the chord\u2019s notes with a different flavour, or with extra tension that wants to resolve.</li></ul><p><b>On the neck</b>: <b>big amber dots</b> are the notes of the chord playing, the safest notes to land on, and the <b>amber square</b> is its root. <b>Small blue dots</b> are the other scale notes: pass through them. A <b>green ring</b> marks a note of the next chord (aim for it at the change), and a <b>white dot</b> at a corner shows a finger of your chord shape. The key above the neck switches the green rings and white dots on and off. The lit box is one hand position; pick another, or show the whole neck. Hover over any dot to read what it is. While the Studio plays, the map follows the bar that is sounding, so you can see what fits right now.</p><p><b>Building blocks</b>: pieces of the position (string pairs, low or high strings, only the chord notes) or your own block of tapped notes. Add one at the cursor; the cursor moves on, so the next block joins on. Change scale when the chord changes, or keep one scale across several chords: the map shows which notes change.</p><p><b>Into the next chord</b> shows the notes both chords share, where the chord\u2019s 3rd and 7th move (often a half step), and adds a short run that lands on a note of the next chord right on the change.</p><p>Sources: Open Music Theory (chord-scale theory, modal mixture), Gary Burton for Berklee Online (jazz scales), Yamaha (pentatonics, Dorian), Premier Guitar (mixing major and minor pentatonics), Berklee Online (guide tones).</p>' },
+    scalemap: { t: 'The scale map', tour: 'studio', b: '<p>Every chord in your backing gets its own list of scales that fit it, best first. The labels say why:</p><ul><li><b>In the key</b>: the notes of the song\u2019s key, played from the chord\u2019s root. Chord-scale theory gives each chord of a major key its mode: I Ionian, ii Dorian, iii Phrygian, IV Lydian, V Mixolydian, vi Aeolian, vii Locrian. You never leave the key, so it always works.</li><li><b>Easy</b>: pentatonic scales and other safe choices. Pentatonics have no half steps, so nothing rubs.</li><li><b>Blues</b>: minor pentatonic or blues scale over a dominant 7th: the minor 3rd against the chord\u2019s major 3rd is the blues sound, on purpose.</li><li><b>Borrowed</b>: the chord comes from the parallel key (for example F minor in C major), so its notes do too.</li><li><b>Leads on</b>: a chord that pulls to the next one (like E7 going to A minor) takes that chord\u2019s harmonic minor.</li><li><b>Colour</b> and <b>Tension</b>: other scales that hold the chord\u2019s notes with a different flavour, or with extra tension that wants to resolve.</li></ul><p><b>On the neck</b>: <b>big amber dots</b> are the notes of the chord playing, the safest notes to land on, and the <b>amber square</b> is its root. <b>Small blue dots</b> are the other scale notes: pass through them. A <b>green ring</b> marks a note of the next chord (aim for it at the change), and a <b>white dot</b> at a corner shows a finger of your chord shape. The key above the neck switches the green rings and white dots on and off. The lit box is one hand position; pick another, or <b>All positions</b> for every note of the scale. <b>View</b> switches between a close-up of your hand position and the <b>whole fretboard</b> (all 22 frets, with the notes outside your position faded). Hover over any dot to read what it is. While the Studio plays, the map follows the bar that is sounding, and <b>each solo note lights up on the neck as it sounds</b>; <b>Hear the scale</b> and <b>Hear block</b> light their notes one by one too.</p><p><b>Building blocks</b>: pieces of the position (string pairs, low or high strings, only the chord notes) or your own block of tapped notes. Add one at the cursor; the cursor moves on, so the next block joins on. Change scale when the chord changes, or keep one scale across several chords: the map shows which notes change.</p><p><b>Into the next chord</b> shows the notes both chords share, where the chord\u2019s 3rd and 7th move (often a half step), and adds a short run that lands on a note of the next chord right on the change.</p><p>Sources: Open Music Theory (chord-scale theory, modal mixture), Gary Burton for Berklee Online (jazz scales), Yamaha (pentatonics, Dorian), Premier Guitar (mixing major and minor pentatonics), Berklee Online (guide tones).</p>' },
     imrec: { t: 'Record your guitar', b: '<p>Play single notes into your microphone and they appear in the Studio as notes you can edit, just like recording a guitar into a DAW in MIDI.</p><ul><li>Click the chord ruler to put the cursor where you want to start, then press <b>Record guitar</b>. After the count-in, play.</li><li><b>While recording, hear</b>: a click (a short tick with no pitch, so it is never mistaken for a note), the backing (wear headphones, or the microphone hears the backing too), or nothing.</li><li>Each note snaps to the grid (8ths or 16ths), so small timing slips are tidied up. Recording stops at the end of the backing, or press Stop.</li><li>It hears one note at a time: chords and notes left ringing under the next one can confuse it. Mute the strings you are not playing.</li><li><b>Replace notes where I play</b> clears what was there before; untick it to add a layer. Undo removes the whole take.</li></ul><p>The microphone only works on your own hosted copy of the site or on localhost, not in a preview inside the Claude app.</p>' },
     improv: { t: 'The Studio', tour: 'studio', b: '<p>A small <b>melody DAW</b> on top of a backing. <b>Use my progression</b> plays the chords from your Progression tab, in their key, tempo and strumming pattern, and the roll follows when you change them. Pick a key, a scale and a backing (your own progression, a 12-bar blues or a famous progression), then:</p><ul><li><b>Pencil</b>: click to add a note, click and drag to draw a long one. <b>Drag</b> a note to move it (up or down changes the pitch), drag its <b>right edge</b> to resize, <b>double-click</b> to delete, <b>Alt/Option-drag</b> to copy. The <b>Pointer</b> (or Shift-drag) draws a box to select several notes. Click the chord ruler to set where Play starts; drag in the velocity lane to make notes louder or softer.</li><li><b>Keys</b>: Delete removes the selection, arrows move it (Shift: by a bar or an octave), Ctrl/Cmd+C, X, V, D copy, cut, paste (at the cursor) and duplicate, Ctrl/Cmd+Z undo, Shift+Ctrl/Cmd+Z redo, Ctrl/Cmd+A selects all, Space plays, B switches pencil/pointer. Click a note name on the left to hear it.</li><li><b>Ideas</b>: pick one (Three up, Question, Answer, Approach note…) and tap where it should start. It is built from the scale you chose, and its last note lands on a chord tone if that box is ticked.</li><li><b>Tinted rows</b> are the notes of the chord playing at that moment: the strongest notes to land on. Amber is the chord\'s root.</li><li><b>Suggest a start</b> fills empty bars with a question and an answer to edit.</li></ul><p>Play loops it with the backing. Your solo also appears on the neck and as tab (copy it), and you can save it. <b>Record guitar</b> plays your own guitar into the roll, and the <b>Scale map</b> below shows which scales fit each chord and lets you build the solo from pieces of them.</p><p><b>MIDI for your DAW</b> downloads the solo, the chords and a bass line as a MIDI file, with the tempo, key and chord names, so you can sketch an idea here and finish it in Ableton, Logic, FL Studio or any other DAW.</p>' },
     tuner: { t: 'Guitar tuner', tour: 'listen', b: '<p>Press <b>Start tuner</b>, then play <b>one string at a time</b>, open (no fingers), and let it ring. The tuner finds which string it is and shows how far off it is.</p><ul><li>Needle <b>left</b> (♭): the string is too low. <b>Tighten</b> it (tune up) slowly.</li><li>Needle <b>right</b> (♯): too high. <b>Loosen</b> it a little, then come back up to the note (tuning up to a note holds better).</li><li><b>Green in the middle</b>: in tune. The string gets a ✓.</li></ul><p><b>Cents</b>: 100 cents is one fret, so 5 cents is a tiny nudge of the tuning peg.</p><p>Pick another <b>tuning</b> (Drop D, Open G, DADGAD…) from the list. Tap a string to lock the tuner to it, useful when a string is far off. <b>Hear the note</b> plays the note to tune to. The A = 440 setting is the standard reference; change it only to match a piano or a recording tuned differently.</p>' },
@@ -7277,6 +7445,7 @@
     if (id === 'traceCmp') { TR.cmp = e.target.value; renderTrace(); }
     if (id === 'tuTuning') { TU.tuning = e.target.value; TU.done = {}; TU.lock = -1; TU.read = null; tuSave(); renderTuner(); }
     if (id === 'tuA4') { TU.a4 = +e.target.value || 440; tuSave(); renderTuner(); }
+    if (id === 'heroKeep') { try { localStorage.setItem('fretboard-hero-skip', e.target.checked ? '0' : '1'); } catch (er) {} flash(e.target.checked ? 'The welcome page opens when you open the site' : 'The site now opens straight to your last page'); }
     if (id === 'tuDing') { TU.ding = !!e.target.checked; tuSave(); if (TU.ding) tuChime(); }
     if (id === 'traceFill') { TR.fill = !!e.target.checked; renderTrace(); }
     if (id === 'padSlot') { ED.padSlot = +e.target.value || 0; renderEditor(); }
@@ -7428,9 +7597,10 @@
   setLayout(LAYOUT);
   if (LAYOUT === 'tabs') setTab(startTab);
   else { TAB = startTab; qsa(document, '[data-go]').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-go') === TAB))); }
-  let heroFirst = false;
-  try { heroFirst = !localStorage.getItem('fretboard-hero-seen') && GUIDE.firstVisit; } catch (e) {}
+  // the welcome page opens whenever the site is opened at its plain address (not a link to a tab or a shared idea), unless the visitor turned it off
+  let heroAtStart = true;
+  try { heroAtStart = localStorage.getItem('fretboard-hero-skip') !== '1'; } catch (e) {}
   const hashNow = HASH0;
-  if (hashNow === 'home' || (heroFirst && !hashNow && !IDEA)) { try { showHero(true); } catch (e) {} }
+  if (hashNow === 'home' || (heroAtStart && !hashNow && !IDEA)) { try { showHero(true); } catch (e) {} }
   else if (GUIDE.firstVisit) setTimeout(() => { const gp = $('guidePanel'); if (gp && gp.hidden && !TOUR.name) { GUIDE.intro = true; openGuide(true); } }, 700);
 })();
