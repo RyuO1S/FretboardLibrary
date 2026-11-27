@@ -1,6 +1,6 @@
 # Fretboard Library
 
-A guitar music-theory site: scales, arpeggios and chord shapes on the fretboard, a key explorer with the circle of fifths, a progression workspace with strumming and picking patterns, and a chord listener.
+A guitar music-theory site: scales, arpeggios and chord shapes on the fretboard, a key explorer with the circle of fifths, a progression workspace with strumming and picking patterns, a chord listener and tuner, and a Studio for writing or recording solos over your own progression and exporting them as MIDI.
 
 ## Run it on your own computer
 
@@ -16,8 +16,8 @@ Then open http://localhost:8000 in Chrome, Edge or Safari and press **Listen liv
 ## Files
 
 - `src/head.html`: styles and page markup
-- `src/theory.js`: the music engine (scales, chords, rhythm, recording and chord analysis)
-- `src/ui.js`: the app
+- `src/theory.js`: the music engine (scales, chords, rhythm, recording, chord analysis and MIDI export)
+- `src/ui.js`: the app, including the Studio, lessons and scale map
 - `config.js`: optional Supabase settings for account-based progression sync
 - `snd/`: guitar samples (one MP3 per instrument, with a JSON index of where each note starts)
 - `build.sh`: joins the sources into `index.html`
