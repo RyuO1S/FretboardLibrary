@@ -2047,7 +2047,7 @@
     setTimeout(done, 330);
   }
   function heroClick(t) {
-    if (t.closest('#homeLink') || t.closest('#homeBtn')) { try { if (!$('guidePanel').hidden) openGuide(false); if (!$('sharePanel').hidden) openShare(false); } catch (e) {} showHero(true); return true; }
+    if (t.closest('#homeLink') || t.closest('#homeBtn')) { try { if (!$('guidePanel').hidden) openGuide(false); if (!$('sharePanel').hidden) openShare(false); openAcct(false); } catch (e) {} showHero(true); return true; }
     const b = t.closest('[data-hero]');
     if (!b) return false;
     const v = b.getAttribute('data-hero');
@@ -2126,7 +2126,7 @@
     if (!p) return;
     p.hidden = !open;
     $('shareBtn').setAttribute('aria-expanded', String(!!open));
-    if (open) { closeInfo(); openGuide(false); renderShare(); }
+    if (open) { closeInfo(); openGuide(false); try { openAcct(false); } catch (e) {} renderShare(); }
   }
   function shareClick(t) {
     if (t.closest('#shareBtn')) { openShare($('sharePanel').hidden); return true; }
@@ -2906,7 +2906,7 @@
       e.preventDefault();
       return;
     }
-    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); const sp = $('sharePanel'); if (sp && !sp.hidden) openShare(false); }
+    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); const sp = $('sharePanel'); if (sp && !sp.hidden) openShare(false); const ap = $('acctPanel'); if (ap && !ap.hidden) openAcct(false); }
     if (!ED.open || e.ctrlKey || e.metaKey || e.altKey || (LAYOUT === "tabs" && TAB !== "progression")) return;
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
@@ -6443,25 +6443,28 @@
     }
   }
   const cloudRow = (id, rec) => ({ user_id: CLOUD.user.id, id, name: rec.name, data: rec, updated_at: new Date(rec.updatedAt || Date.now()).toISOString() });
-  async function cloudSignIn(kind) {
+  // messages go to the box on the Progression page and to the account panel in the top bar
+  const acctSay = (m) => { libSay(m); const el = $('acctMsg'); if (el) el.textContent = m || ''; };
+  async function cloudSignIn(kind, inputId) {
     if (!CLOUD.sb || CLOUD.busy) return;
-    const back = location.origin + location.pathname + '#progression';
+    const here = (location.hash || '').slice(1);
+    const back = location.origin + location.pathname + '#' + (here && here !== 'home' ? here : 'progression');
     if (kind === 'google') {
-      try { await CLOUD.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } }); } catch (e) { libSay('Google sign-in could not start. Try the email link instead.'); }
+      try { await CLOUD.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } }); } catch (e) { acctSay('Google sign-in could not start. Try the email link instead.'); }
       return;
     }
-    const inp = $('libEmail');
+    const inp = $(inputId || 'libEmail');
     const email = inp ? String(inp.value || '').trim() : '';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { libSay('Type your email address first.'); if (inp && inp.focus) inp.focus(); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { acctSay('Type your email address first.'); if (inp && inp.focus) inp.focus(); return; }
     CLOUD.busy = true;
-    libSay('Sending…');
+    acctSay('Sending…');
     try {
       const r = await CLOUD.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: back } });
       if (r && r.error) throw r.error;
       CLOUD.sent = email;
-      libSay('');
+      acctSay('');
     } catch (e) {
-      libSay('The sign-in email could not be sent' + (e && e.message ? ' (' + e.message + ')' : '') + '. Wait a minute and try again.');
+      acctSay('The sign-in email could not be sent' + (e && e.message ? ' (' + e.message + ')' : '') + '. Wait a minute and try again.');
     }
     CLOUD.busy = false;
     renderLib();
@@ -6485,7 +6488,63 @@
       libSay('They could not be copied' + (e && e.message ? ' (' + e.message + ')' : '') + '. Nothing was changed.');
     }
   }
+  // the account button in the top bar, and its panel
+  function renderAcctTop() {
+    const btn = $('acctBtn'), lbl = $('acctBtnLbl'), panel = $('acctPanel');
+    if (!btn) return;
+    btn.hidden = !CLOUD.cfg;
+    if (!CLOUD.cfg) { if (panel) panel.hidden = true; return; }
+    const signedIn = LIB.mode === 'cloud' && !!CLOUD.user;
+    const who = signedIn ? String(CLOUD.user.email || 'Account').split('@')[0] : '';
+    if (lbl) lbl.textContent = signedIn ? (who.length > 14 ? who.slice(0, 13) + '…' : who) : 'Sign in';
+    if (btn.classList) btn.classList.toggle('in', signedIn);
+    btn.title = signedIn ? 'Signed in as ' + (CLOUD.user.email || '') : 'Sign in to keep your progressions on every device';
+    if (!panel || panel.hidden) return;
+    const keep = $('acctEmail') ? $('acctEmail').value : '';
+    if (signedIn) {
+      panel.innerHTML = `<h3>Your account</h3><p>Signed in as <b>${esc(CLOUD.user.email || 'you')}</b>. Your saved progressions are kept in your account, on every device you sign in on.</p>`
+        + `<div class="acctacts"><button type="button" class="tapbtn strong" data-acctp="mine">My progressions</button><button type="button" class="tapbtn" data-acct="out">Sign out</button></div><p class="acctmsg" id="acctMsg"></p>`;
+    } else if (CLOUD.sent) {
+      panel.innerHTML = `<h3>Check your email</h3><p>We sent a sign-in link to <b>${esc(CLOUD.sent)}</b>. Open it on this device to finish signing in. It can take a minute; look in spam too.</p>`
+        + `<div class="acctacts"><button type="button" class="tapbtn" data-acct="again">Use another email</button></div><p class="acctmsg" id="acctMsg"></p>`;
+    } else if (LIB.mode === 'loading') {
+      panel.innerHTML = '<h3>Your account</h3><p>Checking…</p>';
+    } else {
+      panel.innerHTML = `<h3>Sign in</h3><p>Keep your progressions in your account and open them on any device. No password: we email you a link.</p>`
+        + `<div class="acctform"><input type="email" id="acctEmail" placeholder="you@example.com" aria-label="Email address" autocomplete="email"><button type="button" class="tapbtn strong" data-acct="email:acctEmail">Email me a sign-in link</button>`
+        + (CLOUD.cfg.google ? `<button type="button" class="tapbtn" data-acct="google">Sign in with Google</button>` : '') + `</div><p class="acctmsg" id="acctMsg"></p>`;
+      const inp = $('acctEmail');
+      if (inp) { inp.value = keep; if (inp.addEventListener) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); cloudSignIn('email', 'acctEmail'); } }); }
+    }
+  }
+  function openAcct(open) {
+    const p = $('acctPanel'), b = $('acctBtn');
+    if (!p || !b) return;
+    p.hidden = !open;
+    b.setAttribute('aria-expanded', String(!!open));
+    if (open) {
+      try { closeInfo(); openGuide(false); openShare(false); } catch (e) {}
+      renderAcctTop();
+      setTimeout(() => { const inp = $('acctEmail'); if (inp && inp.focus) inp.focus(); }, 30);
+    }
+  }
+  function acctTopClick(t) {
+    if (t.closest('#acctBtn')) { openAcct($('acctPanel').hidden); return true; }
+    if (t.closest('[data-acctp="mine"]')) {
+      openAcct(false);
+      try {
+        if (LAYOUT === 'tabs') setTab('progression');
+        const sec = document.querySelector('details[data-sec="saved"]');
+        if (sec) { sec.open = true; setTimeout(() => { try { sec.scrollIntoView({ behavior: calmMotion() ? 'auto' : 'smooth', block: 'start' }); } catch (e) {} }, 60); }
+      } catch (e) {}
+      return true;
+    }
+    const p = $('acctPanel');
+    if (p && !p.hidden && !t.closest('#acctPanel') && !t.closest('[data-acct]')) openAcct(false);
+    return false;
+  }
   function renderAcct() {
+    try { renderAcctTop(); } catch (e) {}
     const box = $('libAcct');
     if (!box) return;
     box.hidden = !CLOUD.cfg;
@@ -6508,7 +6567,8 @@
     const b = t.closest('[data-acct]');
     if (!b) return false;
     const a = b.dataset.acct;
-    if (a === 'email') cloudSignIn('email');
+    if (a === 'email:acctEmail') cloudSignIn('email', 'acctEmail');
+    else if (a === 'email') cloudSignIn('email');
     else if (a === 'google') cloudSignIn('google');
     else if (a === 'out') cloudSignOut();
     else if (a === 'copy') cloudCopyLocal();
@@ -7259,6 +7319,7 @@
     const t = e.target;
     if (!t || !t.closest) return;
     if (heroClick(t)) return;
+    if (acctTopClick(t)) return;
     if (shareClick(t)) return;
     if (ideaClick(t)) return;
     if (TOUR.name || t.closest('[data-info]') || t.closest('#guideBtn') || t.closest('#guidePanel') || t.closest('#infoPop') || infoOpen) {
