@@ -23,6 +23,7 @@
       }
     };
   }
+
   // the address the page was opened with (before the tabs rewrite it)
   let HASH0 = '';
   try { HASH0 = (location.hash || '').slice(1); } catch (e) {}
@@ -364,26 +365,43 @@
     return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function boardSvg(dots, ghostDots) {
-    let g = '';
-    g += `<rect x="${nutX}" y="${top - 16}" width="${endX - nutX}" height="${5 * gap + 32}" rx="3" fill="var(--board)"/>`;
-    for (const n of [3, 5, 7, 9, 15, 17, 19, 21]) {
-      g += `<circle cx="${mid(n).toFixed(1)}" cy="${top + 2.5 * gap}" r="7" fill="var(--inlay)" opacity="0.35"/>`;
+  // the neck, drawn like a real one: rosewood with grain and binding, metal fret wire, a bone nut, pearl inlays,
+  // wound bronze bass strings and plain steel trebles, each string casting a shadow (the same look as the welcome page)
+  let BOARD_BASE = '';
+  function boardBase() {
+    if (BOARD_BASE) return BOARD_BASE;
+    const y0 = top - 16, H = 5 * gap + 32, y1 = y0 + H;
+    let g = `<rect x="${nutX}" y="${y0}" width="${endX - nutX}" height="${H}" rx="3" fill="url(#fbWood)"/>`;
+    let seed = 7; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    for (let k = 0; k < 34; k++) {
+      const y = y0 + 4 + rnd() * (H - 8), amp = 0.6 + rnd() * 1.6, len = 200 + rnd() * 480, x = nutX + rnd() * (endX - nutX - len);
+      g += `<path d="M${x.toFixed(1)} ${y.toFixed(1)} q${(len / 4).toFixed(1)} ${(-amp).toFixed(1)} ${(len / 2).toFixed(1)} 0 t${(len / 2).toFixed(1)} 0" fill="none" stroke="${rnd() > 0.5 ? '#000' : '#6b4a35'}" stroke-opacity="${(0.1 + rnd() * 0.12).toFixed(2)}" stroke-width="${(0.6 + rnd() * 1.4).toFixed(1)}"/>`;
     }
-    g += `<circle cx="${mid(12).toFixed(1)}" cy="${top + 1.5 * gap}" r="7" fill="var(--inlay)" opacity="0.35"/>`;
-    g += `<circle cx="${mid(12).toFixed(1)}" cy="${top + 3.5 * gap}" r="7" fill="var(--inlay)" opacity="0.35"/>`;
+    g += `<rect x="${nutX}" y="${y0}" width="${endX - nutX}" height="2.5" fill="#e8dfc6" opacity="0.85"/><rect x="${nutX}" y="${y1 - 2.5}" width="${endX - nutX}" height="2.5" fill="#e8dfc6" opacity="0.85"/>`;
+    const inlay = (x, y) => `<circle cx="${x.toFixed(1)}" cy="${y}" r="7" fill="url(#fbPearl)" opacity="0.8"/>`;
+    for (const n of [3, 5, 7, 9, 15, 17, 19, 21]) g += inlay(mid(n), top + 2.5 * gap);
+    g += inlay(mid(12), top + 1.5 * gap) + inlay(mid(12), top + 3.5 * gap);
     for (let n = 1; n <= MAX_FRET; n++) {
-      g += `<line x1="${fx(n).toFixed(1)}" x2="${fx(n).toFixed(1)}" y1="${top - 16}" y2="${top + 5 * gap + 16}" stroke="var(--fret)" stroke-width="2.2"/>`;
+      const x = fx(n);
+      g += `<rect x="${(x + 1).toFixed(1)}" y="${y0}" width="2.2" height="${H}" fill="#000" opacity="0.32"/><rect x="${(x - 1.6).toFixed(1)}" y="${y0 - 1}" width="3.2" height="${H + 2}" rx="1.3" fill="url(#fbFret)"/>`;
     }
-    g += `<rect x="${nutX - 6}" y="${top - 16}" width="6" height="${5 * gap + 32}" fill="var(--nut)"/>`;
+    g += `<rect x="${nutX - 7}" y="${y0 - 2}" width="7" height="${H + 4}" rx="1.5" fill="url(#fbNut)"/>`;
     for (let s = 0; s < 6; s++) {
-      g += `<line x1="${nutX}" x2="${endX}" y1="${sy(s)}" y2="${sy(s)}" stroke="var(--string)" stroke-width="${STRING_W[s]}" opacity="0.9"/>`;
-      g += `<text x="14" y="${sy(s) + 4}" text-anchor="middle" font-size="11" fill="var(--muted)">${STRING_NAMES[s]}</text>`;
+      const y = sy(s), w = STRING_W[s];
+      g += `<line x1="${nutX}" x2="${endX}" y1="${(y + 2.6).toFixed(1)}" y2="${(y + 2.6).toFixed(1)}" stroke="#000" stroke-opacity="0.38" stroke-width="${(w + 1.4).toFixed(1)}"/>`;
+      if (s < 3) g += `<line x1="${nutX - 7}" x2="${endX}" y1="${y}" y2="${y}" stroke="url(#fbWind)" stroke-width="${w}" stroke-linecap="round"/>`;
+      else g += `<line x1="${nutX - 7}" x2="${endX}" y1="${y}" y2="${y}" stroke="#cfd4d9" stroke-width="${w}" stroke-linecap="round"/><line x1="${nutX - 7}" x2="${endX}" y1="${(y - w * 0.25).toFixed(2)}" y2="${(y - w * 0.25).toFixed(2)}" stroke="#ffffff" stroke-opacity="0.75" stroke-width="${(w * 0.35).toFixed(2)}"/>`;
+      g += `<text x="14" y="${y + 4}" text-anchor="middle" font-size="11" fill="var(--muted)">${STRING_NAMES[s]}</text>`;
     }
     for (let n = 1; n <= MAX_FRET; n++) {
       const bold = [3, 5, 7, 9, 12, 15, 17, 19, 21].includes(n);
       g += `<text x="${mid(n).toFixed(1)}" y="${top + 5 * gap + 38}" text-anchor="middle" font-size="12" font-weight="${bold ? 600 : 400}" fill="var(--muted)">${n}</text>`;
     }
+    BOARD_BASE = g;
+    return g;
+  }
+  function boardSvg(dots, ghostDots) {
+    let g = boardBase();
     for (const d of ghostDots) {
       g += `<circle cx="${dotX(d.f).toFixed(1)}" cy="${sy(d.s)}" r="3.5" fill="var(--ghost)"/>`;
     }
@@ -886,10 +904,10 @@
   try { PIN = localStorage.getItem('fretboard-pin') !== '0'; } catch (e) {}
   function pinPaint(vm) {
     const bp = $('boardPanel');
-    const on = !!(vm && vm.chord) && LAYOUT === 'tabs';
+    const on = LAYOUT === 'tabs';   // the neck can stay in view on the Fretboard page, with or without a chord
     if (bp && bp.classList) bp.classList.toggle('pin', on && PIN);
     const b = $('pinBtn');
-    if (b) { b.hidden = !on; b.setAttribute('aria-pressed', String(PIN)); b.textContent = PIN ? 'Neck pinned' : 'Pin the neck'; }
+    if (b) { b.hidden = !on; b.setAttribute('aria-pressed', String(PIN)); b.textContent = PIN ? 'Neck pinned' : 'Pin the neck'; b.title = PIN ? 'The neck stays in view while you scroll. Tap to let it scroll away.' : 'Keep the neck in view while you scroll'; }
     const tabs = document.querySelector && document.querySelector('.tabs');
     if (tabs && tabs.getBoundingClientRect && document.documentElement.style) document.documentElement.style.setProperty('--tabsH', Math.round(tabs.getBoundingClientRect().height) + 'px');
   }
@@ -1678,7 +1696,7 @@
 
   /* ==================== Welcome page: typing headline, a neck you can strum, the five areas ==================== */
   const HERO = { on: false, timer: 0, dots: 0, raf: 0, strings: [], last: null, typeT: 0 };
-  const HERO_LINES = ['Find the scale.', 'Hear the chord.', 'Build the progression.', 'Tune your guitar.', 'Write the solo.', 'Finish it in your DAW.'];
+  const HERO_LINES = ['Explore the scale library.', 'Discover the chords of any key.', 'Translate your playing into chords and scales.', 'Experiment and hear it instantly.', 'Write your song or solo.', 'Take it to your DAW.'];   // the journey through the site, in order
   function heroType() {
     const el = $('heroType');
     if (!el) return;
@@ -1703,7 +1721,6 @@
   const HN = { x0: 70, x1: 975, top: 34, gap: 32 };
   const hnFx = (n) => HN.x0 + (HN.x1 - HN.x0) * (1 - Math.pow(2, -n / 12)) / (1 - Math.pow(2, -12 / 12));
   const hnY = (s) => HN.top + (5 - s) * HN.gap;
-  const HERO_BOX = [[0, 5], [0, 8], [1, 5], [1, 7], [2, 5], [2, 7], [3, 5], [3, 7], [4, 5], [4, 8], [5, 5], [5, 8]];   // A minor pentatonic, 5th position
   function heroNeck() {
     const svg = $('heroNeck');
     if (!svg) return;
@@ -1751,10 +1768,7 @@
       const bold = [3, 5, 7, 9, 12].includes(n);
       g += `<text x="${((hnFx(n - 1) + hnFx(n)) / 2).toFixed(1)}" y="${y1 + 20}" text-anchor="middle" font-size="13" font-weight="${bold ? 700 : 400}" fill="var(--muted)">${n}</text>`;
     }
-    HERO_BOX.forEach(([s, f], i) => {
-      const x = (hnFx(f - 1) + hnFx(f)) / 2, y = hnY(s), root = (OPEN[s] + f) % 12 === 9;
-      g += `<g class="hdot${root ? ' root' : ''}" data-hd="${i}"><circle cx="${x.toFixed(1)}" cy="${y}" r="12" fill="var(--dot)" stroke="var(--board)" stroke-width="2"/><text x="${x.toFixed(1)}" y="${y + 4.5}" text-anchor="middle" font-size="12" font-weight="800" fill="${root ? 'var(--root-fg)' : 'var(--dot-fg)'}">${SHARP_NAMES[(OPEN[s] + f) % 12]}</text></g>`;
-    });
+    g += '<g id="hnDots"></g>';
     svg.innerHTML = g;
     HERO.strings = [0, 1, 2, 3, 4, 5].map((s) => ({ amp: 0, t: 0, el: svg.querySelector('[data-hs="' + s + '"]'), sh: svg.querySelector('[data-hsh="' + s + '"]'), hi: svg.querySelector('[data-hhi="' + s + '"]') }));
   }
@@ -1765,6 +1779,12 @@
     HERO.energy = Math.min(1, (HERO.energy || 0) + 0.18);
     if (st.el) { st.el.classList.add('hit'); clearTimeout(st.hitT); st.hitT = setTimeout(() => st.el && st.el.classList.remove('hit'), 380); }
     if (!HERO.raf) HERO.raf = requestAnimationFrame(heroVibrate);
+    // the chord that goes with the scale being shown (sound starts once the page has been clicked or tapped: a browser rule)
+    try {
+      const fr = (HERO.lick && HERO.lick.chord ? HERO.lick.chord.frets : HERO_LICKS[0].chord.frets)[s];
+      const c = audio();
+      if (c && c.state === 'running' && fr >= 0) pluckAt(OPEN[s] + fr, c.currentTime + 0.005, 2.4, { vol: 0.12 + Math.min(1, vel) * 0.12 });
+    } catch (e) {}
   }
   function heroVibrate(now) {
     HERO.raf = 0;
@@ -1798,19 +1818,110 @@
     if (prev === null) return;
     for (let s = 0; s < 6; s++) { const sy2 = hnY(s); if ((prev - sy2) * (y - sy2) < 0) { heroPluck(s, Math.min(1, Math.abs(y - prev) / 40)); heroSpark(s, e.clientX); } }   // crossed a string: it sounds
   }
+  // ----- the scale player on the welcome page: scales and positions, played in the patterns guitarists practise -----
+  // each one: the scale, its home note, the frets the hand covers, how it is played, and the chord to strum with it
+  // (chord frets run from low E to high e; -1 = not played)
+  const HERO_SCALES = {
+    mpent: [0, 3, 5, 7, 10], blues: [0, 3, 5, 6, 7, 10], Mpent: [0, 2, 4, 7, 9], minor: [0, 2, 3, 5, 7, 8, 10],
+    dorian: [0, 2, 3, 5, 7, 9, 10], hminor: [0, 2, 3, 5, 7, 8, 11], major: [0, 2, 4, 5, 7, 9, 11], mixo: [0, 2, 4, 5, 7, 9, 10],
+  };
+  const HERO_LICKS = [
+    { name: 'A minor pentatonic', root: 9, sc: 'mpent', lo: 5, hi: 8, pat: 'updown', chord: { name: 'Am', frets: [5, 7, 7, 5, 5, 5] } },
+    { name: 'A minor pentatonic', root: 9, sc: 'mpent', lo: 5, hi: 8, pat: 'threes', chord: { name: 'Am', frets: [5, 7, 7, 5, 5, 5] } },
+    { name: 'A blues scale', root: 9, sc: 'blues', lo: 5, hi: 8, pat: 'updown', chord: { name: 'A7', frets: [5, 7, 5, 6, 5, 5] } },
+    { name: 'A minor pentatonic', root: 9, sc: 'mpent', lo: 7, hi: 10, pat: 'fours', chord: { name: 'Am7', frets: [5, 7, 5, 5, 5, 5] } },
+    { name: 'C major pentatonic', root: 0, sc: 'Mpent', lo: 7, hi: 10, pat: 'updown', chord: { name: 'C', frets: [8, 10, 10, 9, 8, 8] } },
+    { name: 'A natural minor', root: 9, sc: 'minor', lo: 4, hi: 8, pat: 'thirds', chord: { name: 'Am', frets: [5, 7, 7, 5, 5, 5] } },
+    { name: 'A Dorian', root: 9, sc: 'dorian', lo: 4, hi: 8, pat: 'updown', chord: { name: 'Am7', frets: [5, 7, 5, 5, 5, 5] } },
+    { name: 'A harmonic minor', root: 9, sc: 'hminor', lo: 4, hi: 8, pat: 'fours', chord: { name: 'E7', frets: [0, 2, 0, 1, 0, 0] } },
+    { name: 'G Mixolydian', root: 7, sc: 'mixo', lo: 2, hi: 6, pat: 'threes', chord: { name: 'G7', frets: [3, 2, 0, 0, 0, 1] } },
+    { name: 'E minor pentatonic', root: 4, sc: 'mpent', lo: 9, hi: 12, pat: 'thirds', chord: { name: 'Em', frets: [0, 2, 2, 0, 0, 0] } },
+    { name: 'C major scale', root: 0, sc: 'major', lo: 7, hi: 10, pat: 'updown', chord: { name: 'Cmaj7', frets: [-1, 3, 2, 0, 0, 0] } },
+  ];
+  const HERO_PAT = { updown: 'straight up and back down', threes: 'in groups of three', fours: 'in groups of four', thirds: 'in thirds' };
+  // the notes of a scale under the hand, low to high (a pitch that appears twice is played on the lower string)
+  function heroLickNotes(L) {
+    const pcs = HERO_SCALES[L.sc].map((i) => (L.root + i) % 12), out = [], seen = new Set();
+    for (let s = 0; s < 6; s++) for (let f = L.lo; f <= L.hi; f++) {
+      const m = OPEN[s] + f;
+      if (pcs.indexOf(m % 12) >= 0 && !seen.has(m)) { seen.add(m); out.push({ s, f, m }); }
+    }
+    return out.sort((a, b) => a.m - b.m);
+  }
+  // the order a guitarist plays them in, with a length for each note (in beats) and a stress on the first of each group
+  function heroLickSeq(L, notes) {
+    const n = notes.length, seq = [];
+    const down = () => { for (let i = n - 2; i >= 0; i--) seq.push({ i, len: 0.5, acc: (n - 1 - i) % 4 === 0 }); };
+    if (L.pat === 'threes') { for (let i = 0; i + 2 < n; i++) for (let k = 0; k < 3; k++) seq.push({ i: i + k, len: 1 / 3, acc: k === 0 }); down(); }
+    else if (L.pat === 'fours') { for (let i = 0; i + 3 < n; i++) for (let k = 0; k < 4; k++) seq.push({ i: i + k, len: 0.25, acc: k === 0 }); down(); }
+    else if (L.pat === 'thirds') { for (let i = 0; i + 2 < n; i++) { seq.push({ i, len: 0.5, acc: true }); seq.push({ i: i + 2, len: 0.5, acc: false }); } down(); }
+    else { for (let i = 0; i < n; i++) seq.push({ i, len: 0.5, acc: i % 4 === 0 }); down(); }
+    seq[seq.length - 1].len = 2;   // the last note rings
+    return seq;
+  }
+  function heroLickDraw(L, notes) {
+    const g = $('hnDots');
+    if (!g) return;
+    g.innerHTML = notes.map((p, k) => {
+      const x = (hnFx(p.f - 1) + hnFx(p.f)) / 2, y = hnY(p.s), root = p.m % 12 === L.root;
+      return `<g class="hdot in${root ? ' root' : ''}" data-hd="${k}" style="animation-delay:${(k * 0.03).toFixed(2)}s"><circle cx="${x.toFixed(1)}" cy="${y}" r="12" fill="var(--dot)" stroke="var(--board)" stroke-width="2"/><text x="${x.toFixed(1)}" y="${y + 4.5}" text-anchor="middle" font-size="12" font-weight="800" fill="${root ? 'var(--root-fg)' : 'var(--dot-fg)'}">${SHARP_NAMES[p.m % 12].replace('#', '♯')}</text></g>`;
+    }).join('');
+    const cap = $('heroLick');
+    if (cap) cap.textContent = `${L.name} · frets ${L.lo}–${L.hi} · ${HERO_PAT[L.pat]} · strum: ${L.chord.name}`;
+  }
+  function heroHearPaint() {
+    const b = $('heroHear');
+    if (b) { b.setAttribute('aria-pressed', String(!!HERO.sound)); b.textContent = HERO.sound ? '♪ Sound on' : '♪ Hear the scales'; }
+  }
   function heroDots() {
-    clearInterval(HERO.dots);
+    clearTimeout(HERO.dots);
     const svg = $('heroNeck');
     if (!svg) return;
-    if (calmMotion()) { qsa(svg, '.hdot').forEach((d) => d.classList.add('on')); return; }
-    let i = 0;
-    HERO.dots = setInterval(() => {
-      if (!HERO.on || document.hidden) return;
-      const n = HERO_BOX.length, k = i % (n * 2);
-      const idx = k < n ? k : 2 * n - 1 - k;   // up the box and back down
-      qsa(svg, '.hdot').forEach((d) => d.classList.toggle('on', +d.getAttribute('data-hd') <= idx || k >= n && +d.getAttribute('data-hd') <= idx));
-      i++;
-    }, 230);
+    heroHearPaint();
+    HERO.li = HERO.li || 0;
+    const calm = calmMotion();
+    const startLick = () => {
+      if (!HERO.on) return;
+      const L = HERO_LICKS[HERO.li % HERO_LICKS.length];
+      HERO.lick = L;
+      const notes = heroLickNotes(L), seq = heroLickSeq(L, notes);
+      const cap = $('heroLick');
+      if (cap && cap.classList) cap.classList.remove('fade');
+      heroLickDraw(L, notes);
+      if (calm) { qsa(svg, '.hdot').forEach((d) => d.classList.add('trail')); HERO.li++; HERO.dots = setTimeout(startLick, 6000); return; }
+      const beat = 60 / 96;   // a relaxed practice tempo
+      let k = 0;
+      const step = () => {
+        if (!HERO.on) return;
+        if (document.hidden) { HERO.dots = setTimeout(step, 400); return; }
+        if (k >= seq.length) {
+          // a breath, then the next scale
+          if (cap && cap.classList) cap.classList.add('fade');
+          HERO.li++;
+          HERO.dots = setTimeout(startLick, 1300);
+          return;
+        }
+        const it = seq[k++], p = notes[it.i];
+        const el = svg.querySelector('[data-hd="' + it.i + '"]');
+        const sec = it.len * beat;
+        if (el && el.classList) {
+          el.classList.add('on'); el.classList.remove('trail');
+          setTimeout(() => { if (el.classList) { el.classList.remove('on'); el.classList.add('trail'); } }, Math.max(120, sec * 1000 * 0.9));
+          setTimeout(() => { if (el.classList) el.classList.remove('trail'); }, sec * 1000 * 4);
+        }
+        if (HERO.sound) {
+          try {
+            const c = audio();
+            if (c && c.state === 'running') pluckAt(p.m, c.currentTime + 0.01, Math.min(2.2, sec * 2.4), { vol: it.acc ? 0.2 : 0.15 });
+          } catch (e) {}
+        }
+        HERO.energy = Math.min(1, (HERO.energy || 0) + 0.05);
+        // a person's timing: not quite a machine
+        HERO.dots = setTimeout(step, sec * 1000 + (Math.random() - 0.5) * 24);
+      };
+      HERO.dots = setTimeout(step, 500);
+    };
+    startLick();
   }
   function heroStats() {
     const el = $('heroStats');
@@ -2058,6 +2169,12 @@
     setTimeout(done, 330);
   }
   function heroClick(t) {
+    if (t.closest('#heroHear')) {
+      HERO.sound = !HERO.sound;
+      try { audio(); } catch (e) {}
+      heroHearPaint();
+      return true;
+    }
     if (t.closest('#homeLink') || t.closest('#homeBtn')) { try { if (!$('guidePanel').hidden) openGuide(false); if (!$('sharePanel').hidden) openShare(false); openAcct(false); } catch (e) {} showHero(true); return true; }
     const b = t.closest('[data-hero]');
     if (!b) return false;
@@ -2401,7 +2518,9 @@
   /* pattern editor: pick a stroke, tap the boxes */
   const TOOLS = [['D', '↓', 'Down'], ['U', '↑', 'Up'], ['d', '↓', 'Soft down'], ['u', '↑', 'Soft up'], ['x', '×', 'Muted'], ['C', '↓', 'Top strings'], ['K', '↑', 'Short chop'],
     ['B', 'B', 'Bass'], ['A', 'b', 'Other bass'], ['P', '•', 'Pluck top 3'], ['T', 'B•', 'Bass + pluck'], ['1', '1', '1st string'], ['2', '2', '2nd string'], ['3', '3', '3rd string'], ['M', 'PM', 'Palm mute'], ['.', '', 'Erase']];
-  const ED = { open: false, id: null, name: '', grid: 2, beats: 4, steps: [], picks: [], mode: 'strum', swing: false, short: false, tool: 'D', armedDel: null, tx: null, txDir: 'beat', txAuto: true, txMsg: '', metro: false, take: null, takeGrid: 0, takeX: 1, fit: 0, padSlot: 0 };
+  let ED_MORE = false;
+  try { ED_MORE = localStorage.getItem('fretboard-edmore') === '1'; } catch (e) {}
+  const ED = { more: ED_MORE, fsCur: 0, fsTogether: false, fsHist: [], open: false, id: null, name: '', grid: 2, beats: 4, steps: [], picks: [], mode: 'strum', swing: false, short: false, tool: 'D', armedDel: null, tx: null, txDir: 'beat', txAuto: true, txMsg: '', metro: false, take: null, takeGrid: 0, takeX: 1, fit: 0, padSlot: 0 };
   const STR_NAMES = ['E', 'A', 'D', 'G', 'B', 'e'];
   const COUNT_NAMES = { 2: ['', '&'], 3: ['', 'trip', 'let'], 4: ['', 'e', '&', 'a'] };
   function openEditor(from, quiet) {
@@ -2436,10 +2555,10 @@
     const cnt = (i) => (i % ED.grid === 0 ? String((Math.floor(i / ED.grid) % 4) + 1) : names[i % ED.grid]);
     const barc = (i) => (i && i % (ED.grid * 4) === 0 ? ' bar' : '');
     const pick = ED.mode === 'pick';
-    let h = `<div class="rv-head"><b>${ED.id ? 'Edit pattern' : 'New pattern'}</b><span>${pick ? 'Tap the boxes to choose which strings to pick on each step. Tap again to clear.' : 'Pick a stroke below, then tap the boxes. Tap a box again to clear it.'} Or record it: strum the pad below, use the buttons, or the keyboard.</span></div>`
+    let h = `<div class="rv-head"><b>${ED.id ? 'Edit pattern' : 'New pattern'}</b><span>${pick ? 'Tap the strings in the order you pick them, or tap the neck: each column is one step, and strings in the same column sound together.' : 'Pick a stroke below, then tap the boxes. Tap a box again to clear it.'}</span></div>`
       + `<div class="row ed-row">`
       + `<label class="field"><span>Name</span><input type="text" id="edName" maxlength="40" value="${esc(ED.name).replace(/"/g, '&quot;')}" autocomplete="off"></label>`
-      + `<div class="field"><span>Type</span><div class="seg">${segb('mode', 'strum', 'Strumming', !pick)}${segb('mode', 'pick', 'Picking (per string)', pick)}</div></div>`
+      + `<div class="field"><span>Type</span><div class="seg">${segb('mode', 'strum', 'Strumming', !pick)}${segb('mode', 'pick', 'Fingerstyle (pick strings)', pick)}</div></div>`
       + `<label class="field"><span>Length</span><select id="edBeats">${[1, 2, 3, 4, 5, 6, 7, 8, 12, 16].map((b) => `<option value="${b}"${b === ED.beats ? ' selected' : ''}>${b} ${b === 1 ? 'beat' : 'beats'}</option>`).join('')}</select></label>`
       + `<div class="field"><span>Subdivision</span><div class="seg">${segb('grid', 2, '8ths', ED.grid === 2)}${segb('grid', 3, 'Triplets', ED.grid === 3)}${segb('grid', 4, '16ths', ED.grid === 4)}</div></div>`
       + (ED.grid === 2 ? `<div class="field"><span>Feel</span><div class="seg">${segb('swing', 0, 'Straight', !ED.swing)}${segb('swing', 1, 'Swing', ED.swing)}</div></div>` : '')
@@ -2452,17 +2571,37 @@
         + ED.steps.map((c, i) => `<button type="button" class="rv-cell${i % ED.grid === 0 ? ' beat' : ''}${barc(i)}${RCLASS[c] ? ' ' + RCLASS[c] : ''}" data-cell="${i}" aria-label="Step ${i + 1}: ${c === '.' ? 'rest' : esc((TOOLS.find((x) => x[0] === c) || ['', '', c])[2])}"><b>${RSYM[c] || ''}</b><small>${cnt(i)}</small></button>`).join('')
         + `</div>`;
     } else {
-      // tab layout: high e on top
-      h += `<div class="pgrid" role="group" aria-label="Picking grid">`;
-      for (let s = 5; s >= 0; s--) {
-        h += `<div class="prow"><span class="plbl">${STR_NAMES[s]}</span>`
-          + ED.picks.map((m, i) => `<button type="button" class="pcell${i % ED.grid === 0 ? ' beat' : ''}${barc(i)}${m & (1 << s) ? ' on' : ''}" data-pcell="${s}:${i}" aria-pressed="${!!(m & (1 << s))}" aria-label="${STR_NAMES[s]} string, step ${i + 1}"></button>`).join('')
-          + `</div>`;
-      }
-      h += `<div class="prow counts"><span class="plbl"></span>${ED.picks.map((m, i) => `<span class="pcount${i % ED.grid === 0 ? ' beat' : ''}${barc(i)}" data-pc="${i}">${cnt(i)}</span>`).join('')}</div></div>`;
+      // the fingerstyle builder: a neck to tap, high e on top like tab; each column is one step, strings in one column sound together
+      const n = ED.picks.length;
+      ED.fsCur = Math.max(0, Math.min(n - 1, ED.fsCur || 0));
+      const FING = ['p', 'p', 'p', 'i', 'm', 'a'];   // the right hand: thumb on the three bass strings, then index, middle, ring
+      const FNAME = { p: 'thumb', i: 'index', m: 'middle', a: 'ring' };
+      h += `<div class="fsq" role="group" aria-label="Tap strings in order">`
+        + `<span class="fsq-lbl">Tap strings in order:</span>`
+        + [5, 4, 3, 2, 1, 0].map((s) => `<button type="button" class="fsstr${s < 3 ? ' bass' : ''}" data-fsstr="${s}" title="Pick the ${STR_NAMES[s]} string (${FNAME[FING[s]]}) at step ${ED.fsCur + 1}"><b>${STR_NAMES[s]}</b><small>${FING[s]}</small></button>`).join('')
+        + `<button type="button" class="tapbtn fstog" data-fs="together" aria-pressed="${!!ED.fsTogether}" title="Strings you tap now sound at the same time">${ED.fsTogether ? '✓ Together' : 'Together'}</button>`
+        + `<button type="button" class="tapbtn" data-fs="next">Next step →</button>`
+        + `<button type="button" class="tapbtn" data-fs="rest">Rest</button>`
+        + `<button type="button" class="tapbtn" data-fs="undo"${ED.fsHist.length ? '' : ' disabled'}>↶ Undo</button></div>`;
+      h += `<div class="fsb" role="group" aria-label="Fingerstyle pattern on the neck"><div class="fslbls" aria-hidden="true">`
+        + [5, 4, 3, 2, 1, 0].map((s) => `<span><b>${STR_NAMES[s]}</b><i>${FING[s]}</i></span>`).join('') + `<span></span></div>`;
+      ED.picks.forEach((m, i) => {
+        const on = [0, 1, 2, 3, 4, 5].filter((s) => m & (1 << s));
+        const rows = on.map((s) => 5 - s);
+        const pinch = on.length > 1;
+        h += `<div class="fscol${i % ED.grid === 0 ? ' beat' : ''}${barc(i)}${i === ED.fsCur ? ' cur' : ''}${pinch ? ' pinch' : ''}" data-pc="${i}"${pinch ? ` style="--p1:${Math.min.apply(null, rows)};--p2:${Math.max.apply(null, rows)}"` : ''}>`
+          + [5, 4, 3, 2, 1, 0].map((s) => `<button type="button" class="fscell${s < 3 ? ' wound' : ''}${m & (1 << s) ? ' on' : ''}${s < 3 ? ' bass' : ''}" data-s="${s}" data-f="${FING[s]}" data-pcell="${s}:${i}" aria-pressed="${!!(m & (1 << s))}" aria-label="${STR_NAMES[s]} string, step ${i + 1} (${cnt(i)})"></button>`).join('')
+          + `<span class="fscount">${cnt(i)}</span></div>`;
+      });
+      h += `</div>`;
+      h += `<div class="fsfoot"><span class="fsq-lbl">Start from:</span>`
+        + FS_PRESETS.map((p) => `<button type="button" class="tapbtn lssmall" data-fspreset="${p.id}" title="${esc(p.hint)}">${esc(p.name)}</button>`).join('')
+        + `<span class="fslegend"><b>p</b> thumb · <b>i</b> index · <b>m</b> middle · <b>a</b> ring. A glowing bar joins strings played together. A bass note on a string the chord does not use plays the chord’s bass.</span></div>`;
     }
     const pc = practiceChord();
     const chordOpts = P.slots.length ? `<label class="field padchord"><span>Chord on the pad</span><select id="padSlot">${P.slots.map((s, i) => `<option value="${i}"${i === Math.min(ED.padSlot, P.slots.length - 1) ? ' selected' : ''}>${i + 1}. ${esc(s.name)}</option>`).join('')}</select></label>` : '';
+    const moreOpen = ED.more || REC.on || GTR.on || !!ED.take || !!ED.tx;
+    h += `<details class="edmore" id="edMore"${moreOpen ? ' open' : ''}><summary>More ways to make a pattern <small>play it on the strum pad, record a take, or let the site hear your real guitar</small></summary>`;
     h += `<div class="recbox"><div class="recbar"><button type="button" class="tapbtn rec${REC.on ? ' live' : ''}" id="recBtn">${REC.on ? '■ Stop' : '● Record a take'}</button>`
       + `<label class="check"><input type="checkbox" id="recMetro"${ED.metro ? ' checked' : ''}${REC.on ? ' disabled' : ''}> Play to a click (${Math.round(P.bpm * P.speed)} BPM, 4-beat count-in)</label>`
       + `<label class="check"><input type="checkbox" id="txAuto"${ED.txAuto ? ' checked' : ''}> Set the tempo from my playing</label></div>`
@@ -2470,7 +2609,7 @@
       + `<canvas class="takelane" id="takeLane" height="64"${REC.on || ED.take ? '' : ' hidden'} aria-label="Your take: every hit, with the beats and bars found in it"></canvas>`
       + takeCard() + `</div>`
       + `<div class="padwrap"><div class="padhead"><b>Strum pad</b><span>Drag down or up across the strings to strum, tap one string to pick it. Low E is at the top, as when you look down at your guitar. Plays ${esc(pc.name)}.</span>${chordOpts}</div>`
-      + `<div class="strumpad${REC.on ? ' live' : ''}" id="strumPad">${[0, 1, 2, 3, 4, 5].map((s) => `<span class="pstr" data-pstr="${s}" style="top:${((s + 0.5) / 6 * 100).toFixed(2)}%"><i>${STR_NAMES[s]}</i></span>`).join('')}</div>`
+      + `<div class="strumpad${REC.on ? ' live' : ''}" id="strumPad">${padWood()}${[0, 1, 2, 3, 4, 5].map((s) => `<span class="pstr${s < 3 ? ' wound' : ''}" data-pstr="${s}" style="top:${((s + 0.5) / 6 * 100).toFixed(2)}%"><i>${STR_NAMES[s]}</i></span>`).join('')}</div>`
       + `<div class="padbtns">${[['D', '↓ Down'], ['U', '↑ Up'], ['d', '↓ Soft'], ['u', '↑ Soft'], ['x', '× Mute']].map(([k, l]) => `<button type="button" class="tapbtn" data-padhit="${k}">${l}</button>`).join('')}</div>`
       + `<p class="hint2">Keyboard: ↓ and ↑ arrows strum (hold Shift for soft), X mutes, keys 1–6 pick strings (1 = high e, 6 = low E).</p></div>`
       + `<div class="padwrap txwrap" id="txBlock"><div class="padhead"><b>From your guitar</b><span>Play the pattern on your real guitar and the site writes it down. Press <b>Listen to my guitar</b> and strum it live, or choose a recording. Start on beat 1 and play it once or twice. Each hit becomes a box: muted hits become ×, quieter ones become soft strums, and the tempo follows your playing. In Picking mode it works out which string each note was on, from the shape of ${esc(pc.name)}.</span></div>`
@@ -2481,10 +2620,12 @@
       + (ED.tx ? `<canvas class="txwave" id="txWave" height="90" aria-label="The recording, with each hit marked"></canvas><p class="txkey"><i class="k hit"></i> strum or note <i class="k ghost"></i> soft <i class="k mute"></i> muted</p>` : '')
       + `<div class="gtrlive" id="gtrLive"${GTR.on ? '' : ' hidden'}><div class="gtrmain"><div class="gtrmeter"><i id="gtrLevel"></i></div><div class="gtrdots" id="gtrDots"></div><p class="gtrinfo" id="gtrInfo">Listening… start strumming on beat 1.</p><p class="gtrchord" id="gtrChord"></p></div><button type="button" class="lsmini gtrmini" id="gtrMini" data-ls="circle" title="Open in the Key explorer"></button></div>`
       + `<p class="recstate" id="txState" role="status">${esc(ED.txMsg)}</p>`
-      + `<p class="hint2">The sound never leaves your device. Pages shown inside the Claude app cannot use the microphone; there, choose a recording instead.</p></div>`
+      + `<p class="hint2">The sound never leaves your device. Pages shown inside the Claude app cannot use the microphone; there, choose a recording instead.</p></div></details>`
       + `<div class="ed-actions"><button type="button" class="tapbtn" id="edHear">Hear it</button><button type="button" class="tapbtn" id="edClear">Clear boxes</button>`
       + `<button type="button" class="tapbtn strong" id="edSave">${ED.id ? 'Save changes' : 'Save pattern'}</button><button type="button" class="tapbtn" id="edCancel">Close</button></div>`;
     box.innerHTML = h;
+    const more = $('edMore');
+    if (more && more.addEventListener) more.addEventListener('toggle', () => { ED.more = more.open; try { localStorage.setItem('fretboard-edmore', more.open ? '1' : '0'); } catch (e) {} });
     drawTx();
     drawTake();
   }
@@ -2858,6 +2999,25 @@
   }
   // the pad: crossing string lines while dragging plays them in order
   let PAD = null;
+  // the strum pad drawn like the real necks on the site: rosewood with grain, binding, a bone nut, metal frets and pearl inlays
+  let PADWOOD = '';
+  function padWood() {
+    if (PADWOOD) return PADWOOD;
+    const at = (n) => `calc(34px + (100% - 46px) * ${((1 - Math.pow(2, -n / 12)) / (1 - Math.pow(2, -1))).toFixed(4)})`;
+    let seed = 5; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    let grain = '';
+    for (let k = 0; k < 22; k++) {
+      const y = 4 + rnd() * 182, len = 200 + rnd() * 420, x = rnd() * (1000 - len), a = 0.6 + rnd() * 1.6;
+      grain += `<path d="M${x.toFixed(1)} ${y.toFixed(1)} q${(len / 4).toFixed(1)} ${(-a).toFixed(1)} ${(len / 2).toFixed(1)} 0 t${(len / 2).toFixed(1)} 0" stroke="${rnd() > 0.5 ? '#000' : '#6b4a35'}" stroke-opacity="${(0.1 + rnd() * 0.12).toFixed(2)}" stroke-width="${(0.8 + rnd() * 1.6).toFixed(1)}" fill="none" vector-effect="non-scaling-stroke"/>`;
+    }
+    let h = `<div class="padwood" aria-hidden="true"><svg class="padgrain" viewBox="0 0 1000 190" preserveAspectRatio="none">${grain}</svg><i class="padnut"></i>`;
+    for (let n = 1; n <= 12; n++) h += `<i class="padfret" style="left:${at(n)}"></i>`;
+    const mid = (n) => `calc((${at(n - 1)} + ${at(n)}) / 2)`;
+    [3, 5, 7, 9].forEach((n) => { h += `<i class="padinlay" style="left:${n === 1 ? '0' : mid(n)};top:50%"></i>`; });
+    [33.33, 66.67].forEach((y) => { h += `<i class="padinlay" style="left:${mid(12)};top:${y}%"></i>`; });
+    PADWOOD = h + '</div>';
+    return PADWOOD;
+  }
   function padY(e) { const r = $('strumPad').getBoundingClientRect(); return { y: e.clientY - r.top, h: r.height }; }
   const lineY = (s, h) => ((s + 0.5) / 6) * h;
   document.addEventListener('pointerdown', (e) => {
@@ -2971,6 +3131,53 @@
     const r = cleanRhythm({ id: 'cstroke', grid: 2, beats: 1, steps: c + '.', short: ED.short });
     previewRhythm(r, () => {});
   }
+  // ----- the fingerstyle builder: tap strings in order, play some together, start from a classic pattern -----
+  // starting points, one bar of 8ths: each step lists its strings (0 = low E / the chord's bass ... 5 = high e)
+  const FS_PRESETS = [
+    { id: 'travis', name: 'Travis picking', hint: 'Thumb alternates the bass on every beat, fingers pick in between.', steps: [[0], [3], [2], [4], [0], [3], [2], [5]] },
+    { id: 'roll', name: 'Ballad roll', hint: 'Bass, then the fingers roll up the top strings and back down.', steps: [[0], [3], [4], [5], [2], [5], [4], [3]] },
+    { id: 'pinch', name: 'Pinch pattern', hint: 'Thumb and ring finger together on the beat, then the middle strings.', steps: [[0, 5], [3], [4], [3], [1, 5], [3], [4], [3]] },
+    { id: 'arp', name: 'Arpeggio', hint: 'Every string from the bass up, then back down.', steps: [[0], [2], [3], [4], [5], [4], [3], [2]] },
+  ];
+  function fsAdvance() { ED.fsCur = Math.min(ED.picks.length - 1, (ED.fsCur || 0) + 1); }
+  function fsClick(t) {
+    const st = t.closest('[data-fsstr]');
+    if (st) {
+      const s = +st.getAttribute('data-fsstr'), i = Math.max(0, Math.min(ED.picks.length - 1, ED.fsCur || 0));
+      ED.fsHist.push([i, ED.picks[i]]);
+      ED.picks[i] |= 1 << s;
+      padString(s, 0.17);
+      const full = i === ED.picks.length - 1;
+      if (!ED.fsTogether) fsAdvance();
+      renderEditor();
+      if (full && !ED.fsTogether) say('That was the last step. Make the pattern longer (Length), or tap a step on the neck to change it.');
+      return true;
+    }
+    const b = t.closest('[data-fs]');
+    if (b) {
+      const a = b.getAttribute('data-fs');
+      if (a === 'together') { ED.fsTogether = !ED.fsTogether; if (!ED.fsTogether && ED.picks[ED.fsCur]) fsAdvance(); }
+      else if (a === 'next' || a === 'rest') { if (a === 'rest') { ED.fsHist.push([ED.fsCur, ED.picks[ED.fsCur]]); ED.picks[ED.fsCur] = 0; } fsAdvance(); }
+      else if (a === 'undo') { const u = ED.fsHist.pop(); if (u) { ED.picks[u[0]] = u[1]; ED.fsCur = u[0]; } }
+      renderEditor();
+      return true;
+    }
+    const pr = t.closest('[data-fspreset]');
+    if (pr) {
+      const P0 = FS_PRESETS.find((x) => x.id === pr.getAttribute('data-fspreset'));
+      if (!P0) return true;
+      ED.fsHist = [];
+      ED.grid = 2; ED.beats = 4;
+      ED.steps = new Array(8).fill('.');
+      ED.picks = P0.steps.map((list) => list.reduce((m, s) => m | (1 << s), 0));
+      if (!ED.name || /^my (pattern|chord)/i.test(ED.name)) ED.name = P0.name;
+      ED.fsCur = 0;
+      renderEditor();
+      try { previewRhythm(draft(), (pos) => qsa($('rhythmEdit'), '[data-pc]').forEach((el) => el.classList.toggle('stepon', +el.getAttribute('data-pc') === pos))); } catch (e) {}
+      return true;
+    }
+    return false;
+  }
   function edClick(t) {
     const tool = t.closest('[data-tool]');
     if (tool) { const v = tool.getAttribute('data-tool'); ED.tool = v === 'erase' ? '.' : v; renderEditor(); edPlayStroke(ED.tool); return true; }
@@ -2985,11 +3192,14 @@
     const pcell = t.closest('[data-pcell]');
     if (pcell) {
       const [s, i] = pcell.getAttribute('data-pcell').split(':').map(Number);
+      ED.fsHist.push([i, ED.picks[i]]);
       ED.picks[i] ^= 1 << s;
-      paintPickCell(s, i);
+      ED.fsCur = i;
+      renderEditor();
       if (ED.picks[i] & (1 << s)) padString(s, 0.17);
       return true;
     }
+    if (fsClick(t)) return true;
     const ph = t.closest('[data-padhit]');
     if (ph) {
       const k = ph.getAttribute('data-padhit');
@@ -7153,7 +7363,7 @@
       { sel: '#fbCirc', tab: 'fretboard', t: 'The small circle', b: 'The dark slice is the key of the scale on the neck; the highlighted slices are its chords. Tap one to show it on the neck. Once a chord is picked, the circle marks the chords that usually come next.' },
       { sel: '#pickBtn', tab: 'fretboard', t: 'Pick notes', b: 'Turns the neck into a note picker: tap notes, hear them together, and send them to the chord creator or straight into your progression. The lowest note becomes the bass.' },
       { sel: '#chordPanel', tab: 'fretboard', t: 'Chords inside the scale', b: 'Every 7-note scale contains seven chords. Tap one to see where its notes sit inside the scale, and its shapes open right below it.' },
-      { sel: '#pinBtn', tab: 'fretboard', t: 'Keep the neck in view', b: 'While you look at chord shapes, the neck stays pinned at the top so you can see the whole fretboard. Tap to unpin it.' },
+      { sel: '#pinBtn', tab: 'fretboard', t: 'Keep the neck in view', b: 'The neck stays pinned at the top while you scroll through chords and shapes, so you can always see the fretboard. Tap to unpin it.' },
     ],
     keys: [
       { sel: '#circle', tab: 'keys', t: 'The circle of fifths', b: 'Clockwise adds a sharp, anticlockwise adds a flat. The inner ring holds each key’s relative minor. The shaded slice holds the key’s main chords.' },
