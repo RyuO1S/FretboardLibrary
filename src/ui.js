@@ -23,19 +23,20 @@
       }
     };
   }
-
   // the address the page was opened with (before the tabs rewrite it)
   let HASH0 = '';
   try { HASH0 = (location.hash || '').slice(1); } catch (e) {}
   // a link from an account email: ?token_hash=…&type=… (works in any browser), ?code=… (only in the browser that asked), or an error
-  const AUTHLINK = { th: '', type: '', code: false, err: '', errCode: '' };
+  const AUTHLINK = { th: '', type: '', code: false, err: '', errCode: '', tokens: false, done: false };
+  const mayWriteHash = () => !AUTHLINK.tokens || AUTHLINK.done;
   try {
     const qs = new URLSearchParams(location.search || ''), hs = new URLSearchParams(HASH0.indexOf('=') > 0 ? HASH0 : '');
     AUTHLINK.th = qs.get('token_hash') || ''; AUTHLINK.type = qs.get('type') || '';
     AUTHLINK.code = !!qs.get('code');
     AUTHLINK.err = qs.get('error_description') || hs.get('error_description') || '';
     AUTHLINK.errCode = qs.get('error_code') || hs.get('error_code') || '';
-    if (AUTHLINK.err || hs.get('error')) HASH0 = '';   // an error in the address is not a page of the site
+    AUTHLINK.tokens = !!hs.get('access_token');
+    if (AUTHLINK.err || hs.get('error') || AUTHLINK.tokens) HASH0 = '';   // a sign-in or an error in the address is not a page of the site
   } catch (e) {}
 
   /* ---------- theme: dark by default; the button switches to light (and back) and remembers the choice ---------- */
@@ -2044,7 +2045,7 @@
       heroFx(); heroNeck(); heroType(); heroDots(); heroStats();
       try { const k = $('heroKeep'); if (k) k.checked = localStorage.getItem('fretboard-hero-skip') !== '1'; } catch (e) {}
       try { window.scrollTo(0, 0); } catch (e) {}
-      try { if (location.hash !== '#home') history.replaceState(null, '', location.href.split('#')[0] + '#home'); } catch (e) {}
+      try { if (mayWriteHash() && location.hash !== '#home') history.replaceState(null, '', location.href.split('#')[0] + '#home'); } catch (e) {}
     }
     try { syncDock(); } catch (e) {}
   }
@@ -6409,9 +6410,11 @@
     renderLib();
     try {
       if (!window.supabase || !window.supabase.createClient) await loadScript(SUPABASE_JS);
-      // PKCE: the sign-in link comes back as ?code=…, which leaves the page's #tab address alone
-      CLOUD.sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+      // implicit flow: links in account emails (and Google) come back with the sign-in in the address (#access_token=…),
+      // so they work in any browser or device, not only the one that asked; the page then tidies the address
+      CLOUD.sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { flowType: 'implicit', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     } catch (e) {
+      AUTHLINK.done = true;
       useBrowser('Accounts cannot be reached right now, so progressions are saved in this browser only.');
       return;
     }
@@ -6430,12 +6433,14 @@
       const u = new URL(location.href);
       ['token_hash', 'type', 'code', 'error', 'error_code', 'error_description'].forEach((k) => u.searchParams.delete(k));
       const h = (u.hash || '').slice(1);
-      if (h.indexOf('error') >= 0 || h.indexOf('access_token') >= 0) u.hash = '';
+      if (h.indexOf('error') >= 0 || h.indexOf('access_token') >= 0) u.hash = HERO.on ? '#home' : tabHash(TAB);
       history.replaceState(null, '', u.pathname + u.search + u.hash);
     } catch (e) {}
+    AUTHLINK.done = true;
   }
   async function authFromLink(hadSession) {
     const L = AUTHLINK;
+    if (L.tokens) { setTimeout(cleanAuthLink, 300); if (!L.err) return; }
     if (!L.th && !L.code && !L.err) return;
     cleanAuthLink();
     if (L.err) {
@@ -6499,8 +6504,7 @@
   const acctSay = (m) => { libSay(m); ['acctMsg', 'heroAcctMsg'].forEach((id) => { const el = $(id); if (el) el.textContent = m || ''; }); };
   async function cloudSignIn(kind, inputId) {
     if (!CLOUD.sb || CLOUD.busy) return;
-    const here = (location.hash || '').slice(1);
-    const back = location.origin + location.pathname + '#' + (here && here !== 'home' ? here : 'progression');
+    const back = location.origin + location.pathname;
     if (kind === 'google') {
       try { await CLOUD.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } }); } catch (e) { acctSay('Google sign-in could not start. Try the email link instead.'); }
       return;
@@ -6564,7 +6568,7 @@
   // the name to greet someone by: the one they gave, or Google's, or the start of their email
   const userName = (u) => { if (!u) return ''; const m = u.user_metadata || {}; return String(m.full_name || m.name || (u.email || '').split('@')[0] || 'you').trim(); };
   // where links in emails (and Google) bring people back to: the page they were on
-  const authBack = () => { const here = (location.hash || '').slice(1); return location.origin + location.pathname + (here && here !== 'home' ? '#' + here : ''); };
+  const authBack = () => location.origin + location.pathname;   // plain address: the sign-in arrives after a # (implicit flow)
   // Supabase's messages, said plainly
   function authErr(e) {
     const m = String((e && (e.message || e.error_description)) || e || '');
@@ -6816,6 +6820,7 @@
   }
   async function initLib() {
     const cfg = window.FRETBOARD_CONFIG || {};
+    if (!(cfg.supabaseUrl && cfg.supabaseAnonKey)) AUTHLINK.done = true;
     const inClaude = !!(window.claude && window.claude.use);
     if (!inClaude && cfg.supabaseUrl && cfg.supabaseAnonKey) { initCloud(cfg); return; }
     let db = null, user = null;
@@ -8000,7 +8005,7 @@
       TAB = t;
       qsa(document, '[data-go]').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-go') === t)));
       try { localStorage.setItem('fretboard-tab', t); } catch (e) {}
-      try { if (location.hash !== tabHash(t)) history.replaceState(null, '', tabHash(t)); } catch (e) {}
+      try { if (mayWriteHash() && location.hash !== tabHash(t)) history.replaceState(null, '', tabHash(t)); } catch (e) {}
       const el = $(TAB_TARGET[t]);
       const nav = document.querySelector && document.querySelector('.tabs');
       if (el && el.getBoundingClientRect && window.scrollTo) {
@@ -8017,7 +8022,7 @@
     if (app && app.setAttribute) app.setAttribute('data-tab', t);
     qsa(document, '[data-go]').forEach((b) => b.setAttribute('aria-selected', String(b.getAttribute('data-go') === t)));
     try { localStorage.setItem('fretboard-tab', t); } catch (e) {}
-    try { if (location.hash !== tabHash(t)) history.replaceState(null, '', tabHash(t)); } catch (e) {}
+    try { if (mayWriteHash() && location.hash !== tabHash(t)) history.replaceState(null, '', tabHash(t)); } catch (e) {}
     if (changed) {
       maybeLearnTour(t);
       wantJump = true;
