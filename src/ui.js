@@ -1667,7 +1667,7 @@
 
   /* ==================== Welcome page: typing headline, a neck you can strum, the five areas ==================== */
   const HERO = { on: false, timer: 0, dots: 0, raf: 0, strings: [], last: null, typeT: 0 };
-  const HERO_LINES = ['Where ideas collide.', 'Find the scale.', 'Hear the chord.', 'Build the progression.', 'Tune your guitar.', 'Write the solo.', 'Finish it in your DAW.', 'Where ideas collide.'];
+  const HERO_LINES = ['Find the scale.', 'Hear the chord.', 'Build the progression.', 'Tune your guitar.', 'Write the solo.', 'Finish it in your DAW.'];
   function heroType() {
     const el = $('heroType');
     if (!el) return;
@@ -1678,11 +1678,11 @@
       const line = HERO_LINES[li];
       if (!del) {
         ci++; el.textContent = line.slice(0, ci);
-        if (ci >= line.length) { if (li === HERO_LINES.length - 1) return; del = true; HERO.typeT = setTimeout(step, li === 0 ? 1800 : 1100); return; }
+        if (ci >= line.length) { del = true; HERO.typeT = setTimeout(step, li === 0 ? 1800 : 1100); return; }
         HERO.typeT = setTimeout(step, 45 + Math.random() * 55);
       } else {
         ci--; el.textContent = line.slice(0, ci);
-        if (ci <= 0) { del = false; li++; HERO.typeT = setTimeout(step, 260); return; }
+        if (ci <= 0) { del = false; li = (li + 1) % HERO_LINES.length; HERO.typeT = setTimeout(step, 260); return; }
         HERO.typeT = setTimeout(step, 22);
       }
     };
@@ -2906,7 +2906,7 @@
       e.preventDefault();
       return;
     }
-    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); const sp = $('sharePanel'); if (sp && !sp.hidden) openShare(false); const ap = $('acctPanel'); if (ap && !ap.hidden) openAcct(false); }
+    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); const sp = $('sharePanel'); if (sp && !sp.hidden) openShare(false); const ap = $('acctPanel'); if (ap && !ap.hidden) openAcct(false); if (authOpen()) closeAuth(); }
     if (!ED.open || e.ctrlKey || e.metaKey || e.altKey || (LAYOUT === "tabs" && TAB !== "progression")) return;
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
@@ -6405,7 +6405,7 @@
       useBrowser('Accounts cannot be reached right now, so progressions are saved in this browser only.');
       return;
     }
-    CLOUD.sb.auth.onAuthStateChange((ev, session) => { setTimeout(() => cloudSession(session), 0); });
+    CLOUD.sb.auth.onAuthStateChange((ev, session) => { setTimeout(() => { cloudSession(session).then(() => { if (ev === 'PASSWORD_RECOVERY') openAuth('reset'); }); }, 0); });
     try {
       const r = await CLOUD.sb.auth.getSession();
       await cloudSession(r && r.data && r.data.session);
@@ -6444,7 +6444,7 @@
   }
   const cloudRow = (id, rec) => ({ user_id: CLOUD.user.id, id, name: rec.name, data: rec, updated_at: new Date(rec.updatedAt || Date.now()).toISOString() });
   // messages go to the box on the Progression page and to the account panel in the top bar
-  const acctSay = (m) => { libSay(m); const el = $('acctMsg'); if (el) el.textContent = m || ''; };
+  const acctSay = (m) => { libSay(m); ['acctMsg', 'heroAcctMsg'].forEach((id) => { const el = $(id); if (el) el.textContent = m || ''; }); };
   async function cloudSignIn(kind, inputId) {
     if (!CLOUD.sb || CLOUD.busy) return;
     const here = (location.hash || '').slice(1);
@@ -6490,31 +6490,223 @@
   }
   // the account button in the top bar, and its panel
   function renderAcctTop() {
+    try { renderHeroAcct(); } catch (e) {}
     const btn = $('acctBtn'), lbl = $('acctBtnLbl'), panel = $('acctPanel');
     if (!btn) return;
     btn.hidden = !CLOUD.cfg;
     if (!CLOUD.cfg) { if (panel) panel.hidden = true; return; }
     const signedIn = LIB.mode === 'cloud' && !!CLOUD.user;
-    const who = signedIn ? String(CLOUD.user.email || 'Account').split('@')[0] : '';
+    const who = signedIn ? userName(CLOUD.user) : '';
     if (lbl) lbl.textContent = signedIn ? (who.length > 14 ? who.slice(0, 13) + '…' : who) : 'Sign in';
     if (btn.classList) btn.classList.toggle('in', signedIn);
     btn.title = signedIn ? 'Signed in as ' + (CLOUD.user.email || '') : 'Sign in to keep your progressions on every device';
     if (!panel || panel.hidden) return;
-    const keep = $('acctEmail') ? $('acctEmail').value : '';
     if (signedIn) {
-      panel.innerHTML = `<h3>Your account</h3><p>Signed in as <b>${esc(CLOUD.user.email || 'you')}</b>. Your saved progressions are kept in your account, on every device you sign in on.</p>`
+      panel.innerHTML = `<h3>${esc(userName(CLOUD.user))}</h3><p>Signed in as <b>${esc(CLOUD.user.email || 'you')}</b>. You stay signed in on this device until you sign out. Your saved progressions are in your account, on every device.</p>`
         + `<div class="acctacts"><button type="button" class="tapbtn strong" data-acctp="mine">My progressions</button><button type="button" class="tapbtn" data-acct="out">Sign out</button></div><p class="acctmsg" id="acctMsg"></p>`;
-    } else if (CLOUD.sent) {
-      panel.innerHTML = `<h3>Check your email</h3><p>We sent a sign-in link to <b>${esc(CLOUD.sent)}</b>. Open it on this device to finish signing in. It can take a minute; look in spam too.</p>`
-        + `<div class="acctacts"><button type="button" class="tapbtn" data-acct="again">Use another email</button></div><p class="acctmsg" id="acctMsg"></p>`;
+    } else panel.hidden = true;
+  }
+  /* ==================== The account screen: sign in, create a Fretboard account, Google, forgotten passwords ==================== */
+  const AUTH = { view: 'signin', msg: '', kind: '', busy: false, email: '', name: '', showPw: false, checkText: '', resendType: '', lastFocus: null };
+  const G_LOGO = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+  // the name to greet someone by: the one they gave, or Google's, or the start of their email
+  const userName = (u) => { if (!u) return ''; const m = u.user_metadata || {}; return String(m.full_name || m.name || (u.email || '').split('@')[0] || 'you').trim(); };
+  // where links in emails (and Google) bring people back to: the page they were on
+  const authBack = () => { const here = (location.hash || '').slice(1); return location.origin + location.pathname + (here && here !== 'home' ? '#' + here : ''); };
+  // Supabase's messages, said plainly
+  function authErr(e) {
+    const m = String((e && (e.message || e.error_description)) || e || '');
+    if (/invalid login credentials/i.test(m)) return 'That email and password don’t match. Check them, or use “Forgot password?”.';
+    if (/email not confirmed/i.test(m)) return 'Your account is waiting for you to confirm your email. Open the link we sent you (look in spam too).';
+    if (/already registered|already exists/i.test(m)) return 'There is already an account with this email. Sign in instead.';
+    if (/rate limit|too many|security purposes/i.test(m)) return 'Too many tries in a short time. Wait a minute and try again.';
+    if (/password should be|weak password|at least/i.test(m)) return 'Choose a longer password: at least 8 characters.';
+    if (/provider is not enabled|unsupported provider/i.test(m)) return 'Google sign-in is not switched on yet. Use your email and a password for now.';
+    if (/network|failed to fetch/i.test(m)) return 'The account service could not be reached. Check your internet connection and try again.';
+    return m ? 'Something went wrong: ' + m : 'Something went wrong. Try again.';
+  }
+  const authOpen = () => { const w = $('authWrap'); return !!(w && !w.hidden); };
+  function openAuth(view) {
+    const w = $('authWrap');
+    if (!w || !CLOUD.cfg) return;
+    try { openAcct(false); openShare(false); openGuide(false); closeInfo(); } catch (e) {}
+    AUTH.view = view || 'signin'; AUTH.msg = ''; AUTH.kind = ''; AUTH.showPw = false; AUTH.busy = false;
+    if (!authOpen()) AUTH.lastFocus = document.activeElement;
+    w.hidden = false;
+    try { document.documentElement.style.overflow = 'hidden'; } catch (e) {}
+    renderAuth();
+  }
+  function closeAuth() {
+    const w = $('authWrap');
+    if (!w || w.hidden) return;
+    w.hidden = true;
+    try { document.documentElement.style.overflow = ''; } catch (e) {}
+    try { if (AUTH.lastFocus && AUTH.lastFocus.focus) AUTH.lastFocus.focus(); } catch (e) {}
+  }
+  function authSay(msg, kind) {
+    AUTH.msg = msg || ''; AUTH.kind = kind || 'err';
+    const el = $('authMsg');
+    if (el) { el.textContent = AUTH.msg; el.className = 'auth-msg ' + AUTH.kind; el.hidden = !AUTH.msg; }
+  }
+  function renderAuth() {
+    const card = $('authCard');
+    if (!card) return;
+    const v = AUTH.view, google = !!(CLOUD.cfg && CLOUD.cfg.google);
+    const field = (id, label, type, ac, extra) => `<label class="auth-field"><span>${label}</span>${type === 'password'
+      ? `<div class="auth-pw"><input id="${id}" type="${AUTH.showPw ? 'text' : 'password'}" autocomplete="${ac}" ${extra || ''}><button type="button" data-auth="showpw" aria-label="${AUTH.showPw ? 'Hide password' : 'Show password'}">${AUTH.showPw ? 'Hide' : 'Show'}</button></div>`
+      : `<input id="${id}" type="${type}" autocomplete="${ac}" ${extra || ''}>`}</label>`;
+    const gBtn = google ? `<button type="button" class="auth-google" data-auth="google">${G_LOGO}Continue with Google</button><div class="auth-or">or</div>` : '';
+    const msg = `<p class="auth-msg ${AUTH.kind}" id="authMsg" role="alert"${AUTH.msg ? '' : ' hidden'}>${esc(AUTH.msg)}</p>`;
+    const head = (t, lead) => `<button type="button" class="auth-x" data-auth="close" aria-label="Close">×</button><div class="auth-brand"><i aria-hidden="true">♪</i>Fretboard Theory Library</div><h2 id="authTitle">${t}</h2>${lead ? `<p class="auth-lead">${lead}</p>` : ''}`;
+    const tabs = `<div class="auth-tabs" role="tablist"><button type="button" role="tab" data-auth="tab:signin" aria-selected="${v === 'signin'}">Sign in</button><button type="button" role="tab" data-auth="tab:signup" aria-selected="${v === 'signup'}">Create account</button></div>`;
+    const busy = AUTH.busy ? ' disabled' : '';
+    let h = '';
+    if (v === 'signin') {
+      h = head('Welcome back', 'Sign in to open your saved chord progressions on any device.') + tabs + gBtn
+        + `<form class="auth-form" data-authform="signin" novalidate>${field('authEmail', 'Email', 'email', 'email', `value="${esc(AUTH.email)}" required`)}${field('authPw', 'Password', 'password', 'current-password', 'required')}`
+        + `<div class="auth-row"><span></span><button type="button" class="auth-link" data-auth="view:forgot">Forgot password?</button></div>${msg}`
+        + `<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Signing in…' : 'Sign in'}</button></form>`
+        + `<p class="auth-foot">New here? <button type="button" class="auth-link" data-auth="tab:signup">Create a free account</button></p>`
+        + `<p class="auth-foot"><button type="button" class="auth-link" data-auth="view:magic">Email me a sign-in link instead</button></p>`;
+    } else if (v === 'signup') {
+      h = head('Create your Fretboard account', 'Free. Save your chord progressions and open them on your phone, laptop or any device.') + tabs + gBtn
+        + `<form class="auth-form" data-authform="signup" novalidate>${field('authName', 'Name', 'text', 'name', `value="${esc(AUTH.name)}" maxlength="60" placeholder="What should we call you?"`)}${field('authEmail', 'Email', 'email', 'email', `value="${esc(AUTH.email)}" required`)}${field('authPw', 'Password', 'password', 'new-password', 'required minlength="8"')}`
+        + `<p class="auth-hint">At least 8 characters. A short sentence you will remember works well.</p>${msg}`
+        + `<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Creating your account…' : 'Create account'}</button></form>`
+        + `<p class="auth-hint" style="text-align:center">We only use your email to sign you in and keep your saved progressions. Nothing is shared.</p>`
+        + `<p class="auth-foot">Already have an account? <button type="button" class="auth-link" data-auth="tab:signin">Sign in</button></p>`;
+    } else if (v === 'forgot') {
+      h = head('Reset your password', 'Enter your account email and we will send you a link to choose a new password.')
+        + `<form class="auth-form" data-authform="forgot" novalidate>${field('authEmail', 'Email', 'email', 'email', `value="${esc(AUTH.email)}" required`)}${msg}<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Sending…' : 'Send reset link'}</button></form>`
+        + `<p class="auth-foot"><button type="button" class="auth-link" data-auth="tab:signin">Back to sign in</button></p>`;
+    } else if (v === 'magic') {
+      h = head('Sign in with an email link', 'No password needed: we email you a link that signs you in.')
+        + `<form class="auth-form" data-authform="magic" novalidate>${field('authEmail', 'Email', 'email', 'email', `value="${esc(AUTH.email)}" required`)}${msg}<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Sending…' : 'Email me a sign-in link'}</button></form>`
+        + `<p class="auth-foot"><button type="button" class="auth-link" data-auth="tab:signin">Back to sign in with a password</button></p>`;
+    } else if (v === 'reset') {
+      h = head('Choose a new password', 'You followed a password reset link. Pick a new password for ' + esc((CLOUD.user && CLOUD.user.email) || 'your account') + '.')
+        + `<form class="auth-form" data-authform="reset" novalidate>${field('authPw', 'New password', 'password', 'new-password', 'required minlength="8"')}${field('authPw2', 'Type it again', 'password', 'new-password', 'required minlength="8"')}${msg}<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Saving…' : 'Save new password'}</button></form>`;
+    } else if (v === 'check') {
+      h = head('Check your email', '') + `<div class="auth-check"><div class="big" aria-hidden="true">✉️</div><p class="auth-lead" style="margin:0">${AUTH.checkText}</p><p class="auth-hint">It can take a minute. Look in your spam folder too.</p>${msg}`
+        + (AUTH.resendType ? `<button type="button" class="auth-link" data-auth="resend">Send the email again</button>` : '') + `<button type="button" class="auth-link" data-auth="tab:signin">Back to sign in</button></div>`;
+    }
+    card.innerHTML = h;
+    const f = card.querySelector('[data-authform]');
+    if (f && f.addEventListener) f.addEventListener('submit', (e) => { e.preventDefault(); authSubmit(f.getAttribute('data-authform')); });
+    setTimeout(() => {
+      const first = card.querySelector(v === 'signup' ? '#authName' : v === 'reset' ? '#authPw' : AUTH.email && v === 'signin' ? '#authPw' : '#authEmail');
+      try { if (first && first.focus) first.focus(); } catch (e) {}
+    }, 30);
+  }
+  const authVal = (id) => { const el = $(id); return el ? String(el.value || '') : ''; };
+  const okEmail = (m) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m);
+  async function authSubmit(kind) {
+    if (AUTH.busy || !CLOUD.sb) return;
+    const email = authVal('authEmail').trim(), pw = authVal('authPw');
+    if (kind !== 'reset') AUTH.email = email;
+    if (kind === 'signup') AUTH.name = authVal('authName').trim();
+    if (kind !== 'reset' && !okEmail(email)) { authSay('Type your email address, like name@example.com.'); return; }
+    if (kind === 'signin' && !pw) { authSay('Type your password.'); return; }
+    if ((kind === 'signup' || kind === 'reset') && pw.length < 8) { authSay('Choose a password with at least 8 characters.'); return; }
+    if (kind === 'reset' && pw !== authVal('authPw2')) { authSay('The two passwords are not the same. Type them again.'); return; }
+    const pw2 = authVal('authPw2');
+    AUTH.busy = true; AUTH.msg = ''; renderAuth();
+    // the form was redrawn: put the typed passwords back while it works
+    const p1 = $('authPw'); if (p1) p1.value = pw; const p2 = $('authPw2'); if (p2) p2.value = pw2;
+    try {
+      if (kind === 'signin') {
+        const r = await CLOUD.sb.auth.signInWithPassword({ email, password: pw });
+        if (r.error) throw r.error;
+        AUTH.busy = false; closeAuth(); flash('Welcome back, ' + userName(r.data && r.data.user));
+        return;
+      }
+      if (kind === 'signup') {
+        const r = await CLOUD.sb.auth.signUp({ email, password: pw, options: { data: { full_name: AUTH.name || email.split('@')[0] }, emailRedirectTo: authBack() } });
+        if (r.error) throw r.error;
+        const d = r.data || {};
+        AUTH.busy = false;
+        if (d.session) { closeAuth(); flash('Welcome, ' + userName(d.user) + '! Your account is ready.'); return; }
+        // an email that already has an account comes back with no identities (Supabase hides it on purpose)
+        if (d.user && Array.isArray(d.user.identities) && d.user.identities.length === 0) { AUTH.view = 'signin'; renderAuth(); authSay('There is already an account with this email. Sign in, or use “Forgot password?”.'); return; }
+        AUTH.view = 'check'; AUTH.resendType = 'signup';
+        AUTH.checkText = `We sent a link to <b>${esc(email)}</b>. Open it to confirm your email and your account is ready: you will come back here signed in.`;
+        renderAuth(); return;
+      }
+      if (kind === 'forgot') {
+        const r = await CLOUD.sb.auth.resetPasswordForEmail(email, { redirectTo: authBack() });
+        if (r && r.error) throw r.error;
+        AUTH.busy = false; AUTH.view = 'check'; AUTH.resendType = '';
+        AUTH.checkText = `If <b>${esc(email)}</b> has an account, a link to choose a new password is on its way.`;
+        renderAuth(); return;
+      }
+      if (kind === 'magic') {
+        const r = await CLOUD.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: authBack() } });
+        if (r && r.error) throw r.error;
+        AUTH.busy = false; AUTH.view = 'check'; AUTH.resendType = '';
+        AUTH.checkText = `We sent a sign-in link to <b>${esc(email)}</b>. Open it on this device to finish signing in.`;
+        renderAuth(); return;
+      }
+      if (kind === 'reset') {
+        const r = await CLOUD.sb.auth.updateUser({ password: pw });
+        if (r && r.error) throw r.error;
+        AUTH.busy = false; closeAuth(); flash('Your new password is saved');
+        return;
+      }
+    } catch (e) {
+      AUTH.busy = false; renderAuth();
+      const q1 = $('authPw'); if (q1) q1.value = pw; const q2 = $('authPw2'); if (q2) q2.value = pw2;
+      authSay(authErr(e));
+    }
+  }
+  async function authGoogle() {
+    if (!CLOUD.sb) return;
+    try {
+      const r = await CLOUD.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: authBack() } });
+      if (r && r.error) throw r.error;
+    } catch (e) { if (!authOpen()) openAuth('signin'); authSay(authErr(e)); }
+  }
+  async function authResend() {
+    if (!CLOUD.sb || !AUTH.email) return;
+    try {
+      const r = await CLOUD.sb.auth.resend({ type: 'signup', email: AUTH.email, options: { emailRedirectTo: authBack() } });
+      if (r && r.error) throw r.error;
+      authSay('Sent again. Give it a minute.', 'ok');
+    } catch (e) { authSay(authErr(e)); }
+  }
+  function authClick(t) {
+    const wrap = $('authWrap');
+    if (!wrap || wrap.hidden) {
+      const o = t.closest('[data-authopen]');
+      if (o) { openAuth(o.getAttribute('data-authopen')); return true; }
+      return false;
+    }
+    if (t === wrap) { closeAuth(); return true; }   // the dark area around the card
+    const b = t.closest('[data-auth]');
+    if (!b) return !!t.closest('#authWrap');
+    const a = b.getAttribute('data-auth');
+    const keep = () => { const e1 = $('authEmail'); if (e1) AUTH.email = e1.value.trim(); const n1 = $('authName'); if (n1) AUTH.name = n1.value.trim(); };
+    if (a === 'close') closeAuth();
+    else if (a === 'google') authGoogle();
+    else if (a === 'showpw') { const pw = authVal('authPw'), pw2 = authVal('authPw2'); keep(); AUTH.showPw = !AUTH.showPw; renderAuth(); const p1 = $('authPw'); if (p1) p1.value = pw; const p2 = $('authPw2'); if (p2) p2.value = pw2; }
+    else if (a === 'resend') authResend();
+    else if (a.indexOf('tab:') === 0 || a.indexOf('view:') === 0) { keep(); AUTH.view = a.split(':')[1]; AUTH.msg = ''; renderAuth(); }
+    return true;
+  }
+  function renderHeroAcct() {
+    const box = $('heroAcct');
+    if (!box) return;
+    box.hidden = !CLOUD.cfg;
+    if (!CLOUD.cfg) return;
+    const signedIn = LIB.mode === 'cloud' && !!CLOUD.user;
+    const keep = $('heroEmail') ? $('heroEmail').value : '';
+    if (signedIn) {
+      box.innerHTML = `<p><b>Welcome back, ${esc(userName(CLOUD.user))}.</b> The chord progressions you save are kept in your account, on every device you sign in on.</p><div class="hacctbtns"><button type="button" class="tapbtn strong" data-hero="progression">Open my progressions</button><button type="button" class="tapbtn" data-acct="out">Sign out</button></div>`;
     } else if (LIB.mode === 'loading') {
-      panel.innerHTML = '<h3>Your account</h3><p>Checking…</p>';
+      box.innerHTML = '<p>Checking your account…</p>';
     } else {
-      panel.innerHTML = `<h3>Sign in</h3><p>Keep your progressions in your account and open them on any device. No password: we email you a link.</p>`
-        + `<div class="acctform"><input type="email" id="acctEmail" placeholder="you@example.com" aria-label="Email address" autocomplete="email"><button type="button" class="tapbtn strong" data-acct="email:acctEmail">Email me a sign-in link</button>`
-        + (CLOUD.cfg.google ? `<button type="button" class="tapbtn" data-acct="google">Sign in with Google</button>` : '') + `</div><p class="acctmsg" id="acctMsg"></p>`;
-      const inp = $('acctEmail');
-      if (inp) { inp.value = keep; if (inp.addEventListener) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); cloudSignIn('email', 'acctEmail'); } }); }
+      box.innerHTML = `<p><b>Create a free Fretboard account to keep your chord progressions.</b> Everything you save is stored in your account, so it is there on your phone, your laptop and any other device, and you stay signed in.</p>`
+        + `<div class="hacctbtns"><button type="button" class="tapbtn strong" data-authopen="signup">Create free account</button><button type="button" class="tapbtn" data-authopen="signin">Sign in</button>`
+        + (CLOUD.cfg.google ? `<button type="button" class="auth-google" data-authopen-google="1">${G_LOGO}Continue with Google</button>` : '') + `</div>`;
     }
   }
   function openAcct(open) {
@@ -6529,7 +6721,7 @@
     }
   }
   function acctTopClick(t) {
-    if (t.closest('#acctBtn')) { openAcct($('acctPanel').hidden); return true; }
+    if (t.closest('#acctBtn')) { if (LIB.mode === 'cloud' && CLOUD.user) openAcct($('acctPanel').hidden); else openAuth('signin'); return true; }
     if (t.closest('[data-acctp="mine"]')) {
       openAcct(false);
       try {
@@ -6551,16 +6743,10 @@
     if (!CLOUD.cfg) return;
     if (LIB.mode === 'cloud' && CLOUD.user) {
       const extra = loadLocal().filter((x) => !LIB.items.some((y) => y.id === x.id)).length;
-      box.innerHTML = `<div class="acctrow"><span class="acctwho">Signed in as <b>${esc(CLOUD.user.email || 'you')}</b></span><button type="button" class="tapbtn" data-acct="out">Sign out</button></div>`
+      box.innerHTML = `<div class="acctrow"><span class="acctwho">Signed in as <b>${esc(userName(CLOUD.user))}</b> (${esc(CLOUD.user.email || '')})</span><button type="button" class="tapbtn" data-acct="out">Sign out</button></div>`
         + (extra ? `<div class="acctrow"><span>${extra} progression${extra === 1 ? ' is' : 's are'} saved only in this browser.</span><button type="button" class="tapbtn strong" data-acct="copy">Copy to my account</button></div>` : '');
-    } else if (CLOUD.sent) {
-      box.innerHTML = `<div class="acctrow"><span>Check your email: we sent a sign-in link to <b>${esc(CLOUD.sent)}</b>. Open it on this device to finish signing in.</span><button type="button" class="tapbtn" data-acct="again">Use another email</button></div>`;
     } else if (LIB.mode !== 'loading') {
-      box.innerHTML = `<div class="acctrow acctform"><input type="email" id="libEmail" placeholder="you@example.com" aria-label="Email address" autocomplete="email"><button type="button" class="tapbtn strong" data-acct="email">Email me a sign-in link</button>`
-        + (CLOUD.cfg.google ? `<button type="button" class="tapbtn" data-acct="google">Sign in with Google</button>` : '') + `</div>`
-        + `<p class="hint">Sign in to keep your progressions in your account and open them on any device. No password: we email you a link.</p>`;
-      const inp = $('libEmail');
-      if (inp && inp.addEventListener) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); cloudSignIn('email'); } });
+      box.innerHTML = `<div class="acctrow"><span>Sign in to keep your progressions in your account and open them on any device.</span><button type="button" class="tapbtn strong" data-authopen="signin">Sign in</button><button type="button" class="tapbtn" data-authopen="signup">Create account</button></div>`;
     } else box.innerHTML = '';
   }
   function acctClick(t) {
@@ -6568,6 +6754,7 @@
     if (!b) return false;
     const a = b.dataset.acct;
     if (a === 'email:acctEmail') cloudSignIn('email', 'acctEmail');
+    else if (a === 'email:heroEmail') cloudSignIn('email', 'heroEmail');
     else if (a === 'email') cloudSignIn('email');
     else if (a === 'google') cloudSignIn('google');
     else if (a === 'out') cloudSignOut();
@@ -7318,6 +7505,8 @@
   function handleClick(e) {
     const t = e.target;
     if (!t || !t.closest) return;
+    if (authClick(t)) return;
+    if (t.closest('[data-authopen-google]')) { authGoogle(); return; }
     if (heroClick(t)) return;
     if (acctTopClick(t)) return;
     if (shareClick(t)) return;
