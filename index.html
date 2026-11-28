@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
 <title>Fretboard Library</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -104,12 +106,23 @@ header p { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
 .hero-in { position: relative; z-index: 1; width: min(1120px, 100%); display: grid; gap: 24px; justify-items: center; text-align: center; }
 .hero-kicker { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.04em; animation: heroUp 0.6s ease-out both; }
 .hero-logo { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--root-dot); color: var(--root-fg); font-size: 0.8rem; }
-.hero-type { margin: 0; font-family: var(--font-head); font-weight: 700; font-size: clamp(2.4rem, 1.3rem + 5vw, 5.2rem); line-height: 1.05; letter-spacing: -0.02em; min-height: 1.1em; text-wrap: balance;
+.hero-title { margin: 0; font-family: var(--font-head); font-weight: 700; font-size: clamp(2.6rem, 1.3rem + 5.4vw, 5.6rem); line-height: 1.02; letter-spacing: -0.025em; text-wrap: balance; animation: heroUp 0.6s 0.05s ease-out both;
   background: linear-gradient(90deg, var(--fg), var(--accent) 55%, var(--root-dot)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.hero-type .caret { display: inline-block; width: 0.08em; height: 0.9em; margin-left: 0.06em; vertical-align: -0.08em; background: var(--root-dot); animation: heroBlink 1s steps(1) infinite; }
+.hero-type { margin: -4px 0 0; font-family: var(--font-head); font-weight: 600; font-size: clamp(1.35rem, 1rem + 1.4vw, 2.1rem); line-height: 1.2; min-height: 1.25em; color: var(--accent); }
+.hero-type .caret { display: inline-block; width: 0.07em; height: 0.9em; margin-left: 0.06em; vertical-align: -0.08em; background: var(--root-dot); animation: heroBlink 1s steps(1) infinite; }
 .hero-sub { margin: 0; max-width: 62ch; color: var(--muted); font-size: clamp(1.1rem, 1rem + 0.45vw, 1.35rem); line-height: 1.6; animation: heroUp 0.6s 0.15s ease-out both; }
 .hero-ctas { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; margin-top: 8px; animation: heroUp 0.6s 0.3s ease-out both; }
 .hero-go, .hero-tour { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 60px; font: inherit; font-family: var(--font-head); font-weight: 700; font-size: 1.2rem; padding: 16px 34px; border-radius: 999px; cursor: pointer; transition: transform 0.15s, box-shadow 0.2s; }
+.hero-acct { width: min(640px, 100%); display: grid; gap: 10px; justify-items: center; padding: 16px 20px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 16px; background: color-mix(in srgb, var(--bg) 75%, transparent); animation: heroUp 0.6s 0.4s ease-out both; }
+.hero-acct p { margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.5; }
+.hero-acct p b { color: var(--fg); }
+.hero-acct .hacctform { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; }
+.hero-acct input[type="email"] { flex: 1 1 240px; min-height: 48px; padding: 10px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 1rem; }
+.hero-acct .tapbtn { min-height: 48px; padding: 10px 22px; border-radius: 999px; font-size: 1rem; }
+.hero-acct .acctmsg { color: var(--amber-text); font-weight: 600; }
+.hero-acct .hacctbtns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.hero-acct .auth-google { width: auto; padding: 0 22px; border-radius: 999px; }
+.hero-acct .acctmsg:empty { display: none; }
 .hero-keep input { width: 20px; height: 20px; accent-color: var(--accent); }
 .hero-go { border: 0; background: var(--accent); color: var(--accent-fg); box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 40%, transparent); }
 .hero-go:hover { transform: translateY(-2px); box-shadow: 0 12px 30px color-mix(in srgb, var(--accent) 55%, transparent); }
@@ -193,6 +206,45 @@ h1.homelink { cursor: pointer; }
 header p.tagline { margin-top: 2px; color: var(--accent); font-family: var(--font-head); font-weight: 600; font-size: 1.02rem; letter-spacing: 0.005em; }
 .sharebtn { padding: 0 14px 0 12px; } .sharebtn svg { color: var(--accent); }
 @media (max-width: 560px) { .sharebtn span { display: none; } .sharebtn { padding: 0 11px; } }
+/* ==================== Account screen: sign in, create an account, reset a password ==================== */
+.auth-wrap { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: rgba(5, 8, 11, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); overflow-y: auto; animation: authFade 0.18s ease-out; }
+.auth-card { position: relative; width: min(440px, 100%); display: grid; gap: 16px; padding: 32px 28px 28px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); color: var(--fg); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); animation: authUp 0.22s ease-out; }
+@keyframes authFade { from { opacity: 0; } } @keyframes authUp { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) { .auth-wrap, .auth-card { animation: none; } }
+.auth-x { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 1.4rem; line-height: 1; }
+.auth-x:hover { background: var(--bg); color: var(--fg); }
+.auth-brand { display: flex; align-items: center; gap: 10px; justify-content: center; font-family: var(--font-head); font-weight: 700; color: var(--muted); font-size: 0.95rem; }
+.auth-brand i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--root-dot); color: var(--root-fg); font-style: normal; }
+.auth-card h2 { margin: 0; text-align: center; font-family: var(--font-head); font-size: 1.6rem; line-height: 1.2; }
+.auth-card .auth-lead { margin: -8px 0 0; text-align: center; color: var(--muted); line-height: 1.5; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
+.auth-tabs button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
+.auth-tabs button[aria-selected="true"] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
+.auth-google { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 48px; border: 1px solid #dadce0; border-radius: 12px; background: #ffffff; color: #1f1f1f; font-weight: 600; font-size: 1rem; }
+.auth-google:hover { background: #f4f6f8; }
+.auth-google svg { width: 20px; height: 20px; }
+.auth-or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 0.85rem; }
+.auth-or::before, .auth-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.auth-form { display: grid; gap: 14px; }
+.auth-field { display: grid; gap: 6px; }
+.auth-field > span { font-size: 0.9rem; font-weight: 600; }
+.auth-field input { width: 100%; min-height: 48px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); font-size: 1rem; }
+.auth-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+.auth-pw { position: relative; }
+.auth-pw input { padding-right: 64px; }
+.auth-pw button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); min-height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--accent); font-weight: 700; font-size: 0.85rem; }
+.auth-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.9rem; }
+.auth-link { border: 0; background: none; padding: 4px 0; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.auth-submit { width: 100%; min-height: 50px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-fg); font-family: var(--font-head); font-weight: 700; font-size: 1.05rem; }
+.auth-submit:disabled { opacity: 0.6; cursor: progress; }
+.auth-hint { margin: 0; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+.auth-msg { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 0.92rem; line-height: 1.45; }
+.auth-msg.err { background: color-mix(in srgb, #ef4444 16%, transparent); color: #fca5a5; }
+.auth-msg.ok { background: color-mix(in srgb, var(--live) 16%, transparent); color: var(--green-text); }
+:root[data-theme="light"] .auth-msg.err { color: #b42318; }
+.auth-foot { margin: 0; text-align: center; color: var(--muted); font-size: 0.92rem; }
+.auth-check { display: grid; justify-items: center; gap: 12px; text-align: center; }
+.auth-check .big { font-size: 2.6rem; }
 .acctbtn { padding: 0 14px 0 12px; } .acctbtn svg { color: var(--accent); }
 .acctbtn.in { border-color: var(--accent); }
 .acctbtn.in svg { color: var(--live); }
@@ -317,7 +369,9 @@ option:checked { background-color: var(--accent-soft); color: var(--fg); }
 .check { display: inline-flex; gap: 8px; align-items: center; padding-bottom: 7px; }
 
 /* Board */
-.board-head { display: flex; flex-wrap: wrap; gap: 10px 16px; justify-content: space-between; align-items: start; margin-bottom: 12px; }
+.board-head { display: flex; flex-wrap: wrap; gap: 10px 8px; justify-content: flex-start; align-items: center; margin-bottom: 12px; }
+.board-head > div:first-child { margin-right: auto; min-width: 0; }
+.board-head > .now { margin-right: 8px; }
 .board-head h2 { margin: 0; font-family: var(--font-head); font-size: clamp(1.2rem, 1rem + 0.8vw, 1.6rem); font-weight: 700; text-wrap: balance; }
 .board-head p { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; }
 .play { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: var(--accent); color: var(--accent-fg); padding: 10px 20px; min-height: 44px; border-radius: 10px; font-weight: 700; min-width: 112px; }
@@ -463,7 +517,11 @@ option:checked { background-color: var(--accent-soft); color: var(--fg); }
 .slot-hear:hover { border-color: var(--accent); }
 .slot-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .slot-lbl { flex: 1; min-width: 0; text-align: center; color: var(--muted); font-size: 0.74rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.progfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin-top: 10px; }
+.progfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px; margin-top: 10px; }
+.progfoot .proglevel { margin-left: 16px; }
+.progfoot #midiProgBtn { margin-left: auto; }
+.progfoot #progClear { margin-left: 8px; }
+@media (max-width: 600px) { .board-head > .now { order: 10; } .progfoot .proglevel, .progfoot #midiProgBtn { margin-left: 0; } .progfoot .progsum { flex-basis: 100%; } }
 .progsum { color: var(--muted); font-size: 0.86rem; font-variant-numeric: tabular-nums; }
 .progmsg { margin: 6px 0 0; min-height: 1.4em; color: var(--muted); font-size: 0.86rem; }
 .picker { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
@@ -1302,20 +1360,22 @@ button.mapleg { cursor: pointer; } button.mapleg:hover { border-color: var(--acc
     <div class="gateerr" id="gateError" role="alert"></div>
   </div>
 </div>
-
 <canvas id="fx" aria-hidden="true"></canvas>
 <div class="info-pop" id="infoPop" role="dialog" aria-label="Explanation" hidden></div>
 <div class="tour-layer" id="tourLayer" hidden><div class="tour-spot" id="tourSpot"></div><div class="tour-card" id="tourCard" role="dialog" aria-modal="true" aria-labelledby="tourTitle"></div></div>
 <div class="soundbar" id="soundBar" hidden role="alert"><span>Sound is paused by your browser.</span><button type="button" class="tapbtn strong" id="soundOn">Turn sound on</button><small>On iPhone, also check that the Silent switch is off and the volume is up.</small></div>
+<div class="auth-wrap" id="authWrap" hidden><div class="auth-card" id="authCard" role="dialog" aria-modal="true" aria-labelledby="authTitle"></div></div>
 <div class="app" id="app" data-tab="fretboard">
 <section class="hero" id="hero" hidden aria-label="Welcome to Fretboard Theory Library">
   <div class="hero-fx" id="heroFx" aria-hidden="true"></div>
   <div class="hero-notes" aria-hidden="true"><i>♪</i><i>♫</i><i>♩</i><i>♬</i><i>♪</i><i>♫</i><i>♩</i><i>♬</i></div>
   <div class="hero-in">
-    <div class="hero-kicker"><span class="hero-logo" aria-hidden="true">♪</span> Fretboard Theory Library</div>
-    <h2 class="hero-type" aria-label="Where ideas collide."><span id="heroType" aria-hidden="true">Where ideas collide.</span><span class="caret" aria-hidden="true"></span></h2>
-    <p class="hero-sub">Scales, chords, keys and progressions on a real fretboard you can hear. A tuner and listeners that hear your guitar. A studio to write solos, and MIDI to finish them in your DAW.</p>
+    <div class="hero-kicker"><span class="hero-logo" aria-hidden="true">♪</span> Where ideas collide</div>
+    <h1 class="hero-title">Fretboard Theory Library</h1>
+    <p class="hero-type" aria-label="Find the scale. Hear the chord. Build the progression. Tune your guitar. Write the solo. Finish it in your DAW."><span id="heroType" aria-hidden="true">Find the scale.</span><span class="caret" aria-hidden="true"></span></p>
+    <p class="hero-sub">Learn scales and chords on a fretboard you can hear, tune with your microphone, build progressions, write solos, and send them to your DAW as MIDI.</p>
     <div class="hero-ctas"><button type="button" class="hero-go" data-hero="fretboard">Start playing <span aria-hidden="true">→</span></button><button type="button" class="hero-tour" data-hero="tour">Take the 1-minute tour</button></div>
+    <div class="hero-acct" id="heroAcct" hidden></div>
     <div class="hero-neckw"><svg class="hero-neck" id="heroNeck" viewBox="0 0 1000 250" role="img" aria-label="A guitar neck: strum its strings"></svg></div>
     <p class="hero-hint"><span class="kbonly">Sweep your mouse across the strings and watch them ring.</span><span class="touchonly">Swipe across the strings and watch them ring.</span> A minor pentatonic, 5th position.</p>
     <div class="hero-cards"><button type="button" class="hero-card" data-hero="fretboard" style="--d:0"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 6v12M14 6v12M2 10h20M2 14h20" stroke="currentColor" stroke-width="1.2"/></svg><b>Fretboard</b><span>Every scale, mode and arpeggio on the whole neck, with patterns you can hear.</span></button><button type="button" class="hero-card" data-hero="keys" style="--d:1"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 3v5.5M12 15.5V21M3 12h5.5M15.5 12H21" stroke="currentColor" stroke-width="1.4"/></svg><b>Keys and chords</b><span>The circle of fifths, the chords of any key, and where each chord wants to go next.</span></button><button type="button" class="hero-card" data-hero="progression" style="--d:2"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="5" height="14" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="10" y="5" width="5" height="14" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M17.5 8l3 4-3 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Progression</b><span>Build chord progressions, pick a strumming pattern, play them on a loop.</span></button><button type="button" class="hero-card" data-hero="listen" style="--d:3"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><b>Listen</b><span>Tune up, then let the site name the chords and scales you play.</span></button><button type="button" class="hero-card" data-hero="improv" style="--d:4"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="16.5" cy="16" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><b>Studio</b><span>Write or record a solo over your chords, and take it to your DAW as MIDI.</span></button></div>
@@ -1332,9 +1392,9 @@ button.mapleg { cursor: pointer; } button.mapleg:hover { border-color: var(--acc
     <div class="hdr-acts">
       <label class="instsel" title="Guitar sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 2.5l2 2-3.2 3.2.9.9-1.4 1.4-.9-.9-3.1 3.1a4.4 4.4 0 0 1-1.1 4.6c-1.9 1.9-5 2.1-6.6.5s-1.4-4.7.5-6.6a4.4 4.4 0 0 1 4.6-1.1l3.1-3.1-.9-.9 1.4-1.4.9.9z" fill="currentColor"/></svg><select id="instSel" aria-label="Guitar sound"></select></label>
       <button type="button" class="guidebtn acctbtn" id="acctBtn" aria-haspopup="dialog" aria-expanded="false" title="Sign in to keep your progressions on every device" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="acctBtnLbl">Sign in</span></button>
-      <button type="button" class="guidebtn homebtn" id="homeBtn" title="Open the welcome page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h5v-6h3v6h5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Home</span></button>
       <button type="button" class="guidebtn sharebtn" id="shareBtn" aria-haspopup="dialog" aria-expanded="false" title="Share your idea or export it"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Share and export</span></button>
       <button type="button" class="guidebtn" id="guideBtn" aria-haspopup="dialog" aria-expanded="false"><span class="gq">?</span> Guide</button>
+      <button type="button" class="guidebtn homebtn" id="homeBtn" title="Open the welcome page"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h5v-6h3v6h5V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Home</span></button>
       <button type="button" class="themebtn" id="themeBtn" aria-label="Switch theme" title="Switch theme"></button>
     </div>
     <div class="guide-panel" id="guidePanel" role="dialog" aria-label="Guide" hidden></div>
@@ -5872,7 +5932,7 @@ if (typeof module !== 'undefined') {
 
   /* ==================== Welcome page: typing headline, a neck you can strum, the five areas ==================== */
   const HERO = { on: false, timer: 0, dots: 0, raf: 0, strings: [], last: null, typeT: 0 };
-  const HERO_LINES = ['Where ideas collide.', 'Find the scale.', 'Hear the chord.', 'Build the progression.', 'Tune your guitar.', 'Write the solo.', 'Finish it in your DAW.', 'Where ideas collide.'];
+  const HERO_LINES = ['Find the scale.', 'Hear the chord.', 'Build the progression.', 'Tune your guitar.', 'Write the solo.', 'Finish it in your DAW.'];
   function heroType() {
     const el = $('heroType');
     if (!el) return;
@@ -5883,11 +5943,11 @@ if (typeof module !== 'undefined') {
       const line = HERO_LINES[li];
       if (!del) {
         ci++; el.textContent = line.slice(0, ci);
-        if (ci >= line.length) { if (li === HERO_LINES.length - 1) return; del = true; HERO.typeT = setTimeout(step, li === 0 ? 1800 : 1100); return; }
+        if (ci >= line.length) { del = true; HERO.typeT = setTimeout(step, li === 0 ? 1800 : 1100); return; }
         HERO.typeT = setTimeout(step, 45 + Math.random() * 55);
       } else {
         ci--; el.textContent = line.slice(0, ci);
-        if (ci <= 0) { del = false; li++; HERO.typeT = setTimeout(step, 260); return; }
+        if (ci <= 0) { del = false; li = (li + 1) % HERO_LINES.length; HERO.typeT = setTimeout(step, 260); return; }
         HERO.typeT = setTimeout(step, 22);
       }
     };
@@ -7111,7 +7171,7 @@ if (typeof module !== 'undefined') {
       e.preventDefault();
       return;
     }
-    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); const sp = $('sharePanel'); if (sp && !sp.hidden) openShare(false); const ap = $('acctPanel'); if (ap && !ap.hidden) openAcct(false); }
+    if (e.key === 'Escape') { if (infoOpen) closeInfo(); const gp = $('guidePanel'); if (gp && !gp.hidden) openGuide(false); const sp = $('sharePanel'); if (sp && !sp.hidden) openShare(false); const ap = $('acctPanel'); if (ap && !ap.hidden) openAcct(false); if (authOpen()) closeAuth(); }
     if (!ED.open || e.ctrlKey || e.metaKey || e.altKey || (LAYOUT === "tabs" && TAB !== "progression")) return;
     const tag = e.target && e.target.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
@@ -10610,7 +10670,7 @@ if (typeof module !== 'undefined') {
       useBrowser('Accounts cannot be reached right now, so progressions are saved in this browser only.');
       return;
     }
-    CLOUD.sb.auth.onAuthStateChange((ev, session) => { setTimeout(() => cloudSession(session), 0); });
+    CLOUD.sb.auth.onAuthStateChange((ev, session) => { setTimeout(() => { cloudSession(session).then(() => { if (ev === 'PASSWORD_RECOVERY') openAuth('reset'); }); }, 0); });
     try {
       const r = await CLOUD.sb.auth.getSession();
       await cloudSession(r && r.data && r.data.session);
@@ -10649,7 +10709,7 @@ if (typeof module !== 'undefined') {
   }
   const cloudRow = (id, rec) => ({ user_id: CLOUD.user.id, id, name: rec.name, data: rec, updated_at: new Date(rec.updatedAt || Date.now()).toISOString() });
   // messages go to the box on the Progression page and to the account panel in the top bar
-  const acctSay = (m) => { libSay(m); const el = $('acctMsg'); if (el) el.textContent = m || ''; };
+  const acctSay = (m) => { libSay(m); ['acctMsg', 'heroAcctMsg'].forEach((id) => { const el = $(id); if (el) el.textContent = m || ''; }); };
   async function cloudSignIn(kind, inputId) {
     if (!CLOUD.sb || CLOUD.busy) return;
     const here = (location.hash || '').slice(1);
@@ -10695,31 +10755,223 @@ if (typeof module !== 'undefined') {
   }
   // the account button in the top bar, and its panel
   function renderAcctTop() {
+    try { renderHeroAcct(); } catch (e) {}
     const btn = $('acctBtn'), lbl = $('acctBtnLbl'), panel = $('acctPanel');
     if (!btn) return;
     btn.hidden = !CLOUD.cfg;
     if (!CLOUD.cfg) { if (panel) panel.hidden = true; return; }
     const signedIn = LIB.mode === 'cloud' && !!CLOUD.user;
-    const who = signedIn ? String(CLOUD.user.email || 'Account').split('@')[0] : '';
+    const who = signedIn ? userName(CLOUD.user) : '';
     if (lbl) lbl.textContent = signedIn ? (who.length > 14 ? who.slice(0, 13) + '…' : who) : 'Sign in';
     if (btn.classList) btn.classList.toggle('in', signedIn);
     btn.title = signedIn ? 'Signed in as ' + (CLOUD.user.email || '') : 'Sign in to keep your progressions on every device';
     if (!panel || panel.hidden) return;
-    const keep = $('acctEmail') ? $('acctEmail').value : '';
     if (signedIn) {
-      panel.innerHTML = `<h3>Your account</h3><p>Signed in as <b>${esc(CLOUD.user.email || 'you')}</b>. Your saved progressions are kept in your account, on every device you sign in on.</p>`
+      panel.innerHTML = `<h3>${esc(userName(CLOUD.user))}</h3><p>Signed in as <b>${esc(CLOUD.user.email || 'you')}</b>. You stay signed in on this device until you sign out. Your saved progressions are in your account, on every device.</p>`
         + `<div class="acctacts"><button type="button" class="tapbtn strong" data-acctp="mine">My progressions</button><button type="button" class="tapbtn" data-acct="out">Sign out</button></div><p class="acctmsg" id="acctMsg"></p>`;
-    } else if (CLOUD.sent) {
-      panel.innerHTML = `<h3>Check your email</h3><p>We sent a sign-in link to <b>${esc(CLOUD.sent)}</b>. Open it on this device to finish signing in. It can take a minute; look in spam too.</p>`
-        + `<div class="acctacts"><button type="button" class="tapbtn" data-acct="again">Use another email</button></div><p class="acctmsg" id="acctMsg"></p>`;
+    } else panel.hidden = true;
+  }
+  /* ==================== The account screen: sign in, create a Fretboard account, Google, forgotten passwords ==================== */
+  const AUTH = { view: 'signin', msg: '', kind: '', busy: false, email: '', name: '', showPw: false, checkText: '', resendType: '', lastFocus: null };
+  const G_LOGO = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+  // the name to greet someone by: the one they gave, or Google's, or the start of their email
+  const userName = (u) => { if (!u) return ''; const m = u.user_metadata || {}; return String(m.full_name || m.name || (u.email || '').split('@')[0] || 'you').trim(); };
+  // where links in emails (and Google) bring people back to: the page they were on
+  const authBack = () => { const here = (location.hash || '').slice(1); return location.origin + location.pathname + (here && here !== 'home' ? '#' + here : ''); };
+  // Supabase's messages, said plainly
+  function authErr(e) {
+    const m = String((e && (e.message || e.error_description)) || e || '');
+    if (/invalid login credentials/i.test(m)) return 'That email and password don’t match. Check them, or use “Forgot password?”.';
+    if (/email not confirmed/i.test(m)) return 'Your account is waiting for you to confirm your email. Open the link we sent you (look in spam too).';
+    if (/already registered|already exists/i.test(m)) return 'There is already an account with this email. Sign in instead.';
+    if (/rate limit|too many|security purposes/i.test(m)) return 'Too many tries in a short time. Wait a minute and try again.';
+    if (/password should be|weak password|at least/i.test(m)) return 'Choose a longer password: at least 8 characters.';
+    if (/provider is not enabled|unsupported provider/i.test(m)) return 'Google sign-in is not switched on yet. Use your email and a password for now.';
+    if (/network|failed to fetch/i.test(m)) return 'The account service could not be reached. Check your internet connection and try again.';
+    return m ? 'Something went wrong: ' + m : 'Something went wrong. Try again.';
+  }
+  const authOpen = () => { const w = $('authWrap'); return !!(w && !w.hidden); };
+  function openAuth(view) {
+    const w = $('authWrap');
+    if (!w || !CLOUD.cfg) return;
+    try { openAcct(false); openShare(false); openGuide(false); closeInfo(); } catch (e) {}
+    AUTH.view = view || 'signin'; AUTH.msg = ''; AUTH.kind = ''; AUTH.showPw = false; AUTH.busy = false;
+    if (!authOpen()) AUTH.lastFocus = document.activeElement;
+    w.hidden = false;
+    try { document.documentElement.style.overflow = 'hidden'; } catch (e) {}
+    renderAuth();
+  }
+  function closeAuth() {
+    const w = $('authWrap');
+    if (!w || w.hidden) return;
+    w.hidden = true;
+    try { document.documentElement.style.overflow = ''; } catch (e) {}
+    try { if (AUTH.lastFocus && AUTH.lastFocus.focus) AUTH.lastFocus.focus(); } catch (e) {}
+  }
+  function authSay(msg, kind) {
+    AUTH.msg = msg || ''; AUTH.kind = kind || 'err';
+    const el = $('authMsg');
+    if (el) { el.textContent = AUTH.msg; el.className = 'auth-msg ' + AUTH.kind; el.hidden = !AUTH.msg; }
+  }
+  function renderAuth() {
+    const card = $('authCard');
+    if (!card) return;
+    const v = AUTH.view, google = !!(CLOUD.cfg && CLOUD.cfg.google);
+    const field = (id, label, type, ac, extra) => `<label class="auth-field"><span>${label}</span>${type === 'password'
+      ? `<div class="auth-pw"><input id="${id}" type="${AUTH.showPw ? 'text' : 'password'}" autocomplete="${ac}" ${extra || ''}><button type="button" data-auth="showpw" aria-label="${AUTH.showPw ? 'Hide password' : 'Show password'}">${AUTH.showPw ? 'Hide' : 'Show'}</button></div>`
+      : `<input id="${id}" type="${type}" autocomplete="${ac}" ${extra || ''}>`}</label>`;
+    const gBtn = google ? `<button type="button" class="auth-google" data-auth="google">${G_LOGO}Continue with Google</button><div class="auth-or">or</div>` : '';
+    const msg = `<p class="auth-msg ${AUTH.kind}" id="authMsg" role="alert"${AUTH.msg ? '' : ' hidden'}>${esc(AUTH.msg)}</p>`;
+    const head = (t, lead) => `<button type="button" class="auth-x" data-auth="close" aria-label="Close">×</button><div class="auth-brand"><i aria-hidden="true">♪</i>Fretboard Theory Library</div><h2 id="authTitle">${t}</h2>${lead ? `<p class="auth-lead">${lead}</p>` : ''}`;
+    const tabs = `<div class="auth-tabs" role="tablist"><button type="button" role="tab" data-auth="tab:signin" aria-selected="${v === 'signin'}">Sign in</button><button type="button" role="tab" data-auth="tab:signup" aria-selected="${v === 'signup'}">Create account</button></div>`;
+    const busy = AUTH.busy ? ' disabled' : '';
+    let h = '';
+    if (v === 'signin') {
+      h = head('Welcome back', 'Sign in to open your saved chord progressions on any device.') + tabs + gBtn
+        + `<form class="auth-form" data-authform="signin" novalidate>${field('authEmail', 'Email', 'email', 'email', `value="${esc(AUTH.email)}" required`)}${field('authPw', 'Password', 'password', 'current-password', 'required')}`
+        + `<div class="auth-row"><span></span><button type="button" class="auth-link" data-auth="view:forgot">Forgot password?</button></div>${msg}`
+        + `<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Signing in…' : 'Sign in'}</button></form>`
+        + `<p class="auth-foot">New here? <button type="button" class="auth-link" data-auth="tab:signup">Create a free account</button></p>`
+        + `<p class="auth-foot"><button type="button" class="auth-link" data-auth="view:magic">Email me a sign-in link instead</button></p>`;
+    } else if (v === 'signup') {
+      h = head('Create your Fretboard account', 'Free. Save your chord progressions and open them on your phone, laptop or any device.') + tabs + gBtn
+        + `<form class="auth-form" data-authform="signup" novalidate>${field('authName', 'Name', 'text', 'name', `value="${esc(AUTH.name)}" maxlength="60" placeholder="What should we call you?"`)}${field('authEmail', 'Email', 'email', 'email', `value="${esc(AUTH.email)}" required`)}${field('authPw', 'Password', 'password', 'new-password', 'required minlength="8"')}`
+        + `<p class="auth-hint">At least 8 characters. A short sentence you will remember works well.</p>${msg}`
+        + `<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Creating your account…' : 'Create account'}</button></form>`
+        + `<p class="auth-hint" style="text-align:center">We only use your email to sign you in and keep your saved progressions. Nothing is shared.</p>`
+        + `<p class="auth-foot">Already have an account? <button type="button" class="auth-link" data-auth="tab:signin">Sign in</button></p>`;
+    } else if (v === 'forgot') {
+      h = head('Reset your password', 'Enter your account email and we will send you a link to choose a new password.')
+        + `<form class="auth-form" data-authform="forgot" novalidate>${field('authEmail', 'Email', 'email', 'email', `value="${esc(AUTH.email)}" required`)}${msg}<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Sending…' : 'Send reset link'}</button></form>`
+        + `<p class="auth-foot"><button type="button" class="auth-link" data-auth="tab:signin">Back to sign in</button></p>`;
+    } else if (v === 'magic') {
+      h = head('Sign in with an email link', 'No password needed: we email you a link that signs you in.')
+        + `<form class="auth-form" data-authform="magic" novalidate>${field('authEmail', 'Email', 'email', 'email', `value="${esc(AUTH.email)}" required`)}${msg}<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Sending…' : 'Email me a sign-in link'}</button></form>`
+        + `<p class="auth-foot"><button type="button" class="auth-link" data-auth="tab:signin">Back to sign in with a password</button></p>`;
+    } else if (v === 'reset') {
+      h = head('Choose a new password', 'You followed a password reset link. Pick a new password for ' + esc((CLOUD.user && CLOUD.user.email) || 'your account') + '.')
+        + `<form class="auth-form" data-authform="reset" novalidate>${field('authPw', 'New password', 'password', 'new-password', 'required minlength="8"')}${field('authPw2', 'Type it again', 'password', 'new-password', 'required minlength="8"')}${msg}<button type="submit" class="auth-submit"${busy}>${AUTH.busy ? 'Saving…' : 'Save new password'}</button></form>`;
+    } else if (v === 'check') {
+      h = head('Check your email', '') + `<div class="auth-check"><div class="big" aria-hidden="true">✉️</div><p class="auth-lead" style="margin:0">${AUTH.checkText}</p><p class="auth-hint">It can take a minute. Look in your spam folder too.</p>${msg}`
+        + (AUTH.resendType ? `<button type="button" class="auth-link" data-auth="resend">Send the email again</button>` : '') + `<button type="button" class="auth-link" data-auth="tab:signin">Back to sign in</button></div>`;
+    }
+    card.innerHTML = h;
+    const f = card.querySelector('[data-authform]');
+    if (f && f.addEventListener) f.addEventListener('submit', (e) => { e.preventDefault(); authSubmit(f.getAttribute('data-authform')); });
+    setTimeout(() => {
+      const first = card.querySelector(v === 'signup' ? '#authName' : v === 'reset' ? '#authPw' : AUTH.email && v === 'signin' ? '#authPw' : '#authEmail');
+      try { if (first && first.focus) first.focus(); } catch (e) {}
+    }, 30);
+  }
+  const authVal = (id) => { const el = $(id); return el ? String(el.value || '') : ''; };
+  const okEmail = (m) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m);
+  async function authSubmit(kind) {
+    if (AUTH.busy || !CLOUD.sb) return;
+    const email = authVal('authEmail').trim(), pw = authVal('authPw');
+    if (kind !== 'reset') AUTH.email = email;
+    if (kind === 'signup') AUTH.name = authVal('authName').trim();
+    if (kind !== 'reset' && !okEmail(email)) { authSay('Type your email address, like name@example.com.'); return; }
+    if (kind === 'signin' && !pw) { authSay('Type your password.'); return; }
+    if ((kind === 'signup' || kind === 'reset') && pw.length < 8) { authSay('Choose a password with at least 8 characters.'); return; }
+    if (kind === 'reset' && pw !== authVal('authPw2')) { authSay('The two passwords are not the same. Type them again.'); return; }
+    const pw2 = authVal('authPw2');
+    AUTH.busy = true; AUTH.msg = ''; renderAuth();
+    // the form was redrawn: put the typed passwords back while it works
+    const p1 = $('authPw'); if (p1) p1.value = pw; const p2 = $('authPw2'); if (p2) p2.value = pw2;
+    try {
+      if (kind === 'signin') {
+        const r = await CLOUD.sb.auth.signInWithPassword({ email, password: pw });
+        if (r.error) throw r.error;
+        AUTH.busy = false; closeAuth(); flash('Welcome back, ' + userName(r.data && r.data.user));
+        return;
+      }
+      if (kind === 'signup') {
+        const r = await CLOUD.sb.auth.signUp({ email, password: pw, options: { data: { full_name: AUTH.name || email.split('@')[0] }, emailRedirectTo: authBack() } });
+        if (r.error) throw r.error;
+        const d = r.data || {};
+        AUTH.busy = false;
+        if (d.session) { closeAuth(); flash('Welcome, ' + userName(d.user) + '! Your account is ready.'); return; }
+        // an email that already has an account comes back with no identities (Supabase hides it on purpose)
+        if (d.user && Array.isArray(d.user.identities) && d.user.identities.length === 0) { AUTH.view = 'signin'; renderAuth(); authSay('There is already an account with this email. Sign in, or use “Forgot password?”.'); return; }
+        AUTH.view = 'check'; AUTH.resendType = 'signup';
+        AUTH.checkText = `We sent a link to <b>${esc(email)}</b>. Open it to confirm your email and your account is ready: you will come back here signed in.`;
+        renderAuth(); return;
+      }
+      if (kind === 'forgot') {
+        const r = await CLOUD.sb.auth.resetPasswordForEmail(email, { redirectTo: authBack() });
+        if (r && r.error) throw r.error;
+        AUTH.busy = false; AUTH.view = 'check'; AUTH.resendType = '';
+        AUTH.checkText = `If <b>${esc(email)}</b> has an account, a link to choose a new password is on its way.`;
+        renderAuth(); return;
+      }
+      if (kind === 'magic') {
+        const r = await CLOUD.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: authBack() } });
+        if (r && r.error) throw r.error;
+        AUTH.busy = false; AUTH.view = 'check'; AUTH.resendType = '';
+        AUTH.checkText = `We sent a sign-in link to <b>${esc(email)}</b>. Open it on this device to finish signing in.`;
+        renderAuth(); return;
+      }
+      if (kind === 'reset') {
+        const r = await CLOUD.sb.auth.updateUser({ password: pw });
+        if (r && r.error) throw r.error;
+        AUTH.busy = false; closeAuth(); flash('Your new password is saved');
+        return;
+      }
+    } catch (e) {
+      AUTH.busy = false; renderAuth();
+      const q1 = $('authPw'); if (q1) q1.value = pw; const q2 = $('authPw2'); if (q2) q2.value = pw2;
+      authSay(authErr(e));
+    }
+  }
+  async function authGoogle() {
+    if (!CLOUD.sb) return;
+    try {
+      const r = await CLOUD.sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: authBack() } });
+      if (r && r.error) throw r.error;
+    } catch (e) { if (!authOpen()) openAuth('signin'); authSay(authErr(e)); }
+  }
+  async function authResend() {
+    if (!CLOUD.sb || !AUTH.email) return;
+    try {
+      const r = await CLOUD.sb.auth.resend({ type: 'signup', email: AUTH.email, options: { emailRedirectTo: authBack() } });
+      if (r && r.error) throw r.error;
+      authSay('Sent again. Give it a minute.', 'ok');
+    } catch (e) { authSay(authErr(e)); }
+  }
+  function authClick(t) {
+    const wrap = $('authWrap');
+    if (!wrap || wrap.hidden) {
+      const o = t.closest('[data-authopen]');
+      if (o) { openAuth(o.getAttribute('data-authopen')); return true; }
+      return false;
+    }
+    if (t === wrap) { closeAuth(); return true; }   // the dark area around the card
+    const b = t.closest('[data-auth]');
+    if (!b) return !!t.closest('#authWrap');
+    const a = b.getAttribute('data-auth');
+    const keep = () => { const e1 = $('authEmail'); if (e1) AUTH.email = e1.value.trim(); const n1 = $('authName'); if (n1) AUTH.name = n1.value.trim(); };
+    if (a === 'close') closeAuth();
+    else if (a === 'google') authGoogle();
+    else if (a === 'showpw') { const pw = authVal('authPw'), pw2 = authVal('authPw2'); keep(); AUTH.showPw = !AUTH.showPw; renderAuth(); const p1 = $('authPw'); if (p1) p1.value = pw; const p2 = $('authPw2'); if (p2) p2.value = pw2; }
+    else if (a === 'resend') authResend();
+    else if (a.indexOf('tab:') === 0 || a.indexOf('view:') === 0) { keep(); AUTH.view = a.split(':')[1]; AUTH.msg = ''; renderAuth(); }
+    return true;
+  }
+  function renderHeroAcct() {
+    const box = $('heroAcct');
+    if (!box) return;
+    box.hidden = !CLOUD.cfg;
+    if (!CLOUD.cfg) return;
+    const signedIn = LIB.mode === 'cloud' && !!CLOUD.user;
+    const keep = $('heroEmail') ? $('heroEmail').value : '';
+    if (signedIn) {
+      box.innerHTML = `<p><b>Welcome back, ${esc(userName(CLOUD.user))}.</b> The chord progressions you save are kept in your account, on every device you sign in on.</p><div class="hacctbtns"><button type="button" class="tapbtn strong" data-hero="progression">Open my progressions</button><button type="button" class="tapbtn" data-acct="out">Sign out</button></div>`;
     } else if (LIB.mode === 'loading') {
-      panel.innerHTML = '<h3>Your account</h3><p>Checking…</p>';
+      box.innerHTML = '<p>Checking your account…</p>';
     } else {
-      panel.innerHTML = `<h3>Sign in</h3><p>Keep your progressions in your account and open them on any device. No password: we email you a link.</p>`
-        + `<div class="acctform"><input type="email" id="acctEmail" placeholder="you@example.com" aria-label="Email address" autocomplete="email"><button type="button" class="tapbtn strong" data-acct="email:acctEmail">Email me a sign-in link</button>`
-        + (CLOUD.cfg.google ? `<button type="button" class="tapbtn" data-acct="google">Sign in with Google</button>` : '') + `</div><p class="acctmsg" id="acctMsg"></p>`;
-      const inp = $('acctEmail');
-      if (inp) { inp.value = keep; if (inp.addEventListener) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); cloudSignIn('email', 'acctEmail'); } }); }
+      box.innerHTML = `<p><b>Create a free Fretboard account to keep your chord progressions.</b> Everything you save is stored in your account, so it is there on your phone, your laptop and any other device, and you stay signed in.</p>`
+        + `<div class="hacctbtns"><button type="button" class="tapbtn strong" data-authopen="signup">Create free account</button><button type="button" class="tapbtn" data-authopen="signin">Sign in</button>`
+        + (CLOUD.cfg.google ? `<button type="button" class="auth-google" data-authopen-google="1">${G_LOGO}Continue with Google</button>` : '') + `</div>`;
     }
   }
   function openAcct(open) {
@@ -10734,7 +10986,7 @@ if (typeof module !== 'undefined') {
     }
   }
   function acctTopClick(t) {
-    if (t.closest('#acctBtn')) { openAcct($('acctPanel').hidden); return true; }
+    if (t.closest('#acctBtn')) { if (LIB.mode === 'cloud' && CLOUD.user) openAcct($('acctPanel').hidden); else openAuth('signin'); return true; }
     if (t.closest('[data-acctp="mine"]')) {
       openAcct(false);
       try {
@@ -10756,16 +11008,10 @@ if (typeof module !== 'undefined') {
     if (!CLOUD.cfg) return;
     if (LIB.mode === 'cloud' && CLOUD.user) {
       const extra = loadLocal().filter((x) => !LIB.items.some((y) => y.id === x.id)).length;
-      box.innerHTML = `<div class="acctrow"><span class="acctwho">Signed in as <b>${esc(CLOUD.user.email || 'you')}</b></span><button type="button" class="tapbtn" data-acct="out">Sign out</button></div>`
+      box.innerHTML = `<div class="acctrow"><span class="acctwho">Signed in as <b>${esc(userName(CLOUD.user))}</b> (${esc(CLOUD.user.email || '')})</span><button type="button" class="tapbtn" data-acct="out">Sign out</button></div>`
         + (extra ? `<div class="acctrow"><span>${extra} progression${extra === 1 ? ' is' : 's are'} saved only in this browser.</span><button type="button" class="tapbtn strong" data-acct="copy">Copy to my account</button></div>` : '');
-    } else if (CLOUD.sent) {
-      box.innerHTML = `<div class="acctrow"><span>Check your email: we sent a sign-in link to <b>${esc(CLOUD.sent)}</b>. Open it on this device to finish signing in.</span><button type="button" class="tapbtn" data-acct="again">Use another email</button></div>`;
     } else if (LIB.mode !== 'loading') {
-      box.innerHTML = `<div class="acctrow acctform"><input type="email" id="libEmail" placeholder="you@example.com" aria-label="Email address" autocomplete="email"><button type="button" class="tapbtn strong" data-acct="email">Email me a sign-in link</button>`
-        + (CLOUD.cfg.google ? `<button type="button" class="tapbtn" data-acct="google">Sign in with Google</button>` : '') + `</div>`
-        + `<p class="hint">Sign in to keep your progressions in your account and open them on any device. No password: we email you a link.</p>`;
-      const inp = $('libEmail');
-      if (inp && inp.addEventListener) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); cloudSignIn('email'); } });
+      box.innerHTML = `<div class="acctrow"><span>Sign in to keep your progressions in your account and open them on any device.</span><button type="button" class="tapbtn strong" data-authopen="signin">Sign in</button><button type="button" class="tapbtn" data-authopen="signup">Create account</button></div>`;
     } else box.innerHTML = '';
   }
   function acctClick(t) {
@@ -10773,6 +11019,7 @@ if (typeof module !== 'undefined') {
     if (!b) return false;
     const a = b.dataset.acct;
     if (a === 'email:acctEmail') cloudSignIn('email', 'acctEmail');
+    else if (a === 'email:heroEmail') cloudSignIn('email', 'heroEmail');
     else if (a === 'email') cloudSignIn('email');
     else if (a === 'google') cloudSignIn('google');
     else if (a === 'out') cloudSignOut();
@@ -11523,6 +11770,8 @@ if (typeof module !== 'undefined') {
   function handleClick(e) {
     const t = e.target;
     if (!t || !t.closest) return;
+    if (authClick(t)) return;
+    if (t.closest('[data-authopen-google]')) { authGoogle(); return; }
     if (heroClick(t)) return;
     if (acctTopClick(t)) return;
     if (shareClick(t)) return;
