@@ -27,6 +27,16 @@
   // the address the page was opened with (before the tabs rewrite it)
   let HASH0 = '';
   try { HASH0 = (location.hash || '').slice(1); } catch (e) {}
+  // a link from an account email: ?token_hash=…&type=… (works in any browser), ?code=… (only in the browser that asked), or an error
+  const AUTHLINK = { th: '', type: '', code: false, err: '', errCode: '' };
+  try {
+    const qs = new URLSearchParams(location.search || ''), hs = new URLSearchParams(HASH0.indexOf('=') > 0 ? HASH0 : '');
+    AUTHLINK.th = qs.get('token_hash') || ''; AUTHLINK.type = qs.get('type') || '';
+    AUTHLINK.code = !!qs.get('code');
+    AUTHLINK.err = qs.get('error_description') || hs.get('error_description') || '';
+    AUTHLINK.errCode = qs.get('error_code') || hs.get('error_code') || '';
+    if (AUTHLINK.err || hs.get('error')) HASH0 = '';   // an error in the address is not a page of the site
+  } catch (e) {}
 
   /* ---------- theme: dark by default; the button switches to light (and back) and remembers the choice ---------- */
   const root = document.documentElement;
@@ -6406,10 +6416,52 @@
       return;
     }
     CLOUD.sb.auth.onAuthStateChange((ev, session) => { setTimeout(() => { cloudSession(session).then(() => { if (ev === 'PASSWORD_RECOVERY') openAuth('reset'); }); }, 0); });
+    let hadSession = false;
     try {
       const r = await CLOUD.sb.auth.getSession();
+      hadSession = !!(r && r.data && r.data.session);
       await cloudSession(r && r.data && r.data.session);
     } catch (e) { await cloudSession(null); }
+    try { await authFromLink(hadSession); } catch (e) {}
+  }
+  // finish what an account email link started, then tidy the address so a reload does not repeat it
+  function cleanAuthLink() {
+    try {
+      const u = new URL(location.href);
+      ['token_hash', 'type', 'code', 'error', 'error_code', 'error_description'].forEach((k) => u.searchParams.delete(k));
+      const h = (u.hash || '').slice(1);
+      if (h.indexOf('error') >= 0 || h.indexOf('access_token') >= 0) u.hash = '';
+      history.replaceState(null, '', u.pathname + u.search + u.hash);
+    } catch (e) {}
+  }
+  async function authFromLink(hadSession) {
+    const L = AUTHLINK;
+    if (!L.th && !L.code && !L.err) return;
+    cleanAuthLink();
+    if (L.err) {
+      const expired = /expired|invalid/i.test(L.err) || /otp_expired/.test(L.errCode);
+      openAuth(/recovery|password/i.test(L.err) ? 'forgot' : 'signin');
+      authSay(expired ? 'That email link has expired or was already used. Links work once, for about an hour. Ask for a new one below.' : authErr(L.err));
+      return;
+    }
+    if (L.th) {
+      const type = ['recovery', 'email', 'signup', 'magiclink', 'invite', 'email_change'].indexOf(L.type) >= 0 ? L.type : 'email';
+      const r = await CLOUD.sb.auth.verifyOtp({ token_hash: L.th, type });
+      if (r && r.error) {
+        openAuth(type === 'recovery' ? 'forgot' : 'signin');
+        authSay(/expired|invalid/i.test(String(r.error.message)) ? 'That email link has expired or was already used. Links work once, for about an hour. Ask for a new one below.' : authErr(r.error));
+        return;
+      }
+      await cloudSession(r && r.data && r.data.session);
+      if (type === 'recovery') openAuth('reset');
+      else flash(type === 'magiclink' || type === 'email' ? 'You are signed in. Welcome, ' + userName(CLOUD.user) + '!' : 'Email confirmed. Welcome, ' + userName(CLOUD.user) + '!');
+      return;
+    }
+    // ?code= only finishes in the browser that asked for the email
+    if (L.code && !hadSession && !(CLOUD.user)) {
+      openAuth('signin');
+      authSay('That link could not be finished in this browser. Open the email link in the same browser where you asked for it, or ask for a new one here.');
+    }
   }
   async function cloudSession(session) {
     const u = session && session.user ? session.user : null;
