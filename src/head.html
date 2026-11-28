@@ -249,6 +249,25 @@ header p.tagline { margin-top: 2px; color: var(--accent); font-family: var(--fon
 .auth-check { display: grid; justify-items: center; gap: 12px; text-align: center; }
 .auth-check .big { font-size: 2.6rem; }
 .fb-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+/* the realistic necks, kept quiet: wood, frets, strings and inlays sit back so the note dots stand out */
+.fbq-grain { opacity: 0.5; }
+.fbq-bind { opacity: 0.28; }
+.fbq-inlay { opacity: 0.36; }
+.fbq-fret { opacity: 0.5; }
+.fbq-fsh { opacity: 0.16; }
+.fbq-nut { opacity: 0.85; }
+.fbq-ssh { opacity: 0.2; }
+.fbq-str { opacity: 0.6; }
+.fbq-shine { opacity: 0.3; }
+.hero-neck .hstr.hit { opacity: 1; }
+.padgrain { opacity: 0.5; }
+.padwood::before, .padwood::after { opacity: 0.28 !important; }
+.padfret { opacity: 0.5; }
+.padinlay { opacity: 0.36 !important; }
+.pstr { opacity: 0.65; } .pstr.hit { opacity: 1; }
+.fscol.beat::after { opacity: 0.5; }
+.fscell::before { opacity: 0.6; }
+
 .acctbtn { padding: 0 14px 0 12px; } .acctbtn svg { color: var(--accent); }
 .acctbtn.in { border-color: var(--accent); }
 .acctbtn.in svg { color: var(--live); }
@@ -605,18 +624,21 @@ option:checked { background-color: var(--accent-soft); color: var(--fg); }
 .fsstr.bass small { color: var(--amber-text); }
 .fsstr:hover { border-color: var(--accent); }
 .fstog[aria-pressed="true"] { background: var(--root-dot); border-color: var(--root-dot); color: var(--root-fg); }
-.fsb { display: flex; align-items: stretch; overflow-x: auto; padding: 10px 12px 4px 0; border-radius: 12px; background: linear-gradient(180deg, var(--board-hi), var(--board) 50%, #1c130e); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35); }
-.fslbls { position: sticky; left: 0; z-index: 3; flex: none; display: grid; grid-template-rows: repeat(6, 32px) 24px; width: 46px; padding-left: 8px; background: linear-gradient(90deg, #22160f 70%, transparent); }
-.fslbls span { display: flex; align-items: center; gap: 4px; color: var(--inlay); font-size: 0.8rem; }
-.fslbls b { width: 12px; } .fslbls i { font-style: normal; font-size: 0.7rem; opacity: 0.75; }
-.fscol { position: relative; flex: 1 0 38px; max-width: 150px; display: grid; grid-template-rows: repeat(6, 32px) 24px; border-radius: 6px; }
-.fscol.beat { margin-left: 6px; }
-.fscol.beat::after { content: ""; position: absolute; left: -5px; top: 0; height: 192px; width: 4px; border-radius: 2px; background: linear-gradient(90deg, #7d838a, #eef1f4 45%, #8f959c); box-shadow: 2px 0 2px rgba(0, 0, 0, 0.4); }
-.fscol.bar.beat::after { width: 6px; left: -6px; }
-.fscol.cur { background: rgba(56, 189, 216, 0.18); box-shadow: inset 0 0 0 1px rgba(56, 189, 216, 0.6); }
-.fscol.stepon { background: rgba(255, 207, 90, 0.28); }
+.fsb { position: relative; display: flex; align-items: stretch; overflow-x: auto; padding: 10px 0 4px; border-radius: 4px;
+  background: linear-gradient(180deg, var(--board-hi), var(--board) 50%, #1c130e) no-repeat 46px 0 / calc(100% - 46px) 212px; }
+.fsgrain { position: absolute; left: 46px; top: 0; width: calc(100% - 46px); height: 212px; pointer-events: none; }
+.fslbls { position: sticky; left: 0; z-index: 3; flex: none; display: grid; grid-template-rows: repeat(6, 32px) 24px; width: 46px; padding-right: 10px; background: var(--panel); }
+.fslbls::after { content: ""; position: absolute; right: 0; top: -10px; width: 8px; height: 212px; border-radius: 2px; background: linear-gradient(90deg, #c9c1a6, #f4efdf 50%, #b9b196); box-shadow: 2px 0 3px rgba(0, 0, 0, 0.35); opacity: 0.85; }
+.fslbls span { display: flex; align-items: center; justify-content: flex-end; gap: 3px; padding-right: 4px; color: var(--muted); font-size: 0.72rem; }
+.fslbls b { font-weight: 600; } .fslbls i { font-style: normal; font-size: 0.66rem; opacity: 0.7; }
+.fscol { position: relative; z-index: 1; flex: 1 0 38px; display: grid; grid-template-rows: repeat(6, 32px) 24px; }
+.fscol.beat::after { content: ""; position: absolute; left: -1.5px; top: -10px; height: 212px; width: 3px; border-radius: 1.5px; background: linear-gradient(90deg, #7d838a, #eef1f4 45%, #8f959c); box-shadow: 2px 0 2px rgba(0, 0, 0, 0.3); opacity: 0.5; }
+.fscol:first-of-type.beat::after, .fslbls + .fscol.beat::after { display: none; }
+.fscol.bar.beat::after { width: 4.5px; left: -2.25px; }
+.fscol.cur { background: linear-gradient(rgba(56, 189, 216, 0.16), rgba(56, 189, 216, 0.16)) no-repeat 3px 0 / calc(100% - 6px) 192px; }
+.fscol.stepon { background: linear-gradient(rgba(255, 207, 90, 0.26), rgba(255, 207, 90, 0.26)) no-repeat 3px 0 / calc(100% - 6px) 192px; }
 .fscol.pinch::before { content: ""; position: absolute; z-index: 1; left: 50%; width: 5px; margin-left: -2.5px; top: calc(var(--p1) * 32px + 16px); height: calc((var(--p2) - var(--p1)) * 32px); border-radius: 3px; background: var(--lit-glow); box-shadow: 0 0 8px var(--lit-glow); }
-.fscell { position: relative; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.fscell { position: relative; z-index: 2; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .fscell::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--sw, 1.6px); margin-top: calc(var(--sw, 1.6px) / -2); background: linear-gradient(180deg, #ffffff, #d8dde2 50%, #8e959c); box-shadow: 0 2px 2px rgba(0, 0, 0, 0.4); }
 .fscell.wound::before { background: repeating-linear-gradient(90deg, rgba(92, 79, 53, 0.6) 0 0.8px, transparent 0.8px 2.6px), linear-gradient(180deg, #f3e7c6, #b8a375 50%, #7a6a48); }
 .fscell[data-s="0"] { --sw: 3.4px; } .fscell[data-s="1"] { --sw: 2.9px; } .fscell[data-s="2"] { --sw: 2.4px; } .fscell[data-s="3"] { --sw: 1.9px; } .fscell[data-s="4"] { --sw: 1.5px; } .fscell[data-s="5"] { --sw: 1.2px; }
@@ -625,8 +647,8 @@ option:checked { background-color: var(--accent-soft); color: var(--fg); }
 .fscell:hover::after { opacity: 0.35; transform: scale(0.85); }
 .fscell.on::after { opacity: 1; transform: scale(1); }
 .fscell:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
-.fscount { align-self: center; text-align: center; font-size: 0.72rem; color: #cfc7ae; }
-.fscol.beat .fscount { font-weight: 800; color: #fff4c2; }
+.fscount { align-self: end; text-align: center; font-size: 0.75rem; color: var(--muted); }
+.fscol.beat .fscount { font-weight: 700; }
 .fslegend { flex-basis: 100%; color: var(--muted); font-size: 0.85rem; }
 .edmore { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; background: var(--bg); }
 .edmore > summary { cursor: pointer; font-weight: 700; min-height: 32px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
