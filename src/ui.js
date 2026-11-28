@@ -375,22 +375,22 @@
     let seed = 7; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
     for (let k = 0; k < 34; k++) {
       const y = y0 + 4 + rnd() * (H - 8), amp = 0.6 + rnd() * 1.6, len = 200 + rnd() * 480, x = nutX + rnd() * (endX - nutX - len);
-      g += `<path d="M${x.toFixed(1)} ${y.toFixed(1)} q${(len / 4).toFixed(1)} ${(-amp).toFixed(1)} ${(len / 2).toFixed(1)} 0 t${(len / 2).toFixed(1)} 0" fill="none" stroke="${rnd() > 0.5 ? '#000' : '#6b4a35'}" stroke-opacity="${(0.1 + rnd() * 0.12).toFixed(2)}" stroke-width="${(0.6 + rnd() * 1.4).toFixed(1)}"/>`;
+      g += `<path class="fbq-grain" d="M${x.toFixed(1)} ${y.toFixed(1)} q${(len / 4).toFixed(1)} ${(-amp).toFixed(1)} ${(len / 2).toFixed(1)} 0 t${(len / 2).toFixed(1)} 0" fill="none" stroke="${rnd() > 0.5 ? '#000' : '#6b4a35'}" stroke-opacity="${(0.1 + rnd() * 0.12).toFixed(2)}" stroke-width="${(0.6 + rnd() * 1.4).toFixed(1)}"/>`;
     }
-    g += `<rect x="${nutX}" y="${y0}" width="${endX - nutX}" height="2.5" fill="#e8dfc6" opacity="0.85"/><rect x="${nutX}" y="${y1 - 2.5}" width="${endX - nutX}" height="2.5" fill="#e8dfc6" opacity="0.85"/>`;
-    const inlay = (x, y) => `<circle cx="${x.toFixed(1)}" cy="${y}" r="7" fill="url(#fbPearl)" opacity="0.8"/>`;
+    g += `<rect class="fbq-bind" x="${nutX}" y="${y0}" width="${endX - nutX}" height="2.5" fill="#e8dfc6"/><rect class="fbq-bind" x="${nutX}" y="${y1 - 2.5}" width="${endX - nutX}" height="2.5" fill="#e8dfc6"/>`;
+    const inlay = (x, y) => `<circle class="fbq-inlay" cx="${x.toFixed(1)}" cy="${y}" r="7" fill="url(#fbPearl)"/>`;
     for (const n of [3, 5, 7, 9, 15, 17, 19, 21]) g += inlay(mid(n), top + 2.5 * gap);
     g += inlay(mid(12), top + 1.5 * gap) + inlay(mid(12), top + 3.5 * gap);
     for (let n = 1; n <= MAX_FRET; n++) {
       const x = fx(n);
-      g += `<rect x="${(x + 1).toFixed(1)}" y="${y0}" width="2.2" height="${H}" fill="#000" opacity="0.32"/><rect x="${(x - 1.6).toFixed(1)}" y="${y0 - 1}" width="3.2" height="${H + 2}" rx="1.3" fill="url(#fbFret)"/>`;
+      g += `<rect class="fbq-fsh" x="${(x + 1).toFixed(1)}" y="${y0}" width="2.2" height="${H}" fill="#000"/><rect class="fbq-fret" x="${(x - 1.6).toFixed(1)}" y="${y0 - 1}" width="3.2" height="${H + 2}" rx="1.3" fill="url(#fbFret)"/>`;
     }
-    g += `<rect x="${nutX - 7}" y="${y0 - 2}" width="7" height="${H + 4}" rx="1.5" fill="url(#fbNut)"/>`;
+    g += `<rect class="fbq-nut" x="${nutX - 7}" y="${y0 - 2}" width="7" height="${H + 4}" rx="1.5" fill="url(#fbNut)"/>`;
     for (let s = 0; s < 6; s++) {
       const y = sy(s), w = STRING_W[s];
-      g += `<line x1="${nutX}" x2="${endX}" y1="${(y + 2.6).toFixed(1)}" y2="${(y + 2.6).toFixed(1)}" stroke="#000" stroke-opacity="0.38" stroke-width="${(w + 1.4).toFixed(1)}"/>`;
-      if (s < 3) g += `<line x1="${nutX - 7}" x2="${endX}" y1="${y}" y2="${y}" stroke="url(#fbWind)" stroke-width="${w}" stroke-linecap="round"/>`;
-      else g += `<line x1="${nutX - 7}" x2="${endX}" y1="${y}" y2="${y}" stroke="#cfd4d9" stroke-width="${w}" stroke-linecap="round"/><line x1="${nutX - 7}" x2="${endX}" y1="${(y - w * 0.25).toFixed(2)}" y2="${(y - w * 0.25).toFixed(2)}" stroke="#ffffff" stroke-opacity="0.75" stroke-width="${(w * 0.35).toFixed(2)}"/>`;
+      g += `<line class="fbq-ssh" x1="${nutX}" x2="${endX}" y1="${(y + 2.6).toFixed(1)}" y2="${(y + 2.6).toFixed(1)}" stroke="#000" stroke-width="${(w + 1.4).toFixed(1)}"/>`;
+      if (s < 3) g += `<line class="fbq-str" x1="${nutX - 7}" x2="${endX}" y1="${y}" y2="${y}" stroke="url(#fbWind)" stroke-width="${w}" stroke-linecap="round"/>`;
+      else g += `<line class="fbq-str" x1="${nutX - 7}" x2="${endX}" y1="${y}" y2="${y}" stroke="#cfd4d9" stroke-width="${w}" stroke-linecap="round"/><line class="fbq-shine" x1="${nutX - 7}" x2="${endX}" y1="${(y - w * 0.25).toFixed(2)}" y2="${(y - w * 0.25).toFixed(2)}" stroke="#ffffff" stroke-width="${(w * 0.35).toFixed(2)}"/>`;
       g += `<text x="14" y="${y + 4}" text-anchor="middle" font-size="11" fill="var(--muted)">${STRING_NAMES[s]}</text>`;
     }
     for (let n = 1; n <= MAX_FRET; n++) {
@@ -1740,19 +1740,19 @@
     let seed = 7; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
     for (let k = 0; k < 26; k++) {
       const y = y0 + 4 + rnd() * (H - 8), amp = 0.6 + rnd() * 1.6, len = 180 + rnd() * 420, x = HN.x0 + rnd() * (HN.x1 - HN.x0 - len);
-      g += `<path d="M${x.toFixed(1)} ${y.toFixed(1)} q${(len / 4).toFixed(1)} ${(-amp).toFixed(1)} ${(len / 2).toFixed(1)} 0 t${(len / 2).toFixed(1)} 0" fill="none" stroke="${rnd() > 0.5 ? '#000' : '#6b4a35'}" stroke-opacity="${(0.1 + rnd() * 0.12).toFixed(2)}" stroke-width="${(0.6 + rnd() * 1.4).toFixed(1)}"/>`;
+      g += `<path class="fbq-grain" d="M${x.toFixed(1)} ${y.toFixed(1)} q${(len / 4).toFixed(1)} ${(-amp).toFixed(1)} ${(len / 2).toFixed(1)} 0 t${(len / 2).toFixed(1)} 0" fill="none" stroke="${rnd() > 0.5 ? '#000' : '#6b4a35'}" stroke-opacity="${(0.1 + rnd() * 0.12).toFixed(2)}" stroke-width="${(0.6 + rnd() * 1.4).toFixed(1)}"/>`;
     }
     // binding along both edges
-    g += `<rect x="${HN.x0}" y="${y0}" width="${HN.x1 - HN.x0}" height="2.5" fill="#e8dfc6" opacity="0.85"/><rect x="${HN.x0}" y="${y1 - 2.5}" width="${HN.x1 - HN.x0}" height="2.5" fill="#e8dfc6" opacity="0.85"/>`;
+    g += `<rect class="fbq-bind" x="${HN.x0}" y="${y0}" width="${HN.x1 - HN.x0}" height="2.5" fill="#e8dfc6"/><rect class="fbq-bind" x="${HN.x0}" y="${y1 - 2.5}" width="${HN.x1 - HN.x0}" height="2.5" fill="#e8dfc6"/>`;
     // pearl inlays, same places as the main fretboard
-    const inlay = (x, y) => `<circle cx="${x.toFixed(1)}" cy="${y}" r="8" fill="url(#hnPearl)" opacity="0.85"/>`;
+    const inlay = (x, y) => `<circle cx="${x.toFixed(1)}" cy="${y}" r="8" fill="url(#hnPearl)" class="fbq-inlay"/>`;
     [3, 5, 7, 9].forEach((n) => { g += inlay((hnFx(n - 1) + hnFx(n)) / 2, HN.top + 2.5 * HN.gap); });
     [1.5, 3.5].forEach((k) => { g += inlay((hnFx(11) + hnFx(12)) / 2, HN.top + k * HN.gap); });
     // fret wire: a shadow, then the rounded metal crown
     for (let n = 1; n <= 12; n++) {
       const x = hnFx(n);
-      g += `<rect x="${(x + 1.2).toFixed(1)}" y="${y0}" width="2.4" height="${H}" fill="#000" opacity="0.35"/>`;
-      g += `<rect x="${(x - 1.8).toFixed(1)}" y="${y0 - 1}" width="3.6" height="${H + 2}" rx="1.4" fill="url(#hnFret)"/>`;
+      g += `<rect class="fbq-fsh" x="${(x + 1.2).toFixed(1)}" y="${y0}" width="2.4" height="${H}" fill="#000"/>`;
+      g += `<rect class="fbq-fret" x="${(x - 1.8).toFixed(1)}" y="${y0 - 1}" width="3.6" height="${H + 2}" rx="1.4" fill="url(#hnFret)"/>`;
     }
     // the nut
     g += `<rect x="${HN.x0 - 9}" y="${y0 - 2}" width="9" height="${H + 4}" rx="1.5" fill="url(#hnNut)"/>`;
@@ -1760,9 +1760,9 @@
     for (let s = 0; s < 6; s++) {
       g += `<text x="${HN.x0 - 30}" y="${hnY(s) + 5}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--muted)">${NM[s]}</text>`;
       // the string's shadow on the board, then the string: wound for the three low strings, plain steel for the rest
-      g += `<path class="hsh" data-hsh="${s}" d="M${HN.x0} ${hnY(s) + 3} L${HN.x1} ${hnY(s) + 3}" stroke="#000" stroke-opacity="0.5" stroke-width="${W[s] + 1}" fill="none" filter="url(#hnShadow)"/>`;
-      g += `<path class="hstr" data-hs="${s}" d="M${HN.x0 - 9} ${hnY(s)} L${HN.x1} ${hnY(s)}" stroke="${s < 3 ? 'url(#hnWind)' : '#cfd4d9'}" stroke-width="${W[s]}" stroke-linecap="round" fill="none"/>`;
-      if (s >= 3) g += `<path class="hhi" data-hhi="${s}" d="M${HN.x0 - 9} ${hnY(s) - W[s] * 0.25} L${HN.x1} ${hnY(s) - W[s] * 0.25}" stroke="#ffffff" stroke-opacity="0.75" stroke-width="${(W[s] * 0.35).toFixed(2)}" fill="none"/>`;
+      g += `<path class="hsh" data-hsh="${s}" d="M${HN.x0} ${hnY(s) + 3} L${HN.x1} ${hnY(s) + 3}" stroke="#000" stroke-opacity="0.3" stroke-width="${W[s] + 1}" fill="none" filter="url(#hnShadow)"/>`;
+      g += `<path class="hstr fbq-str" data-hs="${s}" d="M${HN.x0 - 9} ${hnY(s)} L${HN.x1} ${hnY(s)}" stroke="${s < 3 ? 'url(#hnWind)' : '#cfd4d9'}" stroke-width="${W[s]}" stroke-linecap="round" fill="none"/>`;
+      if (s >= 3) g += `<path class="hhi" data-hhi="${s}" d="M${HN.x0 - 9} ${hnY(s) - W[s] * 0.25} L${HN.x1} ${hnY(s) - W[s] * 0.25}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="${(W[s] * 0.35).toFixed(2)}" fill="none"/>`;
     }
     for (let n = 1; n <= 12; n++) {
       const bold = [3, 5, 7, 9, 12].includes(n);
@@ -2583,7 +2583,7 @@
         + `<button type="button" class="tapbtn" data-fs="next">Next step →</button>`
         + `<button type="button" class="tapbtn" data-fs="rest">Rest</button>`
         + `<button type="button" class="tapbtn" data-fs="undo"${ED.fsHist.length ? '' : ' disabled'}>↶ Undo</button></div>`;
-      h += `<div class="fsb" role="group" aria-label="Fingerstyle pattern on the neck"><div class="fslbls" aria-hidden="true">`
+      h += `<div class="fsb" role="group" aria-label="Fingerstyle pattern on the neck">${fsGrain()}<div class="fslbls" aria-hidden="true">`
         + [5, 4, 3, 2, 1, 0].map((s) => `<span><b>${STR_NAMES[s]}</b><i>${FING[s]}</i></span>`).join('') + `<span></span></div>`;
       ED.picks.forEach((m, i) => {
         const on = [0, 1, 2, 3, 4, 5].filter((s) => m & (1 << s));
@@ -3017,6 +3017,18 @@
     [33.33, 66.67].forEach((y) => { h += `<i class="padinlay" style="left:${mid(12)};top:${y}%"></i>`; });
     PADWOOD = h + '</div>';
     return PADWOOD;
+  }
+  let FSGRAIN = '';
+  function fsGrain() {
+    if (FSGRAIN) return FSGRAIN;
+    let seed = 11; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    let g = '';
+    for (let k = 0; k < 20; k++) {
+      const y = 4 + rnd() * 202, len = 220 + rnd() * 420, x = rnd() * (1000 - len), a = 0.6 + rnd() * 1.6;
+      g += `<path class="fbq-grain" d="M${x.toFixed(1)} ${y.toFixed(1)} q${(len / 4).toFixed(1)} ${(-a).toFixed(1)} ${(len / 2).toFixed(1)} 0 t${(len / 2).toFixed(1)} 0" stroke="${rnd() > 0.5 ? '#000' : '#6b4a35'}" stroke-opacity="${(0.12 + rnd() * 0.12).toFixed(2)}" stroke-width="${(0.8 + rnd() * 1.4).toFixed(1)}" fill="none" vector-effect="non-scaling-stroke"/>`;
+    }
+    FSGRAIN = `<svg class="fsgrain" viewBox="0 0 1000 210" preserveAspectRatio="none" aria-hidden="true">${g}</svg>`;
+    return FSGRAIN;
   }
   function padY(e) { const r = $('strumPad').getBoundingClientRect(); return { y: e.clientY - r.top, h: r.height }; }
   const lineY = (s, h) => ((s + 0.5) / 6) * h;
